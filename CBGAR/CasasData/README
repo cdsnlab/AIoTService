@@ -1,0 +1,102 @@
+WSU Smart Apartment ADL Multi-Resident Testbed
+
+Description
+
+These datasets represent sensor events collected in the WSU smart apartment
+testbed.  The data represents two participants in the apartment at the same
+time performing fifteen ADL activities in the apartment.  The tasks are:
+
+    1:  Fill medication dispenser in the kitchen using items obtained from
+        the cabinet.  Return items to the cabinet when done. (Person A)
+
+    2:  Hang up clothes in the hallway closet.  The clothes are laid out on the
+        couch in the living room. (Person B)
+
+    3:  Move the couch and coffee table to the other side of the living room.
+        (Person B)
+        Request help from Person A (Person A will stop dispenser task to
+        help and finish dispenser task when done with this task)
+
+    4:  Sit on the couch and read a magazine. (Person B)
+
+    5:  Water plants located around the apartment.  Use the watering can located
+        in the hallway closet. Return the watering can to the closet when
+        finished. (Person A)
+
+    6:  Sweep the kitchen floor using the broom and dust pan located
+        in the kitchen closet. Return the tools to the closet when
+        finished. (Person B)
+
+    7:  Play a game of checkers for a maximum of five minutes. (Persons A and B)
+
+    8:  Set out ingredients for dinner in the kitchen. (Person A)
+
+    9:  Set dining room table for dinner. (Person B)
+
+   10:  Read a magazine on the living room couch. (Person A)
+
+   11:  Simulate paying an electric bill.  Retrieve a check, a pen, and
+        an envelope from the cupboard underneath the television in the
+	living room.  Use the telephone book in the dining room to look
+	up a number for a utility company to confirm the amount on the bill.
+	(Person B)  Request help from Person A to find number for utility
+	company (Person A will stop current task to help and finish task
+	when done helping)
+
+   12:  Gather food for a picnic from the kitchen cupboard and pack them
+        in a picnic basket. (Person A)
+
+   13:  Retrieve dishes from a kitchen cabinet.
+        (Person B)  Request help from Person A to identify
+	cabinet in which the dishes are located. (Person A will stop current
+	task to help and finish task when done helping)
+
+   14:  Pack supplies in the picnic basket. (Person B)
+
+   15:  Pack food in the picnic basket and bring the basket to the
+	front door of the apartment. (Person A)
+
+File format
+
+The files are named according to the participant pair number and contain
+sensor events for all of the tasks.  There is one sensor event on each
+line of the files.  The event syntax is
+   Date Time SensorID Value ResidentID TaskID
+The Date, Time, SensorID, and Value fields are generated automatically
+by the smart apartment.  The ResidentID and TaskID are annotations that
+were generated based on manual inspection to provide the most likely
+resident that triggered the sensor event and the most likely task that
+was being performed.  In some cases the residents were performed a task
+together in the same space.  In this case the sensor event is labeled with
+two pairs of (ResidentID, TaskID) values corresponding to the two possible
+tasks with which the event is associated.
+
+Sensor layouts
+
+The sensor layout of the apartment is shown in
+the files Chinook_3_Bedroom_TH.png and Chinook_Cabinet.png.
+The sensors can be categorized by:
+
+   M01..M51:  motion sensors
+   I01..I08:  item sensors
+   D01..D12:  cabinet sensor
+   AD1-A:     water sensor
+   AD1-B:     water sensor
+   AD1-C:     burner sensor
+   P01:       phone sensor (start/top is start/stop of phone call)
+   T01..T03:  temperature sensors
+
+Data files
+
+P01.txt P02.txt P03.txt P04.txt P05.txt P06.txt P07.txt P08.txt P09.txt P10.txt
+P11.txt P12.txt P13.txt P14.txt P15.txt P16.txt P17.txt P18.txt P19.txt P20.txt
+P21.txt P22.txt P23.txt P24.txt P25.txt P26.txt
+
+Papers
+
+All use of the data must cite the WSU smart home project.  More information
+about this data collection can be found in the paper cited below.
+
+G. Singla, D. Cook, and M. Schmitter-Edgecombe, Recognizing independent and
+joint activities among multiple residents in smart environments.
+Ambient Intelligence and Humanized Computing Journal, 2009.

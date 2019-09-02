@@ -1,0 +1,60 @@
+1- get the sound tuples form: E:\Data_collection\soundStateChange
+
+2- watch video and add other actions' start and end times to that file
+
+3- put the resulting file into E:\Data_collection\Scenarios folder depending on the scenario.
+
+4- run TempDepend.java, this will generate two types of rules:
+  
+	Get_EventPair_Temp_Dep_v3: Rule ex: HasFeature(Meet(S1, S2, SC), SC) => Meeting(SC)
+	4.1- add the HasFeature predicate to each line (i.e., temp depend) 
+	    and generate one file for each scenario.
+	    input:  Scenarios/15events/
+		output: EvidenceTrain/Meeting||Discussion/15events/
+	THIS Will also compute the max_num_dep_meeting & max_num_dep_discussion that are needed in 4.3.
+  EvidenceTrain.java:	
+	4.2- run EvidenceTrain.java method name = Split_Evidence_train_test (INPUT DIT = EvidenceTrain/../HasF-Follow/)
+	    this generates two files: evidence_train-HasF.db & evidence_test-HasF.db
+	    input:  EvidenceTrain/Meeting||Discussion/15events/HasF-Follow/
+		output: EvidenceTrain/
+	    
+	Get_EventPair_Temp_Dep_v2: Rule ex: Meet(S1, S2, SC) => Overlapping(S3,S4, SC) <=> Meeting(SC)
+	4.3- for each time window generate a file containing temporal depend separated by ';' 
+		to be used for extracting association rules.
+		input:  Scenarios/..
+		output: AssociationRules/..
+	4.4- for each time window generate a file containing temporal depend one per line added 
+		to it the scenario name to be used as evidence-train or evidence-test.
+		input:  Scenarios/..
+		output: EvidenceTrain/../AR_train_test/
+		these depend will be put in evidence_train-AR.db or evidence_test-AR.db in 4.6.
+  EvidenceTrain.java:	
+  	4.5- run EvidenceTrain.java method name = Combine_CSVs_For_ARules. i.e., files generated from 4.3.
+	    input:  AssociationRules/..
+		output: AssociationRules/../train_test/
+		to gather all temp depend from different winds into one file.csv, one wind per line.
+	    this file will be used to extract association rules.
+	4.6- run EvidenceTrain.java method name = Split_Evidence_train_test 
+  	    i.e., files generated from 4.4. 
+  	    input:  EvidenceTrain/../AR_train_test/
+		output: EvidenceTrain/
+	    this generates two files: evidence_train-AR.db. & evidence_test-AR.db
+
+5- run "RuleLearning.java" to extract association rules that will generate a prog.mln files  (into the 'LearnedRules' folder).
+	input:  AssociationRules/../train_test/
+	output: AssociationRules/../LearnedRules/
+	Param: min_support, min_conf, MAX_ITEMS (in concl part of the rule)
+	
+6- run "RulePruning.java" to prune the rules:
+	input:  AssociationRules/../LearnedRules/
+	output: AssociationRules/../PrunedRules/
+	6.1- method name = AR_prune1_Pattern_Equiv() to
+		- delete stop words
+		- adjust syntax to Alchemy-2 rules.
+	6.2- method name = AR_prune2_Pattern_Equiv() to delete duplicates and
+		- Step1: choose rules with confidence = 1 && lift > 1.
+		- Step2: delete duplicates (same premise and conclusion), keep the rule that has the highest support.
+		- Step3: choose the rules with the highest support and lift.
+		- Step4: choose the rules with the highest support and the most specific.
+	
+7- temp depend in evidence-train.db and rules learned in prog.mln are used as input to learn weights using Alchemy-2.
