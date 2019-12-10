@@ -12,6 +12,7 @@ import preprocssing.*;
  * In this process, we got temporal dependencies based on Allen's model
  * The temporal dependencies are extracted, they also check the sequence between temporal dependencies.
  * And when "After" extracted, it needed to check semantic
+ * Describe 7 temporal relations
  * Input: The sequence of events which consist of (Activity label, start_time, end_time) 
  * Output: A sequence of temporal dependencies between event pair
  */
