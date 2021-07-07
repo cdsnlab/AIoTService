@@ -180,7 +180,7 @@ def time_correction(chunk, idx):
     """
     sbegts=float(chunk[idx,2])
     fendts=float(chunk[idx-1, 2])
-    interval=np.random.randint(10,55)
+    interval=np.random.randint(10,30)
     for i in range(idx, chunk.shape[0]):
         chunk[i, 2]=str(float(chunk[i, 2])+fendts+interval-sbegts)
     
