@@ -5,7 +5,7 @@ from datetime import datetime, timedelta
 
 from .info.adlmr_info import adlmr_location as al
 from .info.hh101_info import hh101_location as hl101
-from .info.testbed_info import testbed_location as tl
+from .info.testbed_info import seminar_location as tl
 from .info.config import config        
 
 def feature_extraction(events, data_name, sensor_list):
@@ -40,12 +40,22 @@ def feature_extraction(events, data_name, sensor_list):
         feature=np.zeros(num_total_features)
 
         # creating window of the latest event
-        low_bound=event_order-window_size+1
-        if low_bound<0:
-            repeat=np.array([events[0,:] for _ in range(window_size-event_order-1)])
-            window=np.concatenate((repeat, events[:event_order+1]), axis=0)
-        else:
-            window=events[low_bound:event_order+1,:]
+        # low_bound=event_order-window_size+1
+        # if low_bound<0:
+        #     repeat=np.array([events[0,:] for _ in range(window_size-event_order-1)])
+        #     window=np.concatenate((repeat, events[:event_order+1]), axis=0)
+        # else:
+        #     window=events[low_bound:event_order+1,:]
+
+        bucket=[]
+        idx=event_order-30
+        while idx!=event_order:
+            bucket.append(events[max(0, idx),:])
+            idx+=1
+        bucket.append(events[event_order,:])
+        bucket.append(events[min(len(events)-1, event_order+1)])
+        bucket.append(events[min(len(events)-1, event_order+2)])
+        window=np.array(bucket)
 
         # latest sensor event time
         dt=datetime.fromtimestamp(float(event[2]))
