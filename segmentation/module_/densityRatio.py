@@ -73,12 +73,6 @@ class DensityRatio:
         else:
             theta=(np.identity(self.__kernel_num)/lambda_)@h # (b, b)@(b,1)->(b,1)
 
-        # theta_SEP=np.linalg.solve(np.identity(self.__kernel_num)*lambda_SEP, h_SEP) # (b, b)@(b,1)->(b,1)
-        
-        # theta_SEP[theta_SEP<0]=0
-        # h_SEP/lambda_SEP # (n,1)
-        # self.__CV=scores
-
         self.__alpha=alpha
         self.__theta=theta
 
@@ -91,28 +85,20 @@ class DensityRatio:
     def _CV(self, test_data, train_data, option, alpha, sigma_list, lambda_list):
         score_cv, _sigma_cv, _lambda_cv=np.inf, 0, 0
 
-        # scores=np.zeros((len(sigma_list), len(lambda_list)))
         one_nT=np.matrix(np.ones(self.__minimum)) # (1, n)
         one_bT=np.matrix(np.ones(self.__kernel_num)) # (1, b)
 
-        for sidx, sigma_candidate in enumerate(sigma_list):
+        for _, sigma_candidate in enumerate(sigma_list):
 
             phi_train=self.gaussian_kernel_matrix(data=train_data, centers=self.__kernel_centers, sigma=sigma_candidate) # (b, n)
             phi_test=self.gaussian_kernel_matrix(data=test_data, centers=self.__kernel_centers, sigma=sigma_candidate) # (b, n)
 
-            # H=phi_train@(phi_train.T)/self.__train_n # (b, b)
             H=alpha*(phi_test@(phi_test.T)/self.__test_n)+(1-alpha)*(phi_train@(phi_train.T)/self.__train_n) # (b, b)
             h=np.matrix(phi_test.mean(axis=1)) # (b, 1)
 
-            # h_=np.matrix(phi_train.prod(axis=0)/self.__minimum).T # (n, 1)
+            for _, lambda_candidate in enumerate(lambda_list):
 
-            for lidx, lambda_candidate in enumerate(lambda_list):
-
-                # if option=='rulsif':
-                # B=H+np.identity(self.__kernel_num)*lambda_candidate*((self.__train_n-1)/self.__train_n) # (b, b)
-                # else:
-                B=np.identity(self.__kernel_num)*lambda_candidate*(self.__train_n-1)/self.__train_n # (b, b)
-                # B=np.identity(self.__kernel_num)*lambda_candidate # (b, b)
+                B=H+np.identity(self.__kernel_num)*lambda_candidate*(self.__train_n-1)/self.__train_n # (b, b)
                 
                 BinvPtr=np.linalg.solve(B, phi_train) # (b, b)@(b, n) -> (b, n)
    
@@ -135,13 +121,13 @@ class DensityRatio:
                 B2[B2<0]=0
                 
                 # if option=='rulsif':
-                # w_train=(one_bT@(np.multiply(phi_train, B2))).T # (1, b)@(b,n)->(1,n)->(n,1) 
-                # w_test=(one_bT@(np.multiply(phi_test, B2))).T # (1,b)@(b,n) -> (1,n) -> (n,1)
-                # score_=np.square(w_train).mean()/2 - \
-                #     w_test.mean() # (1,n)@(n,1) -> (1,1)
+                w_train=(one_bT@(np.multiply(phi_train, B2))).T # (1, b)@(b,n)->(1,n)->(n,1) 
+                w_test=(one_bT@(np.multiply(phi_test, B2))).T # (1,b)@(b,n) -> (1,n) -> (n,1)
+                score_=np.square(w_train).mean()/2 - \
+                    w_test.mean() # (1,n)@(n,1) -> (1,1)
                 # else:
-                w_train_SEP=(one_bT@(np.multiply(phi_train, B2))).T # (1, b)@(b,n)->(1,n)->(n,1)
-                score_=abs(w_train_SEP.mean())
+                # w_train_SEP=(one_bT@(np.multiply(phi_train, B2))).T # (1, b)@(b,n)->(1,n)->(n,1)
+                # score_=abs(w_train_SEP.mean())
 
                 if score_ < score_cv:
                     score_cv=score_
