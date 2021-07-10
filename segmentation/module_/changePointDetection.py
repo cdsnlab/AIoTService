@@ -31,14 +31,15 @@ def change_point_detection(features, order, pairname, data_name='testbed', metri
         post2=min(t+2, len(features)-1)
 
         before=np.concatenate((features[prev1], features[t])).reshape((n, -1))
-        after=np.concatenate((features[post1], features[post2])).reshape((n, -1))
+        # after=np.concatenate((features[post1], features[post2])).reshape((n, -1))
+        after=np.concatenate((features[t], features[post1])).reshape((n, -1))
 
-        if metric.lower()=="kliep":
-            dre=dr(test_data=before, train_data=after, option=metric.lower()); scores.append(dre.KLDiv)
-        elif metric.lower()=='rulsif':
-            dre=dr(test_data=before, train_data=after, option=metric.lower(), alpha=0.5); scores.append(dre.PEDiv)
-        else:
-            dre=dr(test_data=before, train_data=after); scores.append(dre.SEP)
+        # if metric.lower()=="kliep":
+        #     dre=dr(test_data=before, train_data=after, option=metric.lower()); scores.append(dre.KLDiv)
+        # elif metric.lower()=='rulsif':
+        #     dre=dr(test_data=before, train_data=after, option=metric.lower(), alpha=0.5); scores.append(dre.PEDiv)
+        # else:
+        dre=dr(test_data=before, train_data=after); scores.append(dre.SEP)#; print(dre.SEP)
         if save:
             thetas.append(dre.theta)
             sigmas.append((dre.sigma, dre._median_distance))

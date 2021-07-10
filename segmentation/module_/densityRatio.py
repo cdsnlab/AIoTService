@@ -3,7 +3,7 @@ from scipy.spatial import distance_matrix
 
 class DensityRatio:
 
-    def __init__(self, test_data, train_data, option='rulsif', alpha=0., sigma_list=None, lambda_list=None, kernel_num=100):
+    def __init__(self, test_data, train_data, alpha=0., sigma_list=None, lambda_list=None, kernel_num=100):
         
         if test_data.shape[0]!=train_data.shape[0]:
             raise ValueError("Different dimension of sample")
@@ -13,7 +13,6 @@ class DensityRatio:
 
         self.__test=test_data       # (n, d) 
         self.__train=train_data     # (n, d)
-        self.__option=option
         
         if sigma_list is None:
             self.__median_distance=self.median_distance(np.concatenate((self.__test, self.__train)))
@@ -30,7 +29,6 @@ class DensityRatio:
 
         self._DensityRatio(test_data=self.__test, 
                             train_data=self.__train, 
-                            option=self.__option,
                             alpha=alpha, 
                             sigma_list=sigma_list, 
                             lambda_list=lambda_list
@@ -39,9 +37,9 @@ class DensityRatio:
     def __call__(self, data, theta):
         return self.calculate_density_ratio(data, theta)
 
-    def calculate_density_ratio(self, data, theta):
+    def calculate_density_ratio(self, data, theta): # (b, n) and (b, 1)
         phi_data = self.gaussian_kernel_matrix(data=data, centers=self.kernel_centers, sigma=self.__sigma) # (b, n)
-        density_ratio=theta.T@phi_data # (1,n)@(b,n)->(1,n)
+        density_ratio=theta.T@phi_data # (1,b)@(b,n)->(1,n)
         return density_ratio
     
     def median_distance(self, x):
@@ -55,23 +53,23 @@ class DensityRatio:
         # return np.sqrt(0.5)*np.median(np.array(l)).item() # WHY?
         return np.median(np.array(l)).item() # WHY?
 
-    def _DensityRatio(self, test_data, train_data, option, alpha, sigma_list, lambda_list):
+    def _DensityRatio(self, test_data, train_data, alpha, sigma_list, lambda_list):
         if len(sigma_list)==1 and len(lambda_list)==1:
             sigma, lambda_ = sigma_list[0], lambda_list[0]
         else:
-            sigma, lambda_,= self._CV(test_data, train_data, option, alpha, sigma_list, lambda_list)
+            sigma, lambda_,= self._CV(test_data, train_data, alpha, sigma_list, lambda_list)
         
         phi_train=self.gaussian_kernel_matrix(data=train_data, centers=self.__kernel_centers, sigma=sigma) # (b, n)
         phi_test=self.gaussian_kernel_matrix(data=test_data, centers=self.__kernel_centers, sigma=sigma) # (b, n)
 
         H=alpha*(phi_test@(phi_test.T)/self.__test_n)+(1-alpha)*(phi_train@(phi_train.T)/self.__train_n) # (b, b)
         h=np.matrix(phi_test.mean(axis=1)) # (b, 1)
-
-        if option=='rulsif':
-            theta=np.linalg.solve(H+np.identity(self.__kernel_num)*lambda_, h) # (b, b)@(b,1)->(b,1)
-            theta[theta<0]=0
-        else:
-            theta=(np.identity(self.__kernel_num)/lambda_)@h # (b, b)@(b,1)->(b,1)
+        theta=(1/lambda_)*h # (b, b)@(b,1)->(b,1)
+        # theta[theta<0]=0
+        # theta=abs(theta)
+        
+        
+        # theta=np.linalg.solve(H+np.identity(self.__kernel_num)*lambda_, h) # (b, b)@(b,1)->(b,1)
 
         self.__alpha=alpha
         self.__theta=theta
@@ -82,7 +80,7 @@ class DensityRatio:
         self.__phi_test=phi_test
         self.__phi_train=phi_train
 
-    def _CV(self, test_data, train_data, option, alpha, sigma_list, lambda_list):
+    def _CV(self, test_data, train_data, alpha, sigma_list, lambda_list):
         score_cv, _sigma_cv, _lambda_cv=np.inf, 0, 0
 
         one_nT=np.matrix(np.ones(self.__minimum)) # (1, n)
@@ -98,7 +96,9 @@ class DensityRatio:
 
             for _, lambda_candidate in enumerate(lambda_list):
 
-                B=H+np.identity(self.__kernel_num)*lambda_candidate*(self.__train_n-1)/self.__train_n # (b, b)
+                B=-np.identity(self.__kernel_num)*lambda_candidate*(self.__train_n-1)/self.__train_n
+
+                # B=H+np.identity(self.__kernel_num)*lambda_candidate*(self.__train_n-1)/self.__train_n # (b, b)
                 
                 BinvPtr=np.linalg.solve(B, phi_train) # (b, b)@(b, n) -> (b, n)
    
@@ -120,37 +120,16 @@ class DensityRatio:
                 B2=(self.__train_n-1)*(self.__test_n*B0-B1)/(self.__train_n*(self.__test_n-1)) # (b, n)
                 B2[B2<0]=0
                 
-                # if option=='rulsif':
                 w_train=(one_bT@(np.multiply(phi_train, B2))).T # (1, b)@(b,n)->(1,n)->(n,1) 
-                w_test=(one_bT@(np.multiply(phi_test, B2))).T # (1,b)@(b,n) -> (1,n) -> (n,1)
-                score_=np.square(w_train).mean()/2 - \
-                    w_test.mean() # (1,n)@(n,1) -> (1,1)
-                # else:
-                # w_train_SEP=(one_bT@(np.multiply(phi_train, B2))).T # (1, b)@(b,n)->(1,n)->(n,1)
-                # score_=abs(w_train_SEP.mean())
+                # w_test=(one_bT@(np.multiply(phi_test, B2))).T # (1,b)@(b,n) -> (1,n) -> (n,1)
+                # score_=np.square(w_train).mean()/2 - \
+                #     w_test.mean() # (1,n)@(n,1) -> (1,1)
+                score=w_train.mean()
 
-                if score_ < score_cv:
-                    score_cv=score_
+                if score < score_cv:
+                    score_cv=score
                     _sigma_cv=sigma_candidate
                     _lambda_cv=lambda_candidate
-                # if sidx==0 and lambda_candidate==0.1:
-                #     print(sigma_candidate, lambda_candidate)
-                #     print('phi_test',phi_test)
-                #     print('phi_train', phi_train)
-                #     print('H',H)
-                #     print('h',h)
-                #     print('B',B)
-                #     print('BP', BinvPtr)
-                #     print('PBP', PtrBinvPtr)
-                #     print('denom', denominator)
-                #     print('B0',B0)
-                #     print('B1',B1)
-                #     print('B2',B2)
-                #     print("w_train", w_train)
-                #     print("w_test", w_test)
-                
-                
-
                 
                 # score_candidate_SEP=(1.5*h_.T@h_/lambda_candidate).item() # (1,n)@(n,1)->(1,1)
 
@@ -244,8 +223,7 @@ class DensityRatio:
     @property
     def SEP(self):
         g_x = self.calculate_density_ratio(self.__test, self.__theta) # (1, n)
-        # g_y = self.calculate_density_ratio(self.__train, self.__theta) # (1, n)
-        # g_x = np.multiply(self.__theta_SEP, (self.__phi_train).prod(axis=0))
+
         divergence = max(0, 0.5-g_x.mean())
 
         return divergence
