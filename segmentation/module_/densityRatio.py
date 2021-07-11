@@ -68,7 +68,6 @@ class DensityRatio:
         # theta[theta<0]=0
         # theta=abs(theta)
         
-        
         # theta=np.linalg.solve(H+np.identity(self.__kernel_num)*lambda_, h) # (b, b)@(b,1)->(b,1)
 
         self.__alpha=alpha
