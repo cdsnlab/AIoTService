@@ -11,7 +11,7 @@ class DensityRatio:
         if test_data.shape[1]!=train_data.shape[1]:
             raise ValueError("Different number of samples")
 
-        self.__test=test_data       # (n, d) 
+        self.__test=test_data       # (n, d)
         self.__train=train_data     # (n, d)
         
         if sigma_list is None:
@@ -24,7 +24,7 @@ class DensityRatio:
         self.__test_n=self.__test.shape[0]                                  # n
         self.__train_n=self.__train.shape[0]                                # n
         self.__kernel_num=min(kernel_num, self.__test_n, self.__train_n)    # b (=n)
-        self.__kernel_centers=self.__test           
+        self.__kernel_centers=self.__test
         self.__minimum=min(self.__test_n, self.__train_n)                   # n
 
         self._DensityRatio(test_data=self.__test, 
@@ -38,9 +38,14 @@ class DensityRatio:
         return self.calculate_density_ratio(data, theta)
 
     def calculate_density_ratio(self, data, theta): # (b, n) and (b, 1)
+        """
+            g_{t}(x)=f_{t-1}(x) / f_{t}(x)
+        """
         phi_data = self.gaussian_kernel_matrix(data=data, centers=self.kernel_centers, sigma=self.__sigma) # (b, n)
-        density_ratio=theta.T@phi_data # (1,b)@(b,n)->(1,n)
-        return density_ratio
+        kernels = np.matrix(phi_data.prod(axis=0)) # (1, n)
+        # kernels = np.matrix(phi_data.prod(axis=1)).T # (1, n)
+        density_ratio=np.multiply(theta, kernels) # (1,n)*(1,n)->(1,n)
+        return density_ratio.ravel()
     
     def median_distance(self, x):
         """
@@ -50,8 +55,11 @@ class DensityRatio:
         dists=distance_matrix(x, x)     # (n, n)
         dists=np.tril(dists).ravel()
         l=[item for item in dists if item>0.]
-        # return np.sqrt(0.5)*np.median(np.array(l)).item() # WHY?
-        return np.median(np.array(l)).item() # WHY?
+        if len(l)==0:
+            print("median distance 0: All same features")
+            return 1.
+        # return np.sqrt(0.5)*np.median(np.array(l)).item() 
+        return np.median(np.array(l)).item() 
 
     def _DensityRatio(self, test_data, train_data, alpha, sigma_list, lambda_list):
         if len(sigma_list)==1 and len(lambda_list)==1:
@@ -63,10 +71,12 @@ class DensityRatio:
         phi_test=self.gaussian_kernel_matrix(data=test_data, centers=self.__kernel_centers, sigma=sigma) # (b, n)
 
         # H=alpha*(phi_test@(phi_test.T)/self.__test_n)+(1-alpha)*(phi_train@(phi_train.T)/self.__train_n) # (b, b)
-        h=np.matrix(phi_train.mean(axis=1)) # (b, 1)
-        theta=(-1/lambda_)*h # (b, b)@(b,1)->(b,1)
+        # h = np.matrix(phi_train.prod(axis=1)).T # (1, n)
+        h=np.matrix(phi_train.prod(axis=0)) # (1, n)
+        # h=np.matrix(phi_train.mean(axis=1)).T
         
-
+        theta=(1/lambda_)*h # (1, n)
+        
         # theta=np.linalg.solve(H+np.identity(self.__kernel_num)*lambda_, h) # (b, b)@(b,1)->(b,1)
         # theta[theta<0]=0
 
@@ -83,7 +93,7 @@ class DensityRatio:
         """Likelihood Cross Validation"""
         score_cv, _sigma_cv, _lambda_cv=np.inf, 0, 0
 
-        # one_nT=np.matrix(np.ones(self.__minimum)) # (1, n)
+        one_nT=np.matrix(np.ones(self.__minimum)) # (1, n)
         one_bT=np.matrix(np.ones(self.__kernel_num)) # (1, b)
 
         for _, sigma_candidate in enumerate(sigma_list):
@@ -91,41 +101,43 @@ class DensityRatio:
             phi_train=self.gaussian_kernel_matrix(data=train_data, centers=self.__kernel_centers, sigma=sigma_candidate) # (b, n)
             phi_test=self.gaussian_kernel_matrix(data=test_data, centers=self.__kernel_centers, sigma=sigma_candidate) # (b, n)
 
-            # H=alpha*(phi_test@(phi_test.T)/self.__test_n)+(1-alpha)*(phi_train@(phi_train.T)/self.__train_n) # (b, b)
-            h=np.matrix(phi_train.mean(axis=1)) # (b, 1)
+            H=alpha*(phi_test@(phi_test.T)/self.__test_n)+(1-alpha)*(phi_train@(phi_train.T)/self.__train_n) # (b, b)
+            h=np.matrix(phi_test.mean(axis=1)) # (b, 1)
+            # h=np.matrix(phi_train.prod(axis=1)) # (n, 1)
+            # h=np.matrix(phi_train.prod(axis=0)).T # (1, n)
 
             for _, lambda_candidate in enumerate(lambda_list):
 
-                # theta_candidate=(-1/lambda_candidate)*h # (b,1)
-
-                B=-1/(lambda_candidate*(self.__train_n-1))*(self.__train_n*h-phi_train)
+                # theta_candidate=(-1/lambda_candidate)*h # (1, n)
+                # difference=abs(theta_candidate@h.T) # (1, n)@(n, 1) -> (1, 1)
+                # B=-1/(lambda_candidate*(self.__train_n-1))*(self.__train_n*h-phi_train)
                 # B[B<0]=0
-
-                w_train=(one_bT@(np.multiply(phi_train, B))).T # (1, b)@(b,n)->(1,n)->(n,1) 
-                score=w_train.mean()
+                # w_train=(one_bT@(np.multiply(phi_train, B))).T # (1, b)@(b,n)->(1,n)->(n,1) 
+                # score=w_train.mean()
                 # theta_candidate[theta_candidate<0]=0
                 # estimated_ratio=theta_candidate.T@phi_test
-                
                 # score=max(0, 0.5-estimated_ratio.mean())
 
+                # B=-np.identity(self.__kernel_num)*lambda_candidate#*(self.__train_n-1)/self.__train_n
                 """Efficient Computation of LOOCV Score for uLSIF"""    
-                # B=H+np.identity(self.__kernel_num)*lambda_candidate*(self.__train_n-1)/self.__train_n # (b, b)
-                # BinvPtr=np.linalg.solve(B, phi_train) # (b, b)@(b, n) -> (b, n)
-                # PtrBinvPtr=np.multiply(phi_train, BinvPtr) # (b, n) element-wise multiplication
-                # denominator=self.__train_n*one_nT - \
-                #     one_bT@PtrBinvPtr # (1, b)@(b, n) -> (1, n)
-                # diagonal_B0=np.diag((h.T@BinvPtr).A1/denominator.A1) # (1, b)@(b, n) -> (1, n) -> (n, n)
-                # B0=np.linalg.solve(B, h@one_nT) + \
-                #     BinvPtr@diagonal_B0 # (b,b)@(b, 1)@(1, n) -> (b,n)
-                # diagonal_B1=np.diag((one_bT@(np.multiply(phi_test, BinvPtr))).A1/denominator.A1) # (1, b)@(b, n)->(1,n) -> (n,n)
-                # B1=np.linalg.solve(B, phi_test) + \
-                #     BinvPtr@diagonal_B1 # (b,n)@(n,n)->(b,n) // (b,b)@(b,n) -> (b,n)
-                # B2=(self.__train_n-1)*(self.__test_n*B0-B1)/(self.__train_n*(self.__test_n-1)) # (b, n)
-                # B2[B2<0]=0
-                # w_train=(one_bT@(np.multiply(phi_train, B2))).T # (1, b)@(b,n)->(1,n)->(n,1) 
-                # w_test=(one_bT@(np.multiply(phi_test, B2))).T # (1,b)@(b,n) -> (1,n) -> (n,1)
-                # score_=np.square(w_train).mean()/2 - \
-                #     w_test.mean() # (1,n)@(n,1) -> (1,1)
+                B=H+np.identity(self.__kernel_num)*lambda_candidate*(self.__train_n-1)/self.__train_n # (b, b)
+                BinvPtr=np.linalg.solve(B, phi_train) # (b, b)@(b, n) -> (b, n)
+                PtrBinvPtr=np.multiply(phi_train, BinvPtr) # (b, n) element-wise multiplication
+                denominator=self.__train_n*one_nT - \
+                    one_bT@PtrBinvPtr # (1, b)@(b, n) -> (1, n)
+                diagonal_B0=np.diag((h.T@BinvPtr).A1/denominator.A1) # (1, b)@(b, n) -> (1, n) -> (n, n)
+                B0=np.linalg.solve(B, h@one_nT) + \
+                    BinvPtr@diagonal_B0 # (b,b)@(b, 1)@(1, n) -> (b,n)
+                diagonal_B1=np.diag((one_bT@(np.multiply(phi_test, BinvPtr))).A1/denominator.A1) # (1, b)@(b, n)->(1,n) -> (n,n)
+                B1=np.linalg.solve(B, phi_test) + \
+                    BinvPtr@diagonal_B1 # (b,n)@(n,n)->(b,n) // (b,b)@(b,n) -> (b,n)
+                B2=(self.__train_n-1)*(self.__test_n*B0-B1)/(self.__train_n*(self.__test_n-1)) # (b, n)
+                B2[B2<0]=0
+                w_train=(one_bT@(np.multiply(phi_train, B2))).T # (1, b)@(b,n)->(1,n)->(n,1) 
+                w_test=(one_bT@(np.multiply(phi_test, B2))).T # (1,b)@(b,n) -> (1,n) -> (n,1)
+                score=np.square(w_train).mean()/2 - \
+                    w_test.mean() # (1,n)@(n,1) -> (1,1)
+                # score=w_train.mean()
 
                 if score < score_cv:
                     score_cv=score
@@ -136,11 +148,7 @@ class DensityRatio:
 
     def gaussian_kernel_matrix(self, data, centers, sigma):
         answer=[[gaussian_kernel(datum=datum, center=center, sigma=sigma) for datum in data] for center in centers]
-        return np.matrix(answer) # (b,n)
-
-    # @property
-    # def cv_scores(self):
-    #     return self.__CV
+        return np.matrix(answer) # (b, n)
     
     @property
     def test_data(self):
@@ -190,24 +198,28 @@ class DensityRatio:
     def theta(self):
         return self.__theta
 
-    @property
-    def KLDiv(self):
-        g_x = self.calculate_density_ratio(self.__test, self.__theta) # (1, n)
+    # @property
+    # def KLDiv(self):
+    #     g_x = self.calculate_density_ratio(self.__test, self.__theta) # (1, n)
 
-        score=np.log(g_x).mean()
+    #     score=np.log(g_x).mean()
+    #     # score=g_x/self.__kernel_num
 
-        return score
+    #     return score
 
-    @property
-    def PEDiv(self):
-        g_x = self.calculate_density_ratio(self.__test, self.__theta) # (1, n)
-        g_y = self.calculate_density_ratio(self.__train, self.__theta) # (1, n)
+    # @property
+    # def PEDiv(self):
+    #     g_x = self.calculate_density_ratio(self.__test, self.__theta) # (1, n)
+    #     g_y = self.calculate_density_ratio(self.__train, self.__theta) # (1, n)
 
-        score= -self.alpha*(np.square(g_x)).mean()/2 - \
-                (1-self.alpha)*(np.square(g_y)).mean()/2 + \
-                g_x.mean() - 0.5
+    #     score= -self.alpha*(np.square(g_x)).mean()/2 - \
+    #             (1-self.alpha)*(np.square(g_y)).mean()/2 + \
+    #             g_x.mean() - 0.5
+    #     # score= -self.alpha*(np.square(g_x))/(2*self.__kernel_num) - \
+    #     #         (1-self.alpha)*(np.square(g_y))/(2*self.__kernel_num) + \
+    #     #         g_x/self.__kernel_num - 0.5
 
-        return score
+    #     return score
 
     @property
     def SEP(self):
