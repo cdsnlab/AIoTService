@@ -31,24 +31,32 @@ activityfiles_old={
 
 activityfiles_new={
     'Chatting': [
-"Chatting17.npy", #(105, 3)
-"Chatting30.npy", #(180, 3)
-"Chatting32.npy" #(137, 3)
+"Chatting45.npy",
+"Chatting53.npy",
+"Chatting64.npy",
+"Chatting72.npy",
+"Chatting82.npy"
     ],
     'TechnicalDiscussion': [
-'Discussion1.npy', #(270, 3)
-'Discussion23.npy', #(388, 3)
-'Discussion34.npy'
+'Discussion1.npy',
+'Discussion20.npy',
+'Discussion23.npy',
+'Discussion24.npy',
+'Discussion25.npy'
     ],
     'GroupStudy': [
-'GroupStudy9.npy',
-'GroupStudy16.npy',
-'GroupStudy28.npy'
+'GroupStudy10.npy',
+'GroupStudy12.npy',
+'GroupStudy14.npy',
+'GroupStudy15.npy',
+'GroupStudy16.npy'
     ],
     'Seminar': [
 'Presentation100.npy',
-'Presentation11.npy',
+'Presentation105.npy',
+'Presentation110.npy',
 'Presentation111.npy',
+'Presentation112.npy'
     ]
 }
 
@@ -118,4 +126,13 @@ seminar_location={
     'Seat5B': (10,13),
     'Seat6A': (10,13),
     'Seat6B': (10,13),
+    'Motion1': (10,13),
+    'Motion2': (10,13),
+    'Motion3': (10,13),
+    'Motion4': (10,13),
+    'Motion5': (10,13),
+    'Motion6': (10,13),
+    'Motion7': (10,13),
+    'Motion8': (10,13),
+    'Motion9': (10,13),
 }

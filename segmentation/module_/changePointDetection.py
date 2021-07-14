@@ -24,22 +24,24 @@ def change_point_detection(features, order, pairname, data_name='testbed', metri
                 np.save("{}/thetas.npy".format(episode_folder), thetas)
                 np.save("{}/sigmas.npy".format(episode_folder), sigmas)
                 np.save("{}/lambdas.npy".format(episode_folder), lambdas)
-                print("SAVE DONE.")
+                # print("SAVE DONE.")
 
         prev1=max(0, t-1)
         post1=min(t+1, len(features)-1)
         post2=min(t+2, len(features)-1)
 
         before=np.concatenate((features[prev1], features[t])).reshape((n, -1))
-        after=np.concatenate((features[post1], features[post2])).reshape((n, -1))
-        # after=np.concatenate((features[t], features[post1])).reshape((n, -1))
+        # after=np.concatenate((features[post1], features[post2])).reshape((n, -1))
+        after=np.concatenate((features[t], features[post1])).reshape((n, -1))
 
-        # if metric.lower()=="kliep":
-        #     dre=dr(test_data=before, train_data=after, option=metric.lower()); scores.append(dre.KLDiv)
-        # elif metric.lower()=='rulsif':
-        #     dre=dr(test_data=before, train_data=after, option=metric.lower(), alpha=0.5); scores.append(dre.PEDiv)
-        # else:
-        dre=dr(test_data=before, train_data=after); scores.append(dre.SEP)#; print(dre.SEP)
+        if metric.lower()=="kliep":
+            dre=dr(test_data=before, train_data=after); scores.append(dre.KLDiv)
+        elif metric.lower()=='rulsif':
+            dre=dr(test_data=before, train_data=after, alpha=0.1); scores.append(dre.PEDiv)
+        elif metric.lower()=='ulsif':
+            dre=dr(test_data=before, train_data=after); scores.append(dre.PEDiv)
+        else:
+            dre=dr(test_data=before, train_data=after); scores.append(dre.SEP)#; print(dre.SEP)
         if save:
             thetas.append(dre.theta)
             sigmas.append((dre.sigma, dre._median_distance))
@@ -51,6 +53,6 @@ def change_point_detection(features, order, pairname, data_name='testbed', metri
         np.save("{}/thetas.npy".format(episode_folder), thetas)
         np.save("{}/sigmas.npy".format(episode_folder), sigmas)
         np.save("{}/lambdas.npy".format(episode_folder), lambdas)
-        print("TOTAL SAVE DONE.")
+        # print("TOTAL SAVE DONE.")
 
     return scores
