@@ -3,27 +3,29 @@ import os
 import time
 from .densityRatio import DensityRatio as dr
 
-def change_point_detection(features, order, pairname, data_name='testbed', metric='SEP', save=False):
+def change_point_detection(features, metricfolder, data_name='testbed', metric='SEP', save=False):
     n=2
     scores, thetas, sigmas, lambdas=[], [], [], []
     start=time.time()
 
-    activity_folder="./outputs/{}/{}/{}".format(data_name, metric, pairname)
-    episode_folder="{}/{}".format(activity_folder, order)
 
-    if not os.path.exists(activity_folder):
-        os.mkdir(activity_folder)
-    if not os.path.exists(episode_folder):
-        os.mkdir(episode_folder)
+
+    # activity_folder="./outputs/{}/{}/{}/{}".format(data_name, metric, preprocess, pairname)
+    # metricfolder="{}/{}".format(activity_folder, order)
+
+    # if not os.path.exists(activity_folder):
+    #     os.mkdir(activity_folder)
+    # if not os.path.exists(metricfolder):
+    #     os.mkdir(metricfolder)
 
     for t in range(len(features)):
         if t>0 and t%1000==0:
             print("{}/{} (accumulated) time: {}".format(t, len(features), time.time()-start))
             if save:
-                np.save("{}/scores.npy".format(episode_folder), scores)
-                np.save("{}/thetas.npy".format(episode_folder), thetas)
-                np.save("{}/sigmas.npy".format(episode_folder), sigmas)
-                np.save("{}/lambdas.npy".format(episode_folder), lambdas)
+                np.save("{}/scores.npy".format(metricfolder), scores)
+                np.save("{}/thetas.npy".format(metricfolder), thetas)
+                np.save("{}/sigmas.npy".format(metricfolder), sigmas)
+                np.save("{}/lambdas.npy".format(metricfolder), lambdas)
                 # print("SAVE DONE.")
 
         prev1=max(0, t-1)
@@ -49,10 +51,10 @@ def change_point_detection(features, order, pairname, data_name='testbed', metri
 
     # return scores, parameters
     if save:
-        np.save("{}/scores.npy".format(episode_folder), scores)
-        np.save("{}/thetas.npy".format(episode_folder), thetas)
-        np.save("{}/sigmas.npy".format(episode_folder), sigmas)
-        np.save("{}/lambdas.npy".format(episode_folder), lambdas)
+        np.save("{}/scores.npy".format(metricfolder), scores)
+        np.save("{}/thetas.npy".format(metricfolder), thetas)
+        np.save("{}/sigmas.npy".format(metricfolder), sigmas)
+        np.save("{}/lambdas.npy".format(metricfolder), lambdas)
         # print("TOTAL SAVE DONE.")
 
     return scores
