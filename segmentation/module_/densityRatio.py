@@ -38,9 +38,7 @@ class DensityRatio:
         return self.calculate_density_ratio(data, theta)
 
     def calculate_density_ratio(self, data, theta): # (b, n) and (b, 1)
-        """
-            g_{t}(x)=f_{t-1}(x) / f_{t}(x)
-        """
+        
         phi_data = self.gaussian_kernel_matrix(data=data, centers=self.kernel_centers, sigma=self.__sigma) # (b, n)
         # kernels = np.matrix(phi_data.prod(axis=0)) # (1, n)
         # kernels = np.matrix(phi_data.prod(axis=1)).T # (1, n)
@@ -59,8 +57,8 @@ class DensityRatio:
         if len(l)==0:
             print("median distance 0: All same features")
             return 1.
-        return np.sqrt(0.5*np.median(np.array(l))).item() 
-        # return np.median(np.array(l)).item() 
+        # return np.sqrt(0.5*np.median(np.array(l))).item() 
+        return np.median(np.array(l)).item()
 
     def _DensityRatio(self, test_data, train_data, alpha, sigma_list, lambda_list):
         if len(sigma_list)==1 and len(lambda_list)==1:
@@ -97,7 +95,11 @@ class DensityRatio:
         self.__phi_train=phi_train
 
     def _LCV(self, test_data, train_data, alpha, sigma_list, lambda_list):
-        """Likelihood Cross Validation"""
+        """
+            Likelihood Cross Validation
+
+            Efficient Computation of LOOCV Score for uLSIF
+        """
         score_cv, _sigma_cv, _lambda_cv=np.inf, 0, 0
 
         one_nT=np.matrix(np.ones(self.__minimum)) # (1, n)
@@ -110,23 +112,9 @@ class DensityRatio:
 
             H=alpha*(phi_test@(phi_test.T)/self.__test_n)+(1-alpha)*(phi_train@(phi_train.T)/self.__train_n) # (b, b)
             h=np.matrix(phi_test.mean(axis=1)) # (b, 1)
-            # h=np.matrix(phi_train.prod(axis=1)) # (n, 1)
-            # h=np.matrix(phi_train.prod(axis=0)).T # (1, n)
 
             for _, lambda_candidate in enumerate(lambda_list):
 
-                # theta_candidate=(-1/lambda_candidate)*h # (1, n)
-                # difference=abs(theta_candidate@h.T) # (1, n)@(n, 1) -> (1, 1)
-                # B=-1/(lambda_candidate*(self.__train_n-1))*(self.__train_n*h-phi_train)
-                # B[B<0]=0
-                # w_train=(one_bT@(np.multiply(phi_train, B))).T # (1, b)@(b,n)->(1,n)->(n,1) 
-                # score=w_train.mean()
-                # theta_candidate[theta_candidate<0]=0
-                # estimated_ratio=theta_candidate.T@phi_test
-                # score=max(0, 0.5-estimated_ratio.mean())
-
-                # B=-np.identity(self.__kernel_num)*lambda_candidate#*(self.__train_n-1)/self.__train_n
-                """Efficient Computation of LOOCV Score for uLSIF"""    
                 B=H+np.identity(self.__kernel_num)*lambda_candidate*(self.__train_n-1)/self.__train_n # (b, b)
                 BinvPtr=np.linalg.solve(B, phi_train) # (b, b)@(b, n) -> (b, n)
                 PtrBinvPtr=np.multiply(phi_train, BinvPtr) # (b, n) element-wise multiplication
@@ -144,7 +132,6 @@ class DensityRatio:
                 w_test=(one_bT@(np.multiply(phi_test, B2))).T # (1,b)@(b,n) -> (1,n) -> (n,1)
                 score=np.square(w_train).mean()/2 - \
                     w_test.mean() # (1,n)@(n,1) -> (1,1)
-                # score=w_train.mean()
 
                 if score < score_cv:
                     score_cv=score
@@ -229,7 +216,7 @@ class DensityRatio:
         return score
 
     @property
-    def SEP(self):
+    def SEP(self): #TODO
         g_x = self.calculate_density_ratio(self.__test, self.__theta) # (1, n)
 
         score= max(0, 0.5-g_x.mean())

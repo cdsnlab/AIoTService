@@ -8,16 +8,6 @@ def change_point_detection(features, metricfolder, data_name='testbed', metric='
     scores, thetas, sigmas, lambdas=[], [], [], []
     start=time.time()
 
-
-
-    # activity_folder="./outputs/{}/{}/{}/{}".format(data_name, metric, preprocess, pairname)
-    # metricfolder="{}/{}".format(activity_folder, order)
-
-    # if not os.path.exists(activity_folder):
-    #     os.mkdir(activity_folder)
-    # if not os.path.exists(metricfolder):
-    #     os.mkdir(metricfolder)
-
     for t in range(len(features)):
         if t>0 and t%1000==0:
             print("{}/{} (accumulated) time: {}".format(t, len(features), time.time()-start))
