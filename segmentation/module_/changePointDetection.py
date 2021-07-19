@@ -3,10 +3,14 @@ import os
 import time
 from .densityRatio import DensityRatio as dr
 
-def change_point_detection(features, metricfolder, data_name='testbed', metric='SEP', save=False):
+def change_point_detection(features, epsfolder, data_name='testbed', metric='SEP', save=False):
     n=2
     scores, thetas, sigmas, lambdas=[], [], [], []
     start=time.time()
+
+    metricfolder="{}/{}".format(epsfolder, metric)
+    if not os.path.exists(metricfolder):
+        os.mkdir(metricfolder)
 
     for t in range(len(features)):
         if t>0 and t%1000==0:
@@ -22,9 +26,9 @@ def change_point_detection(features, metricfolder, data_name='testbed', metric='
         post1=min(t+1, len(features)-1)
         post2=min(t+2, len(features)-1)
 
-        before=np.concatenate((features[prev1], features[t])).reshape((n, -1))
+        before=np.concatenate((features[t], features[post1])).reshape((n, -1))
         # after=np.concatenate((features[post1], features[post2])).reshape((n, -1))
-        after=np.concatenate((features[t], features[post1])).reshape((n, -1))
+        after=np.concatenate((features[post1], features[post2])).reshape((n, -1))
 
         if metric.lower()=="kliep":
             dre=dr(test_data=before, train_data=after); scores.append(dre.KLDiv)

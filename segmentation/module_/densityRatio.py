@@ -31,7 +31,7 @@ class DensityRatio:
                             train_data=self.__train, 
                             alpha=alpha, 
                             sigma_list=sigma_list, 
-                            lambda_list=lambda_list
+                            lambda_list=lambda_list 
                             )
     
     def __call__(self, data, theta):
@@ -80,7 +80,7 @@ class DensityRatio:
         """
             SEP
         """
-        # h = np.matrix(phi_train.prod(axis=1)).T # (1, n)
+        # h=np.matrix(phi_train.prod(axis=1)).T # (1, n)
         # h=np.matrix(phi_train.mean(axis=1)).T
         # h=np.matrix(phi_train.prod(axis=0)) # (1, n) *
         # theta=(1/lambda_)*h # (1, n)
@@ -97,13 +97,14 @@ class DensityRatio:
     def _LCV(self, test_data, train_data, alpha, sigma_list, lambda_list):
         """
             Likelihood Cross Validation
-
+            
             Efficient Computation of LOOCV Score for uLSIF
         """
+
         score_cv, _sigma_cv, _lambda_cv=np.inf, 0, 0
 
-        one_nT=np.matrix(np.ones(self.__minimum)) # (1, n)
-        one_bT=np.matrix(np.ones(self.__kernel_num)) # (1, b)
+        one_nT=np.matrix(np.ones(self.__minimum))       # (1, n)
+        one_bT=np.matrix(np.ones(self.__kernel_num))    # (1, b)
 
         for _, sigma_candidate in enumerate(sigma_list):
 
