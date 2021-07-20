@@ -100,12 +100,12 @@ def feature_extraction(events, data_name, sensor_list):
         feature[4]=since_last_sensor/86400.
 
         # A7 (last sensor event in current window)
-        # feature[7] = sensor_list.index(event[0])
-        # feature[7]/= float(len(sensor_list))
-        feature[7]=0 #EDIT
+        feature[7] = sensor_list.index(event[0])
+        feature[7]/= float(len(sensor_list))
+        # feature[7]=0 #EDIT
 
         # A8 (last sensor location in current window)
-        feature[8] = feature[7] 
+        feature[8] =0
 
         # A9 (last motion sensor location in current window)
         scount=np.zeros(num_sensors)
@@ -132,21 +132,21 @@ def feature_extraction(events, data_name, sensor_list):
         feature[10] = complexity
 
         # A5 (dominant sensor (sensor firing most often) for previous window)
-        # feature[5] = prevwin1
-        # feature[5]/=float(len(sensor_list))
-        feature[5] = 0
+        feature[5] = prevwin1
+        feature[5]/=float(len(sensor_list))
+        # feature[5] = 0
 
         # A6 (dominant sensor two windows back)
-        # feature[6] = prevwin2
-        # feature[6]/=float(len(sensor_list))
-        feature[6] = 0
+        feature[6] = prevwin2
+        feature[6]/=float(len(sensor_list))
+        # feature[6] = 0
 
-        # prevwin2 = prevwin1
-        # maxcount=0
-        # for i in range(num_sensors):
-        #     if scount[i]>maxcount:
-        #         maxcount=scount[i]
-        #         prevwin1 = i
+        prevwin2 = prevwin1
+        maxcount=0
+        for i in range(num_sensors):
+            if scount[i]>maxcount:
+                maxcount=scount[i]
+                prevwin1 = i
 
         # (NOT used) number of transitions between areas in current window
         # (NOT used) number of distinct sensors in current window
