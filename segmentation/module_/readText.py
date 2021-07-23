@@ -7,7 +7,6 @@ def read_hh(raw_data):
     activity=''
     events=[]
     _cnt = 0
-    start=False
     for ln, line in enumerate(raw_data):
         single_event=[]
         f_info=line.decode().split()
@@ -26,11 +25,7 @@ def read_hh(raw_data):
                     if _cnt>0:
                         print("[line {}] {} - {} begin - {}".format(ln, activity, temp, activity))
                     _cnt+=1
-                    # if start==True:
-                    #     print(line, "Break")
-                    #     break
-                    # else:
-                    #     start=True
+
                     activity = temp
                     single_event.append(activity)
                     
@@ -38,11 +33,7 @@ def read_hh(raw_data):
                     _cnt-=1
                     if _cnt>0:
                         print("[line {}] ? - {} end - ?".format(ln, activity))
-                    # if start==False:
-                    #     print(line, "Break")
-                    #     break
-                    # else:
-                    #     start=False
+
                     single_event.append(activity)
                     activity = ''
                 else:
@@ -101,12 +92,6 @@ def read_twor(raw_data):
     return events
 
 def read_adlmr(raw_data):
-    """
-        Output:
-        1. Single stream (A's stream, B's stream)
-        2. Group stream
-        3. Raw stream (Mixed stream)
-    """
     single_stream, group_stream, raw_stream={'1':[], '2':[]}, [], []
     t_single, t_raw={'1':[], '2':[]}, []
     activity={'1':'1', '2':'2'}

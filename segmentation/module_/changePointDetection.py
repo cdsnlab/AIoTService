@@ -25,10 +25,13 @@ def change_point_detection(features, epsfolder, data_name='testbed', metric='SEP
         prev1=max(0, t-1)
         post1=min(t+1, len(features)-1)
         post2=min(t+2, len(features)-1)
-
+        
+        numsensors=int((len(features[t])-12)/2)
         before=np.concatenate((features[t], features[post1])).reshape((n, -1))
-        # after=np.concatenate((features[post1], features[post2])).reshape((n, -1))
         after=np.concatenate((features[post1], features[post2])).reshape((n, -1))
+
+        before=before[:,12+numsensors:]
+        after=after[:,12+numsensors:]
 
         if metric.lower()=="kliep":
             dre=dr(test_data=before, train_data=after); scores.append(dre.KLDiv)
