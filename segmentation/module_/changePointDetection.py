@@ -8,9 +8,10 @@ def change_point_detection(features, epsfolder, data_name='testbed', metric='SEP
     scores, thetas, sigmas, lambdas=[], [], [], []
     start=time.time()
 
-    metricfolder="{}/{}".format(epsfolder, metric)
-    if not os.path.exists(metricfolder):
-        os.mkdir(metricfolder)
+    if save==True:
+        metricfolder="{}/{}".format(epsfolder, metric)
+        if not os.path.exists(metricfolder):
+            os.mkdir(metricfolder)
 
     for t in range(len(features)):
         if t>0 and t%1000==0:

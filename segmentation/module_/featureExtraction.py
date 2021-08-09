@@ -3,9 +3,9 @@ import numpy as np
 import math
 from datetime import datetime, timedelta
 
-from .info.adlmr_info import adlmr_location as al
-from .info.hh101_info import hh101_location as hl101
-from .info.testbed_info import seminar_location as tl
+from .info.adlmr import adlmr_location as al
+from .info.hh import hh101_location as hl101
+from .info.testbed import seminar_location as tl
 from .info.config import config, feature_name        
 
 def feature_extraction(events, data_name, sensor_list):
@@ -15,15 +15,15 @@ def feature_extraction(events, data_name, sensor_list):
     num_total_features=num_set_features+2*num_sensors
     window_size=config['ws']
 
-    # if data_name=='adlmr':
-    #     min_loc, max_loc=float(40), float(39*39+28*28)
-    #     coord_dict=al
-    # elif data_name=='hh101':
-    #     min_loc, max_loc=float(32), float(31*31+19*19)
-    #     coord_dict=hl101
-    # else: # testbed
-    #     min_loc, max_loc=float(116), float(10*10+25*25)
-    #     coord_dict=tl
+    if data_name=='adlmr':
+        min_loc, max_loc=float(40), float(39*39+28*28)
+        coord_dict=al
+    elif data_name=='hh101':
+        min_loc, max_loc=float(32), float(31*31+19*19)
+        coord_dict=hl101
+    else: # testbed
+        min_loc, max_loc=float(116), float(10*10+25*25)
+        coord_dict=tl
 
     first_dt=datetime.fromtimestamp(float(events[0,2]))
     prevwin1 = prevwin2 = max_duration = 0
@@ -59,9 +59,15 @@ def feature_extraction(events, data_name, sensor_list):
         # A0 (time of the last sensor event in window (hour))
         # A1 (time of the last sensor event in window (seconds))
         # A2 (day of the week for the last sensor event in window)
-        feature[0]=int(dt_seconds/3600);    feature[0]/=24.
-        feature[1]=dt_seconds;              feature[1]/=86400.
-        feature[2]=dt.weekday();            feature[2]/=7.
+
+        feature[0]=int(dt_seconds/3600) # RAW
+        feature[0]/=23. # [0, 1]
+
+        feature[1]=dt_seconds # RAW
+        feature[1]/=86399. # [0, 1]
+
+        feature[2]=dt.weekday() # RAW
+        feature[2]/=6. # [0, 1]
 
         lstime=datetime.fromtimestamp(float(window[-1,2])) # newest sensor event
         lstime=lstime-lstime.replace(hour=0, minute=0, second=0)
@@ -75,7 +81,8 @@ def feature_extraction(events, data_name, sensor_list):
         max_duration=max(duration, max_duration)
 
         # A3 (time duration of entire window)
-        feature[3] = duration/max_duration if max_duration!=0. else 0
+        feature[3] = duration # RAW
+        feature[3] = feature[3]/max_duration if max_duration!=0. else feature[3] # [0, 1]
 
         halftime=datetime.fromtimestamp(float(window[int(window_size/2)-1,2]))
         halftime=halftime-halftime.replace(hour=0, minute=0, second=0)
@@ -83,13 +90,13 @@ def feature_extraction(events, data_name, sensor_list):
 
         halfduration = halftime-fstime if halftime>=fstime else halftime+(86400-fstime)
 
-        if duration==0.0:
-            activitychange=0.0
-        else:
-            activitychange=float(halfduration)/float(duration)
+        # if duration==0.0:
+        #     activitychange=0.0
+        # else:
+        #     activitychange=float(halfduration)/float(duration)
 
         # A11 (change in activity level between two halves of current window)
-        feature[11] = activitychange
+        feature[11] = float(halfduration)/float(duration) if duration!=0.0 else 0. # [0, 1]
 
         # A4 (time elapsed since previous sensor event)
         sltime=datetime.fromtimestamp(float(window[-2,2]))
@@ -97,48 +104,56 @@ def feature_extraction(events, data_name, sensor_list):
         sltime=int(sltime.total_seconds())
 
         since_last_sensor = lstime-sltime if lstime>=sltime else lstime+(86400-sltime)
-        feature[4]=since_last_sensor/86400.
+        # feature[4]=since_last_sensor/86400.
+        feature[4] = since_last_sensor/duration if duration!=0.0 else 0. # [0, 1]
 
         # A7 (last sensor event in current window)
-        feature[7] = sensor_list.index(event[0])
-        feature[7]/= float(len(sensor_list))
+        feature[7] = sensor_list.index(event[0]) # RAW
+        feature[7]/= float(num_sensors) # [0, 1]
         # feature[7]=0 #EDIT
 
         # A8 (last sensor location in current window)
-        feature[8] =0
+        lsx, lsy = coord_dict[event[0]]
+        feature[8] = ((lsx**2+lsy**2)-min_loc)/max_loc
+        # feature[8] =0
 
         # A9 (last motion sensor location in current window)
-        scount=np.zeros(num_sensors)
         last=False
         for ri in range(window_size-1, -1, -1):
             sensor=window[ri, 0]
-            scount[sensor_list.index(sensor)]+=1
+            # scount[sensor_list.index(sensor)]+=1
             if sensor[0]=='M' and not last:
-                feature[9]=sensor_list.index(sensor)/len(sensor_list)
+                lmsx, lmsy = coord_dict[sensor]
+                feature[9] = ((lmsx**2+lmsy**2)-min_loc)/max_loc
+                # feature[9]=sensor_list.index(sensor)/len(sensor_list)
                 last=True
                 break
         if not last:
             feature[9]=0.
 
-        numdistinctsensors=0
+        scount=np.zeros(num_sensors)
+        for event in window:
+            scount[sensor_list.index(event[0])]+=1
+
+        # numdistinctsensors=0
         # A10 (complexity of window (entropy calculated from sensor counts))
         complexity=0
         for i in range(num_sensors):
-            if scount[i]>1:
+            if scount[i]>=1:
                 ent = float(scount[i]) / float(window_size)
                 ent *= np.log2(ent)
                 complexity -= float(ent)
-                numdistinctsensors+=1
+                # numdistinctsensors+=1
         feature[10] = complexity
 
         # A5 (dominant sensor (sensor firing most often) for previous window)
-        feature[5] = prevwin1
-        feature[5]/=float(len(sensor_list))
+        feature[5] = prevwin1 # RAW
+        feature[5]/=float(num_sensors)
         # feature[5] = 0
 
         # A6 (dominant sensor two windows back)
-        feature[6] = prevwin2
-        feature[6]/=float(len(sensor_list))
+        feature[6] = prevwin2 # RAW
+        feature[6]/=float(num_sensors)
         # feature[6] = 0
 
         prevwin2 = prevwin1
@@ -154,7 +169,10 @@ def feature_extraction(events, data_name, sensor_list):
         # A12+ (counts for each sensor in current window)
         for e in window:
             feature[sensor_list.index(e[0])+num_set_features]+=1
-        feature[num_set_features:num_set_features+len(sensor_list)]/=float(window_size)
+
+        assert sum(feature[num_set_features:num_set_features+num_sensors])==window_size
+
+        feature[num_set_features:num_set_features+num_sensors]/=float(window_size)
 
         # A12+N+ (time elasped since each sensor last fired)
 
@@ -165,7 +183,7 @@ def feature_extraction(events, data_name, sensor_list):
                 feature[num_set_features+num_sensors+i]=86400.
             else:
                 feature[num_set_features+num_sensors+i]=difftime.total_seconds()
-        feature[num_set_features+len(sensor_list):]/=86400.
+        feature[num_set_features+num_sensors:]/=86400.
 
         features.append(feature)
         

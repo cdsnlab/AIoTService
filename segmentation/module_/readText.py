@@ -92,11 +92,9 @@ def read_twor(raw_data):
     return events
 
 def read_adlmr(raw_data):
-    single_stream, group_stream, raw_stream={'1':[], '2':[]}, [], []
-    t_single, t_raw={'1':[], '2':[]}, []
-    activity={'1':'1', '2':'2'}
+    tasks={'G'+item:[] for item in 'ABCDE'}
     bucket=[]
-    group=False
+    start=False
     for i, line in enumerate(raw_data):
         single_event=[]
         f_info=line.decode().split()
@@ -109,50 +107,28 @@ def read_adlmr(raw_data):
                                                 "%Y-%m-%d%H:%M:%S.%f"))
             single_event.append(float(timestamp)) # 3. timestamp
 
-            # 4. resident ID # 5. task ID
-            if len(f_info)==6:
-                rf, tf=str(np.array(f_info[4])), str(np.array(f_info[5]))
-                rs, ts='0', '0'
-            if len(f_info)==8:
-                rf, tf, rs, ts=str(np.array(f_info[4])), str(np.array(f_info[5])), str(np.array(f_info[6])), str(np.array(f_info[7]))
+            if int(len(f_info)/2)==3: # triggered by single-user
+                single_event.append(str(f_info[4]))
+            else: # triggered by multi-user
+                single_event.append(3)
 
-            single_event.append(rf); single_event.append(tf)
-            single_event.append(rs); single_event.append(ts)
-
-            if group:
-                bucket.append(single_event)
-            
-            if len(f_info)==7 or len(f_info)==9:
-                if 'START' in str(np.array(f_info[-1])):
+            if len(f_info)%2==1: # ACTIVITY START/END
+                label, boundary = str(f_info[-1]).split("_")
+                if 'START'==boundary:
+                    start=True
                     bucket.append(single_event)
-                    group=True
-                elif 'END' in str(np.array(f_info[-1])):
-                    group_stream.append(bucket)
+                else:
+                    start=False
+                    tasks[label].append(bucket)
                     bucket=[]
-                    group=False
-
-            raw_stream.append(single_event)
-
-            if rf!='0':
-                if tf!=activity[rf]:
-                    t_single[rf].append(len(single_stream[rf]))
-                    t_raw.append(len(raw_stream))
-                    activity[rf]=tf
+            else:
+                if start:
+                    bucket.append(single_event)
             
-            if rs!='0':
-                if ts!=activity[rs]:
-                    t_single[rs].append(len(single_stream[rs]))
-                    t_raw.append(len(raw_stream))
-                    activity[rs]=ts
-
-            if str(rf)!='0':
-                single_stream[str(rf)].append(single_event)
-            if str(rs)!='0':
-                single_stream[str(rs)].append(single_event)
         except IndexError:
             print("{} {}".format(i, line))
     
-    return single_stream, group_stream, raw_stream, t_single, t_raw
+    return tasks
 
 def time_correction(chunk, idx):
     """
