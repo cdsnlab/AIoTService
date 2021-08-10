@@ -19,6 +19,8 @@ feature_name={
     9:"LMSLocation",
     10:"Complexity",
     11:"ActivityLevelChange",
-    12:"Count",
-    13:"ElapsedTime"
+    12:"TransitionsMotion",
+    13:"DistinctSensors",
+    14:"Count",
+    15:"ElapsedTime"
 }
