@@ -6,10 +6,10 @@ class DensityRatio:
     def __init__(self, test_data, train_data, alpha=0., sigma_list=None, lambda_list=None, kernel_num=100):
         
         if test_data.shape[0]!=train_data.shape[0]:
-            raise ValueError("Different dimension of sample")
-        
-        if test_data.shape[1]!=train_data.shape[1]:
             raise ValueError("Different number of samples")
+            
+        if test_data.shape[1]!=train_data.shape[1]:
+            raise ValueError("Different dimension of sample")
 
         self.__test=test_data       # (n, d)
         self.__train=train_data     # (n, d)
@@ -81,7 +81,7 @@ class DensityRatio:
             SEP
         """
 
-        h_SEP = phi_train.prod(axis=0)/self.__minimum
+        h_SEP = phi_train.prod(axis=0)
         theta_SEP = (1/lambda_)*h_SEP
         # h=np.matrix(phi_train.prod(axis=0)) # (1, n) *
         # theta=(1/lambda_)*h # (1, n)
@@ -224,12 +224,11 @@ class DensityRatio:
         # g_x = self.calculate_density_ratio(self.__test, self.__theta) # (1, n)
         theta = self.__theta_SEP # (1, n)
 
-        phi_test = self.gaussian_kernel_matrix(self.__test, self.__kernel_centers, self.__sigma) # (n, n)
+        phi_ = self.gaussian_kernel_matrix(self.__test, self.__kernel_centers, self.__sigma) # (n, n)
+        # phi_ = self.gaussian_kernel_matrix(self.__train, self.__kernel_centers, self.__sigma) # (n, n)
 
-        g_x = (theta@(phi_test.prod(axis=0).T)).item()
+        g_x = (theta@(phi_.prod(axis=0).T)).item()
         score = max(0, 0.5-g_x/self.__minimum)
-
-        # score= max(0, 0.5-g_x.mean())
 
         return score
 

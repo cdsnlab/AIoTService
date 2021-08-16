@@ -11,7 +11,7 @@ from .info.config import config, feature_name
 def feature_extraction(events, data_name, sensor_list):
 
     num_sensors=len(sensor_list)
-    num_set_features=len(feature_name.keys())-2
+    num_set_features=len(feature_name)-2
     num_total_features=num_set_features+2*num_sensors
     window_size=config['ws']
 
@@ -25,8 +25,9 @@ def feature_extraction(events, data_name, sensor_list):
         min_loc, max_loc=float(116), float(10*10+25*25)
         coord_dict=tl
 
-    first_dt=datetime.fromtimestamp(float(events[0,2]))
-    prevwin1 = prevwin2 = max_duration = 0
+    first_dt = datetime.fromtimestamp(float(events[0,2]))
+    prevwin1 = prevwin2 = 0
+    max_duration = 300
 
     features=[]
     
@@ -73,10 +74,11 @@ def feature_extraction(events, data_name, sensor_list):
         fstime = int(fstime.total_seconds())  
         
         duration = lstime-fstime if lstime>=fstime else lstime+(86400-fstime)
-        max_duration=max(duration, max_duration)
+        # max_duration=max(duration, max_duration)
 
         # A3 (time duration of entire window)
-        feature[3] = duration/max_duration if max_duration!=0. else 0. # [0, 1]
+        # feature[3] = duration/max_duration if max_duration!=0. else 0. # [0, 1]
+        feature[3] = duration/max_duration
 
         halftime=datetime.fromtimestamp(float(window[int(window_size/2)-1,2]))
         halftime=halftime-halftime.replace(hour=0, minute=0, second=0)
@@ -90,8 +92,8 @@ def feature_extraction(events, data_name, sensor_list):
 
         # A4 (time elapsed since previous sensor event)
         since_last_sensor = lstime-sltime if lstime>=sltime else lstime+(86400-sltime)
-        # feature[4]=since_last_sensor/86400.
-        feature[4] = since_last_sensor/duration if duration!=0.0 else 0. # [0, 1]
+        feature[4] = since_last_sensor/86400. # [0, 1]
+        # feature[4] = since_last_sensor/duration if duration!=0.0 else 0. # [0, 1]
 
         # A5 (dominant sensor (sensor firing most often) for previous window)
         feature[5] = prevwin1/float(num_sensors)
@@ -99,26 +101,29 @@ def feature_extraction(events, data_name, sensor_list):
         # A6 (dominant sensor two windows back)
         feature[6] = prevwin2/float(num_sensors)
 
-        # A7 (last sensor event in current window)
-        feature[7] = sensor_list.index(event[0])/float(num_sensors) # [0, 1]
+        # A8 (first sensor in window)
+        feature[8] = sensor_list.index(window[0, 0])/float(num_sensors)
 
-        # A8 (last sensor location in current window)
+        # A9 (last sensor event in current window)
+        feature[9] = sensor_list.index(event[0])/float(num_sensors) # [0, 1]
+
+        # A11 (last sensor location in current window)
         lsx, lsy = coord_dict[event[0]]
-        feature[8] = ((lsx**2+lsy**2)-min_loc)/max_loc
+        feature[11] = ((lsx**2+lsy**2)-min_loc)/max_loc
 
-        # A9 (last motion sensor location in current window)
+        # A12 (last motion sensor location in current window)
         last = False
         scount = np.zeros(num_sensors)
         numtransitions = 0
-        nummotionsensor = 0
+        # nummotionsensor = 0
         for ri in range(window_size-1, -1, -1):
             sensor=window[ri, 0]
             scount[sensor_list.index(sensor)]+=1
             if sensor[0]=='M':
-                nummotionsensor+=1
+                # nummotionsensor+=1
                 if not last:
                     lmsx, lmsy = coord_dict[sensor]
-                    feature[9] = ((lmsx**2+lmsy**2)-min_loc)/max_loc
+                    feature[12] = ((lmsx**2+lmsy**2)-min_loc)/max_loc
                     last=True
             if ri<window_size-1:
                 if window[ri, 0][0]=="M" and window[ri+1, 0][0]=="M" and window[ri, 0]!=window[ri+1, 0]:
@@ -130,9 +135,16 @@ def feature_extraction(events, data_name, sensor_list):
             if scount[i] > maxcount:
                 maxcount = scount[i]
                 prevwin1 = i
+        
+        # A7 (dominant sensor)
+        feature[7] = prevwin1/float(num_sensors)
+
+        # A10 (dominant sensor location)
+        dsx, dsy = coord_dict[sensor_list[prevwin1]]
+        feature[10] = ((dsx**2+dsy**2)-min_loc)/max_loc
 
         numdistinctsensors=0
-        # A10 (complexity of window (entropy calculated from sensor counts))
+        # A13 (complexity of window (entropy calculated from sensor counts))
         complexity=0
         for i in range(num_sensors):
             if scount[i] >= 1:
@@ -140,18 +152,19 @@ def feature_extraction(events, data_name, sensor_list):
                 ent *= np.log2(ent)
                 complexity -= float(ent)
                 numdistinctsensors+=1
-        feature[10] = complexity
+        feature[13] = complexity
 
-        # A11 (change in activity level between two halves of current window)
-        feature[11] = float(halfduration)/float(duration) if duration!=0.0 else 0. # [0, 1]
+        # A14 (change in activity level between two halves of current window)
+        feature[14] = float(halfduration)/float(duration) if duration!=0.0 else 0. # [0, 1]
 
-        # (NOT used) number of transitions between areas in current window
-        feature[12] = numtransitions/float(nummotionsensor) if nummotionsensor!=0. else 0.
+        # A15 (number of transitions between areas in current window)
+        # feature[15] = numtransitions/float(nummotionsensor) if nummotionsensor!=0. else 0.
+        feature[15] = numtransitions/float(window_size)
 
-        # (NOT used) number of distinct sensors in current window
-        feature[13] = numdistinctsensors/float(num_sensors)
+        # A16 (number of distinct sensors in current window)
+        feature[16] = numdistinctsensors/float(num_sensors)
 
-        # A14+ (counts for each sensor in current window)
+        # A17+ (counts for each sensor in current window)
         for e in window:
             feature[sensor_list.index(e[0])+num_set_features]+=1
 
@@ -159,7 +172,7 @@ def feature_extraction(events, data_name, sensor_list):
 
         feature[num_set_features:num_set_features+num_sensors]/=float(window_size)
 
-        # A14+N+ (time elasped since each sensor last fired)
+        # A17+N+ (time elasped since each sensor last fired)
 
         for i in range(num_sensors):
             difftime=dt-sensortimes[sensor_list[i]]
