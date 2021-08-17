@@ -37,25 +37,17 @@ class DensityRatio:
     def __call__(self, data, theta):
         return self.calculate_density_ratio(data, theta)
 
-    def calculate_density_ratio(self, data, theta): # (b, n) and (b, 1)
-        
+    def calculate_density_ratio(self, data, theta):
         phi_data = self.gaussian_kernel_matrix(data=data, centers=self.kernel_centers, sigma=self.__sigma) # (b, n)
-        # kernels = np.matrix(phi_data.prod(axis=0)) # (1, n)
-        # kernels = np.matrix(phi_data.prod(axis=1)).T # (1, n)
-        # density_ratio=np.multiply(theta, kernels) # (1,n)*(1,n)->(1,n)
-        density_ratio = phi_data.T@theta # (n,b)@(b,1)
-        return density_ratio.ravel()
+        density_ratio = phi_data.prod(axis=0)@theta # (1,n)@(n,1) -> (1, 1)
+
+        return density_ratio.item()
     
     def median_distance(self, x):
-        """
-            INPUT: x (n-by-d)
-                distance_matrix (n-by-n)
-        """
         dists=distance_matrix(x, x)     # (n, n)
         dists=np.tril(dists).ravel()
         l=[item for item in dists if item>0.]
         if len(l)==0:
-            # print("median distance 0: All same features")
             return 1.
         # return np.sqrt(0.5*np.median(np.array(l))).item() 
         return np.median(np.array(l)).item()
@@ -69,27 +61,17 @@ class DensityRatio:
         phi_train=self.gaussian_kernel_matrix(data=train_data, centers=self.__kernel_centers, sigma=sigma) # (b, n)
         phi_test=self.gaussian_kernel_matrix(data=test_data, centers=self.__kernel_centers, sigma=sigma) # (b, n)
 
-        """
-            uLSIF / RuLSIF
-        """
         H=alpha*(phi_test@(phi_test.T)/self.__test_n)+(1-alpha)*(phi_train@(phi_train.T)/self.__train_n) # (b, b)
         h=np.matrix(phi_test.mean(axis=1)) # (b, 1)
         theta=np.linalg.solve(H+np.identity(self.__kernel_num)*lambda_, h) # (b, b)@(b,1)->(b,1)
         theta[theta<0]=0
 
-        """
-            SEP
-        """
-
-        h_SEP = phi_train.prod(axis=0)
-        theta_SEP = (1/lambda_)*h_SEP
-        # h=np.matrix(phi_train.prod(axis=0)) # (1, n) *
-        # theta=(1/lambda_)*h # (1, n)
+        theta_SEP = phi_train.prod(axis=0)/(lambda_) # (1, n)
 
         self.__alpha=alpha
         self.__theta=theta
 
-        self.__theta_SEP = theta_SEP
+        self.__theta_SEP = theta_SEP.T # (n, 1)
 
         self.__sigma=sigma
         self.__lambda=lambda_
@@ -221,13 +203,12 @@ class DensityRatio:
 
     @property
     def SEP(self): #TODO
-        # g_x = self.calculate_density_ratio(self.__test, self.__theta) # (1, n)
-        theta = self.__theta_SEP # (1, n)
+        g_x = self.calculate_density_ratio(self.__test, self.__theta_SEP) # (1, n)
+        # phi_test = self.gaussian_kernel_matrix(self.__test, self.__kernel_centers, self.__sigma) # (b, n)
+        # phi_train = self.gaussian_kernel_matrix(self.__train, self.__kernel_centers, self.__sigma)  # (b, n)
 
-        phi_ = self.gaussian_kernel_matrix(self.__test, self.__kernel_centers, self.__sigma) # (n, n)
-        # phi_ = self.gaussian_kernel_matrix(self.__train, self.__kernel_centers, self.__sigma) # (n, n)
+        # g_x = (phi_train.prod(axis=0)@self.__theta_SEP).item() # (1, n) @ (n, 1) -> 1
 
-        g_x = (theta@(phi_.prod(axis=0).T)).item()
         score = max(0, 0.5-g_x/self.__minimum)
 
         return score

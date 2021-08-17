@@ -2,14 +2,15 @@ import numpy as np
 import os
 import time
 from .densityRatio import DensityRatio as dr
+from .info.config import config
 
 def change_point_detection(features, data_name='testbed', metric='SEP'):
-    n = 2
+    n = config['vs']
     scores = []
     start=time.time()
 
     for t in range(len(features)):
-        if t>0 and t%1000==0:
+        if t>0 and t%10000==0:
             print("{}/{} (accumulated) time: {}".format(t, len(features), time.time()-start))
 
         prev1=max(0, t-1)
