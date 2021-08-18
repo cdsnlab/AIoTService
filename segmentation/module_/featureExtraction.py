@@ -21,7 +21,7 @@ def feature_extraction(events, data_name, sensor_list):
     elif data_name=='hh101':
         min_loc, max_loc=float(32), float(31*31+19*19)
         coord_dict=hl101
-    else: # testbed
+    elif data_name=='testbed': # testbed
         min_loc, max_loc=float(116), float(10*10+25*25)
         coord_dict=tl
 
@@ -109,10 +109,13 @@ def feature_extraction(events, data_name, sensor_list):
         feature[9] = sensor_list.index(event[0])/float(num_sensors-1) # [0, 1]
 
         # A11 (last sensor location in current window)
+
         lsx, lsy = coord_dict[event[0]]
         feature[11] = ((lsx**2+lsy**2)-min_loc)/(max_loc-min_loc)
 
+
         # A12 (last motion sensor location in current window)
+
         last = False
         scount = np.zeros(num_sensors)
         numtransitions = 0
@@ -129,6 +132,7 @@ def feature_extraction(events, data_name, sensor_list):
             if ri<window_size-1:
                 if window[ri, 0][0]=="M" and window[ri+1, 0][0]=="M" and window[ri, 0]!=window[ri+1, 0]:
                     numtransitions+=1
+
         
         prevwin2 = prevwin1
         maxcount = 0
@@ -141,8 +145,10 @@ def feature_extraction(events, data_name, sensor_list):
         feature[7] = prevwin1/float(num_sensors-1)
 
         # A10 (dominant sensor location)
+
         dsx, dsy = coord_dict[sensor_list[prevwin1]]
         feature[10] = ((dsx**2+dsy**2)-min_loc)/(max_loc-min_loc)
+
 
         numdistinctsensors=0
         # A13 (complexity of window (entropy calculated from sensor counts))
