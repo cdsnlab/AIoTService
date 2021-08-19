@@ -51,7 +51,7 @@ class DensityRatio:
         if len(l)==0:
             return 1.
         # return np.sqrt(0.5*np.median(np.array(l))).item() 
-        return np.median(np.array(l)).item()*np.sqrt(0.5) #
+        return np.median(np.array(l)).item()#*np.sqrt(0.5)
 
     def _DensityRatio(self, test_data, train_data, alpha, sigma_list, lambda_list):
         if len(sigma_list)==1 and len(lambda_list)==1:
