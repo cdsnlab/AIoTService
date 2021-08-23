@@ -4,7 +4,7 @@ import time
 from .densityRatio import DensityRatio as dr
 from .info.config import config
 
-def change_point_detection(features, data_name='testbed', metric='SEP'):
+def change_point_detection(features, metric='SEP'):
     n = config['vs']
     scores = []
     start=time.time()

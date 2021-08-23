@@ -56,17 +56,17 @@ baseline_activities={
     "Eat_Lunch":"Eat",
     "Enter_Home":"Enter_Home",
     "Entertain_Guests":"Other",
-    "Evening_Meds":"Other",
-    "Groom":"Other",
+    "Evening_Meds":"Other", # Sensory Wash_Dishes?
+    "Groom":"Other",# Sensory Personal_Hygiene (-> Originally "Other")
     "Leave_Home":"Leave_Home",
-    "Morning_Meds":"Other",
+    "Morning_Meds":"Other", # Sensory Wash_Dishes?
     "Personal_Hygiene":"Personal_Hygiene",
-    "Phone":"Other",
-    "Read":"Other",
+    "Phone":"Eat", # Sensory Relax, Eat (-> Originally "Other")
+    "Read":"Eat", # Sensory Relax, Eat (-> Originally "Other")
     "Relax":"Relax",
     "Sleep":"Sleep",
-    "Sleep_Out_Of_Bed":"Sleep",
-    "Toilet":"Other",
+    "Sleep_Out_Of_Bed":"Relax", # Sensory Relax (-> Originally "Sleep")
+    "Toilet":"Personal_Hygiene", # Sensory Personal_Hygiene (-> Originally "Other")
     
     'Take_Medicine': 'Other',
     'Exercise': 'Other',
@@ -87,7 +87,7 @@ baseline_activities={
     "Wash_Dinner_Dishes":"Wash_Dishes",
     "Wash_Dishes":"Wash_Dishes",
     "Wash_Lunch_Dishes":"Wash_Dishes",
-    "Watch_TV":"Other",
+    "Watch_TV":"Relax", # Sensory Relax (-> Originally "Other")
     'Work': 'Work',
     'Work_At_Desk': 'Work',
     "Work_At_Table":"Work",

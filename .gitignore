@@ -105,6 +105,7 @@ venv.bak/
 .mypy_cache/
 
 # segmentation
+segmentation/
 *.pickle
 *.pkl
 *.json
@@ -114,14 +115,3 @@ venv.bak/
 *.txt
 *.jpg
 *.png
-
-segmentation/dataset/**
-segmentation/hybrid/dataset
-segmentation/hybrid/save
-segmentation/preprocessed/**
-segmentation/scores/**
-segmentation/statistics/**
-segmentation/outputs/**
-segmentation/features/**
-segmentation/analysis/**
-segmentation/
