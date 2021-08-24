@@ -41,7 +41,9 @@ class DensityRatio:
         phi_data = self.gaussian_kernel_matrix(data=data, centers=self.kernel_centers, sigma=self.__sigma) # (b, n)
 
         # density_ratio = phi_data.T@theta # (n, b)@(b, 1) -> (n, 1)
-        density_ratio = np.multiply(phi_data.prod(axis=1), theta) # (b, 1)*(b, 1) -> (b, 1)
+        density_ratio = np.multiply(phi_data.prod(axis=0).T, theta) # (n, 1)*(n, 1) -> (n, 1)
+
+        assert density_ratio.shape[0]==self.__kernel_num
 
         return density_ratio.T # (1, n) .. (1, 1)
     
@@ -71,7 +73,7 @@ class DensityRatio:
         # wh_train = (phi_train.T@theta).T # (n, b)@(b, 1) -> (n, 1) -> (1, n)
         # wh_test = (phi_test.T@theta).T # (n, b)@(b, 1) -> (n, 1) -> (1, n)
 
-        theta_SEP = (phi_train.prod(axis=1)/lambda_).T # (b, 1)
+        theta_SEP = (phi_train.prod(axis=0)/(self.__kernel_num*lambda_)).reshape((self.__kernel_num, 1)) # (n, 1)
         # theta_SEP = np.matrix(phi_train.mean(axis=1))/lambda_ # (b, 1) 
         # theta_SEP[theta_SEP<0] = 0
 

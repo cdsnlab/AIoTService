@@ -33,30 +33,30 @@ activityfiles_new={
     'Chatting': [
 "Chatting45.npy",
 "Chatting53.npy",
-# "Chatting64.npy",
-# "Chatting72.npy",
-# "Chatting82.npy"
+"Chatting64.npy",
+"Chatting72.npy",
+"Chatting82.npy"
     ],
     'TechnicalDiscussion': [
-# 'Discussion1.npy',
-# 'Discussion20.npy',
-# 'Discussion23.npy',
+'Discussion1.npy',
+'Discussion20.npy',
+'Discussion23.npy',
 'Discussion24.npy',
 'Discussion25.npy'
     ],
     'GroupStudy': [
-# 'GroupStudy10.npy',
-# 'GroupStudy12.npy',
+'GroupStudy10.npy',
+'GroupStudy12.npy',
 'GroupStudy14.npy',
 'GroupStudy15.npy',
-# 'GroupStudy16.npy'
+'GroupStudy16.npy'
     ],
     'Seminar': [
 'Presentation100.npy',
 'Presentation105.npy',
-# 'Presentation110.npy',
-# 'Presentation111.npy',
-# 'Presentation112.npy'
+'Presentation110.npy',
+'Presentation111.npy',
+'Presentation112.npy'
     ]
 }
 
