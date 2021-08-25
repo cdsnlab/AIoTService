@@ -145,23 +145,41 @@ def feature_extraction(events, data_name, sensor_list):
         
     return features
 
-def sliding_window(events):
+def sliding_window(values, window_size):
     """
         window w_i = {e_(i-ws+1), ... , e_i}:
             e_i is representative of w_i and remainders {e_(i-ws+1), ..., e_(i-1)} explain the context of e_i
         first (ws-1) number of windows: first event is repeated to keep the size of window (ws)
     """
-    ws=config['ws']
-    windows=[]
-    for i in range(events.shape[0]):
-        window=events[i-ws+1:i+1,:]
-        if i-ws+1<0:
-            repeat=np.array([events[0,:] for j in range(ws-i-1)])
-            window=np.concatenate((repeat,events[:i+1]), axis=0)
+
+    windows = []
+    for i in range(len(values)):
+        window=[]
+        idx=i-window_size+1
+        while idx<=i:
+            window.append(values[max(0, idx)])
+            idx+=1
+        
+        assert len(window)==window_size
+        assert window[-1]==values[i]
+
         windows.append(window)
-    windows=np.array(windows)
     
+    assert len(values)==len(windows)
+
     return windows
+
+    # ws=config['ws']
+    # windows=[]
+    # for i in range(events.shape[0]):
+    #     window=events[i-ws+1:i+1,:]
+    #     if i-ws+1<0:
+    #         repeat=np.array([events[0,:] for j in range(ws-i-1)])
+    #         window=np.concatenate((repeat,events[:i+1]), axis=0)
+    #     windows.append(window)
+    # windows=np.array(windows)
+    
+    # return windows
 
 
 def normalize(value, min_, max_):

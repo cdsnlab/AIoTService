@@ -40,8 +40,8 @@ class DensityRatio:
     def calculate_density_ratio(self, data, theta): # Input: data = (n, d), theta = (b, 1)
         phi_data = self.gaussian_kernel_matrix(data=data, centers=self.kernel_centers, sigma=self.__sigma) # (b, n)
 
-        # density_ratio = phi_data.T@theta # (n, b)@(b, 1) -> (n, 1)
-        density_ratio = np.multiply(phi_data.prod(axis=0).T, theta) # (n, 1)*(n, 1) -> (n, 1)
+        density_ratio = phi_data.T@theta # (n, b)@(b, 1) -> (n, 1)
+        # density_ratio = np.multiply(phi_data.prod(axis=0).T, theta) # (n, 1)*(n, 1) -> (n, 1)
 
         assert density_ratio.shape[0]==self.__kernel_num
 
