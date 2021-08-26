@@ -2,6 +2,7 @@ from datetime import datetime
 from math import remainder
 import numpy as np
 import pandas as pd
+import random
 
 def read_hh(raw_data):
     activity=''
@@ -139,11 +140,20 @@ def time_correction(chunk, idx, bound):
         the time interval between the last event of first activity and the first event of second activity is decided by 
             np.random.randint(a, b)
     """
+    # intervals = []
+    # for i in range(1, len(chunk)):
+    #     if i==idx:
+    #         continue
+    #     intervals.append(float(chunk[i, 2])-float(chunk[i-1, 2]))
+    
+
     sbegts=float(chunk[idx,2])
     fendts=float(chunk[idx-1, 2])
     interval=np.random.randint(bound[0],bound[1])
     for i in range(idx, chunk.shape[0]):
-        chunk[i, 2]=str(float(chunk[i, 2])+fendts+interval-sbegts)
+        chunk[i, 2]=str(float(chunk[i, 2])+fendts-sbegts
+            +interval
+        )
     
     return chunk
 
