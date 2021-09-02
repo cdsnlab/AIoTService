@@ -33,4 +33,6 @@ def change_point_detection(features, metric='SEP'):
         else:
             dre=dr(test_data=before, train_data=after); scores.append(dre.SEP)#; print(dre.SEP)
 
+    assert len(features)==len(scores)
+
     return scores

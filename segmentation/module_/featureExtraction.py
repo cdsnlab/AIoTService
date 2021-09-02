@@ -82,7 +82,7 @@ def feature_extraction(events, data_name, sensor_list):
 
         feature[3] = duration/DAYSECONDS # Duration
         feature[4] = since_last/DAYSECONDS # ElapsedTimeFromLastEvent
-        feature[5] = halfduration/duration if duration!=0.0 else 0. # ActivityLevelChange
+        feature[5] = 0 #halfduration/duration if duration!=0.0 else 0. # ActivityLevelChange
 
         feature[6] = prevwin1/float(NUMSENSORS) # DominantSensorPrev1W
         feature[7] = prevwin2/float(NUMSENSORS) # DominantSensorPrev2W
@@ -99,9 +99,9 @@ def feature_extraction(events, data_name, sensor_list):
                 maxcount = scount[i]
                 prevwin1 = i
 
-        feature[8] = prevwin1/float(NUMSENSORS) # DominantSensorCurrentW
-        feature[9] = sensor_list.index(window[0, 0])/float(NUMSENSORS) # FirstSensor
-        feature[10] = sensor_list.index(event[0])/float(NUMSENSORS) # LastSensor
+        feature[8] = 0#prevwin1/float(NUMSENSORS) # DominantSensorCurrentW
+        feature[9] = 0#sensor_list.index(window[0, 0])/float(NUMSENSORS) # FirstSensor
+        feature[10] = 0#sensor_list.index(event[0])/float(NUMSENSORS) # LastSensor
 
         feature[11] = (sum(np.square(coord_dict[event[0]]))-min_loc)/(max_loc-min_loc) # LastSensorLocation
 
@@ -110,7 +110,7 @@ def feature_extraction(events, data_name, sensor_list):
                 feature[12] = (sum(np.square(coord_dict[window[ri, 0]]))-min_loc)/(max_loc-min_loc) #LastMotionSensorLocation
                 break
 
-        feature[13] = (sum(np.square(coord_dict[sensor_list[prevwin1]]))-min_loc)/(max_loc-min_loc) #DominantSensorLocation
+        feature[13] = 0#(sum(np.square(coord_dict[sensor_list[prevwin1]]))-min_loc)/(max_loc-min_loc) #DominantSensorLocation
 
         numdistinctsensors=0
         complexity=0
@@ -122,12 +122,12 @@ def feature_extraction(events, data_name, sensor_list):
                 numdistinctsensors+=1
 
         feature[14] = complexity/np.log2(W) # DataComplexity
-        feature[15] = numdistinctsensors/float(NUMSENSORS) # DistinctSensors
+        feature[15] = 0#numdistinctsensors/float(NUMSENSORS) # DistinctSensors
 
         for e in window:
-            feature[sensor_list.index(e[0])+NUMSETFEATURES]+=1
+            feature[sensor_list.index(e[0])+NUMSETFEATURES]+=0#1
 
-        assert sum(feature[NUMSETFEATURES:NUMSETFEATURES+NUMSENSORS])==W
+        assert sum(feature[NUMSETFEATURES:NUMSETFEATURES+NUMSENSORS])==0
 
         feature[NUMSETFEATURES:NUMSETFEATURES+NUMSENSORS]/=float(W)
 
@@ -168,18 +168,6 @@ def sliding_window(values, window_size):
     assert len(values)==len(windows)
 
     return windows
-
-    # ws=config['ws']
-    # windows=[]
-    # for i in range(events.shape[0]):
-    #     window=events[i-ws+1:i+1,:]
-    #     if i-ws+1<0:
-    #         repeat=np.array([events[0,:] for j in range(ws-i-1)])
-    #         window=np.concatenate((repeat,events[:i+1]), axis=0)
-    #     windows.append(window)
-    # windows=np.array(windows)
-    
-    # return windows
 
 
 def normalize(value, min_, max_):

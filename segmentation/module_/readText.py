@@ -93,8 +93,10 @@ def read_twor(raw_data):
     return events
 
 def read_adlmr(raw_data):
-    tasks={'G'+item:[] for item in 'ABCDE'}
-    bucket=[]
+    # tasks={'G'+item:[] for item in 'ABCDE'}
+    # bucket=[]
+    events=[]
+    activity=""
     start=False
     for i, line in enumerate(raw_data):
         single_event=[]
@@ -117,19 +119,30 @@ def read_adlmr(raw_data):
                 label, boundary = str(f_info[-1]).split("_")
                 if 'START'==boundary:
                     start=True
-                    bucket.append(single_event)
-                else:
+                    activity=label
+                    single_event.append(activity)
+                    # bucket.append(single_event)
+                    events.append(single_event)
+                elif 'END'==boundary:
+                    single_event.append(activity)
+                    # bucket.append(single_event)
+                    events.append(single_event)
                     start=False
-                    tasks[label].append(bucket)
-                    bucket=[]
+                    # tasks[label].append(bucket)
+                    activity=""
+                    #bucket=[]
+                else:
+                    print("?")
             else:
                 if start:
-                    bucket.append(single_event)
+                    single_event.append(activity)
+                    # bucket.append(single_event)
+                    events.append(single_event)
             
         except IndexError:
             print("{} {}".format(i, line))
     
-    return tasks
+    return events
 
 def time_correction(chunk, idx, bound):
     """
@@ -151,8 +164,8 @@ def time_correction(chunk, idx, bound):
     fendts=float(chunk[idx-1, 2])
     interval=np.random.randint(bound[0],bound[1])
     for i in range(idx, chunk.shape[0]):
-        chunk[i, 2]=str(float(chunk[i, 2])+fendts-sbegts
-            +interval
+        chunk[i, 2]=str(
+            float(chunk[i, 2])-sbegts+fendts+float(interval)
         )
     
     return chunk
@@ -175,6 +188,42 @@ def create_episodes(task_dict, name_dict):
                     trs.append(f_act.shape[0])
                     tags.append('{}{}{}{}'.format(name_dict[first_], f, name_dict[second_], s))
     
+    return episodes, trs, tags
+
+def create_episodes(task_dict, dataset):
+    label_dict={i:name for i, name in enumerate(task_dict.keys())}
+
+    activity_list, indices=[], []
+    prevpick=-1
+    picks = []
+    while True:
+        available=[]
+        for i, name in enumerate(task_dict.keys()):
+            if len(task_dict[name])!=0 and i!=prevpick:
+                available.append(i)
+        if len(available)==0:
+            break
+        pick = available[-1]
+        picks.append(pick)
+        activity_list.append(task_dict[label_dict[pick]][-1])
+        indices.append(len(task_dict[label_dict[pick]])-1)
+        task_dict[label_dict[pick]].pop()
+        prevpick = pick
+    
+    episodes, trs, tags = [], [], []
+
+    for i in range(len(activity_list)-1):
+        episodes.append(
+            np.concatenate((activity_list[i], activity_list[i+1]))
+        )
+        trs.append(len(activity_list[i]))
+        if dataset=="testbed":
+            tag = "{}{}-{}{}".format(label_dict[picks[i]],indices[i],label_dict[picks[i+1]],indices[i+1])
+        else:
+            tag = "{}{}-{}{}".format(activity_list[i][0][-1],indices[i],activity_list[i+1][0][-1],indices[i+1])
+        tags.append(tag)
+
+
     return episodes, trs, tags
 
 def create_episodes_intra(task_dict):

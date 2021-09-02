@@ -70,12 +70,10 @@ class DensityRatio:
         theta=np.linalg.solve(H+np.identity(self.__kernel_num)*lambda_, h) # (b, b)@(b,1)->(b,1)
         theta[theta<0]=0
 
-        # wh_train = (phi_train.T@theta).T # (n, b)@(b, 1) -> (n, 1) -> (1, n)
-        # wh_test = (phi_test.T@theta).T # (n, b)@(b, 1) -> (n, 1) -> (1, n)
-
-        theta_SEP = (phi_train.prod(axis=0)/(self.__kernel_num*lambda_)).reshape((self.__kernel_num, 1)) # (n, 1)
+        # theta_SEP = (phi_train.prod(axis=0)/(self.__kernel_num*lambda_)).reshape((self.__kernel_num, 1)) # (n, 1)
+        # theta_SEP = np.matrix(phi_train.mean(axis=0)).T/float(lambda_) # (b, 1)
+        theta_SEP = (phi_train.prod(axis=0)/float(lambda_)).reshape((self.__kernel_num, 1)) # (n, 1)
         # theta_SEP = np.matrix(phi_train.mean(axis=1))/lambda_ # (b, 1) 
-        # theta_SEP[theta_SEP<0] = 0
 
         self.__alpha=alpha
 
@@ -106,11 +104,13 @@ class DensityRatio:
             phi_test=self.gaussian_kernel_matrix(data=test_data, centers=self.__kernel_centers, sigma=sigma_candidate) # (b, n)
 
             H=alpha*(phi_test@(phi_test.T)/self.__test_n)+(1-alpha)*(phi_train@(phi_train.T)/self.__train_n) # (b, b)
+            # H=(phi_train@(phi_train.T)/self.__train_n)
             h=np.matrix(phi_test.mean(axis=1)) # (b, 1)
+            # h=np.matrix(phi_train.prod(axis=0)).T
 
             for _, lambda_candidate in enumerate(lambda_list):
-
                 B=H+np.identity(self.__kernel_num)*lambda_candidate*(self.__train_n-1)/self.__train_n # (b, b)
+                # B=(-lambda_candidate*np.identity(self.__kernel_num))*(self.__train_n-1)/self.__train_n
                 BinvPtr=np.linalg.solve(B, phi_train) # (b, b)@(b, n) -> (b, n) # invCK_de
                 # beta = np.linalg.solve(B, h) # (b, b)@(b, 1) -> (b, 1)
                 PtrBinvPtr=np.multiply(phi_train, BinvPtr) # (b, n) element-wise multiplication
@@ -213,10 +213,17 @@ class DensityRatio:
         return score
 
     @property
-    def SEP(self): #TODO
-        g_x = self.calculate_density_ratio(self.__test, self.__theta_SEP) # (1, n)
+    def SEP(self): #Different Model!
+        # g_x = self.calculate_density_ratio(self.__test, self.__theta_SEP) # (1, n)
 
-        score = max(0, 0.5-g_x.mean())
+        phi_data = self.gaussian_kernel_matrix(self.__train, self.__test, self.__sigma) # (b, n)
+        theta = self.__theta_SEP # (n, 1)
+        g_x = phi_data.prod(axis=0).dot(theta).item() # (1, n)*(n, 1) -> (n, 1)
+
+        # 1. theta
+        # 2. kernel matrix
+
+        score = max(0., 0.5-g_x/self.__minimum)
 
         return score
 
