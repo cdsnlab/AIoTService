@@ -2,6 +2,7 @@ import numpy as np
 import os
 import time
 from .densityRatio import DensityRatio as dr
+from .SEP import DensityRatioSEP as drSEP
 from .info.config import config
 
 def change_point_detection(features, metric='SEP'):
@@ -31,7 +32,8 @@ def change_point_detection(features, metric='SEP'):
         elif metric.lower()=='ulsif':
             dre=dr(test_data=before, train_data=after); scores.append(dre.PEDiv)
         else:
-            dre=dr(test_data=before, train_data=after); scores.append(dre.SEP)#; print(dre.SEP)
+            # dre=dr(test_data=before, train_data=after); scores.append(dre.SEP)#; print(dre.SEP)
+            dre=drSEP(before, after); scores.append(dre.score)
 
     assert len(features)==len(scores)
 

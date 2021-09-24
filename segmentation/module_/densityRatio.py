@@ -4,12 +4,8 @@ from scipy.spatial import distance_matrix
 class DensityRatio:
 
     def __init__(self, test_data, train_data, alpha=0., sigma_list=None, lambda_list=None, kernel_num=100):
-        
-        if test_data.shape[0]!=train_data.shape[0]:
-            raise ValueError("Different number of samples")
-            
-        if test_data.shape[1]!=train_data.shape[1]:
-            raise ValueError("Different dimension of sample")
+
+        assert test_data.shape==train_data.shape, "Different shape"
 
         self.__test=test_data       # (n, d)
         self.__train=train_data     # (n, d)
@@ -48,13 +44,16 @@ class DensityRatio:
         return density_ratio.T # (1, n) .. (1, 1)
     
     def median_distance(self, x):
-        dists=distance_matrix(x, x)     # (n, n)
-        dists=np.tril(dists).ravel()
-        l=[item for item in dists if item>0.]
-        if len(l)==0:
-            return 1.
-        # return np.sqrt(0.5*np.median(np.array(l))).item() 
-        return np.median(np.array(l)).item()#*np.sqrt(0.5)
+
+        dists = distance_matrix(x, x)     # (n, n)
+        dists = np.tril(dists).reshape((1, -1))
+
+        mdistance = np.sqrt(0.5) * np.median(dists[dists>0]) # rbf_dot has factor of two in kernel
+
+        if np.isnan(mdistance):
+            mdistance = 0.
+
+        return mdistance if mdistance!=0. else 0.1
 
     def _DensityRatio(self, test_data, train_data, alpha, sigma_list, lambda_list):
         if len(sigma_list)==1 and len(lambda_list)==1:
@@ -89,7 +88,7 @@ class DensityRatio:
     def _LCV(self, test_data, train_data, alpha, sigma_list, lambda_list):
         """
             Likelihood Cross Validation
-            
+
             Efficient Computation of LOOCV Score for uLSIF
         """
 

@@ -1,5 +1,7 @@
 from datetime import datetime
 from math import remainder
+from itertools import permutations
+
 import numpy as np
 import pandas as pd
 import random
@@ -177,54 +179,34 @@ def create_episodes(task_dict, name_dict):
             value: list of np array chunk (activity sample)
     """
     episodes, trs, tags=[],[],[]
-    for first_ in task_dict.keys():   # choose first activity type
-        f_group=task_dict[first_]
-        s_group_cand=[item for item in task_dict.keys() if item!=first_]
-        for f, f_act in enumerate(f_group):        # choose first activity 
-            for second_ in s_group_cand:    # choose second activity type
-                s_group=task_dict[second_]
-                for s, s_act in enumerate(s_group): # choose second activity
-                    episodes.append(np.concatenate((f_act, s_act), axis=0))
-                    trs.append(f_act.shape[0])
-                    tags.append('{}{}{}{}'.format(name_dict[first_], f, name_dict[second_], s))
+
+
+    activity = list(task_dict.keys())
+    order_list = list(permutations(activity, 2))
+
+    for left, right in order_list:
+        assert len(task_dict[left])==len(task_dict[right])
+        for i in range(len(task_dict[left])):
+            episodes.append(
+                np.concatenate((task_dict[left][i], task_dict[right][i]), axis=0)
+            )
+            trs.append(task_dict[left][i].shape[0])
+            tags.append(
+                f"{left}{name_dict[left][i]}-{right}{name_dict[right][i]}"
+            )
     
     return episodes, trs, tags
 
-def create_episodes(task_dict, dataset):
-    label_dict={i:name for i, name in enumerate(task_dict.keys())}
-
-    activity_list, indices=[], []
-    prevpick=-1
-    picks = []
-    while True:
-        available=[]
-        for i, name in enumerate(task_dict.keys()):
-            if len(task_dict[name])!=0 and i!=prevpick:
-                available.append(i)
-        if len(available)==0:
-            break
-        pick = available[-1]
-        picks.append(pick)
-        activity_list.append(task_dict[label_dict[pick]][-1])
-        indices.append(len(task_dict[label_dict[pick]])-1)
-        task_dict[label_dict[pick]].pop()
-        prevpick = pick
-    
-    episodes, trs, tags = [], [], []
-
-    for i in range(len(activity_list)-1):
-        episodes.append(
-            np.concatenate((activity_list[i], activity_list[i+1]))
-        )
-        trs.append(len(activity_list[i]))
-        if dataset=="testbed":
-            tag = "{}{}-{}{}".format(label_dict[picks[i]],indices[i],label_dict[picks[i+1]],indices[i+1])
-        else:
-            tag = "{}{}-{}{}".format(activity_list[i][0][-1],indices[i],activity_list[i+1][0][-1],indices[i+1])
-        tags.append(tag)
-
-
-    return episodes, trs, tags
+    # for first_ in task_dict.keys():   # choose first activity type
+    #     f_group=task_dict[first_]
+    #     s_group_cand=[item for item in task_dict.keys() if item!=first_]
+    #     for f, f_act in enumerate(f_group):        # choose first activity 
+    #         for second_ in s_group_cand:    # choose second activity type
+    #             s_group=task_dict[second_]
+    #             for s, s_act in enumerate(s_group): # choose second activity
+    #                 episodes.append(np.concatenate((f_act, s_act), axis=0))
+    #                 trs.append(f_act.shape[0])
+    #                 tags.append('{}{}{}{}'.format(name_dict[first_], f, name_dict[second_], s))
 
 def create_episodes_intra(task_dict):
     episodes, trs, order = [], [], []
