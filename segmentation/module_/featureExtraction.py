@@ -72,20 +72,20 @@ def feature_extraction(events, data_name, sensor_list):
         sltime=sltime-sltime.replace(hour=0, minute=0, second=0)
         sltime=int(sltime.total_seconds())
 
-        # feature[0]=int(dt_seconds/HOURSECONDS)/DAYHOURS # HourOfDay
+        feature[0]=int(dt_seconds/HOURSECONDS)/DAYHOURS # HourOfDay
         feature[1]=dt_seconds/DAYSECONDS # SecondOfDay
-        # feature[2]=dt.weekday()/WEEKDAYS # DayOfWeek
+        feature[2]=dt.weekday()/WEEKDAYS # DayOfWeek
 
         duration = lstime-fstime if lstime>=fstime else lstime+(DAYSECONDS-fstime)
         halfduration = halftime-fstime if halftime>=fstime else halftime+(DAYSECONDS-fstime)
         since_last = lstime-sltime if lstime>=sltime else lstime+(DAYSECONDS-sltime)
 
         feature[3] = duration/DAYSECONDS # Duration
-        # feature[4] = since_last/DAYSECONDS # ElapsedTimeFromLastEvent
-        # feature[5] = halfduration/duration if duration!=0.0 else 0. # ActivityLevelChange
+        feature[4] = since_last/DAYSECONDS # ElapsedTimeFromLastEvent
+        feature[5] = halfduration/duration if duration!=0.0 else 0. # ActivityLevelChange
 
-        # feature[6] = prevwin1/float(NUMSENSORS) # DominantSensorPrev1W
-        # feature[7] = prevwin2/float(NUMSENSORS) # DominantSensorPrev2W
+        feature[6] = prevwin1/float(NUMSENSORS) # DominantSensorPrev1W
+        feature[7] = prevwin2/float(NUMSENSORS) # DominantSensorPrev2W
 
         prevwin2 = prevwin1
         scount = np.zeros(NUMSENSORS)
@@ -99,18 +99,18 @@ def feature_extraction(events, data_name, sensor_list):
                 maxcount = scount[i]
                 prevwin1 = i
 
-        # feature[8] = 0#prevwin1/float(NUMSENSORS) # DominantSensorCurrentW
-        # feature[9] = sensor_list.index(window[0, 0])/float(NUMSENSORS) # FirstSensor
-        # feature[10] = sensor_list.index(event[0])/float(NUMSENSORS) # LastSensor
+        feature[8] = 0#prevwin1/float(NUMSENSORS) # DominantSensorCurrentW
+        feature[9] = sensor_list.index(window[0, 0])/float(NUMSENSORS) # FirstSensor
+        feature[10] = sensor_list.index(event[0])/float(NUMSENSORS) # LastSensor
 
-        # feature[11] = (sum(np.square(coord_dict[event[0]]))-min_loc)/(max_loc-min_loc) # LastSensorLocation
+        feature[11] = (sum(np.square(coord_dict[event[0]]))-min_loc)/(max_loc-min_loc) # LastSensorLocation
 
         for ri in range(W-1, -1, -1):
             if window[ri, 0][0]=='M':
-                # feature[12] = (sum(np.square(coord_dict[window[ri, 0]]))-min_loc)/(max_loc-min_loc) #LastMotionSensorLocation
+                feature[12] = (sum(np.square(coord_dict[window[ri, 0]]))-min_loc)/(max_loc-min_loc) #LastMotionSensorLocation
                 break
 
-        # feature[13] = 0#(sum(np.square(coord_dict[sensor_list[prevwin1]]))-min_loc)/(max_loc-min_loc) #DominantSensorLocation
+        feature[13] = 0#(sum(np.square(coord_dict[sensor_list[prevwin1]]))-min_loc)/(max_loc-min_loc) #DominantSensorLocation
 
         numdistinctsensors=0
         complexity=0
@@ -121,15 +121,15 @@ def feature_extraction(events, data_name, sensor_list):
                 complexity -= float(ent)
                 numdistinctsensors+=1
 
-        # feature[14] = complexity/np.log2(W) # DataComplexity
-        # feature[15] = 0#numdistinctsensors/float(NUMSENSORS) # DistinctSensors
+        feature[14] = complexity/np.log2(W) # DataComplexity
+        feature[15] = 0#numdistinctsensors/float(NUMSENSORS) # DistinctSensors
 
-        # for e in window:
-        #     feature[sensor_list.index(e[0])+NUMSETFEATURES]+=1
+        for e in window:
+            feature[sensor_list.index(e[0])+NUMSETFEATURES]+=1
 
-        # assert sum(feature[NUMSETFEATURES:NUMSETFEATURES+NUMSENSORS])==W
+        assert sum(feature[NUMSETFEATURES:NUMSETFEATURES+NUMSENSORS])==W
 
-        # feature[NUMSETFEATURES:NUMSETFEATURES+NUMSENSORS]/=float(W)
+        feature[NUMSETFEATURES:NUMSETFEATURES+NUMSENSORS]/=float(W)
 
         for i in range(NUMSENSORS):
             difftime=dt-sensortimes[sensor_list[i]]
