@@ -11,6 +11,9 @@ Original file is located at
 import pandas as pd
 import numpy as np
 
+from keras import models, layers
+import matplotlib.pyplot as plt
+
 ## csv files from programmers (https://programmers.co.kr/skill_check_assignments)
 
 train_df=pd.read_csv('train.csv')
@@ -95,8 +98,6 @@ print(train_data.shape)
 print(train_y.shape)
 print(test_data.shape)
 
-from keras import models, layers
-
 network=models.Sequential()
 network.add(layers.Dense(32, activation='relu', input_shape=(1776,)))
 # network.add(layers.Dropout(0.5))
@@ -124,7 +125,7 @@ history=network.fit(part_train_data, part_train_y, epochs=500, batch_size=256, v
 # history=network.fit(part_train_data, part_train_y, epochs=50, batch_size=512,
 #                     validation_data=(val_data, val_y))
 
-import matplotlib.pyplot as plt
+
 history_dict=history.history
 loss=history_dict['loss']
 # val_loss=history_dict['val_loss']
