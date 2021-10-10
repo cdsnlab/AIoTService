@@ -146,7 +146,7 @@ def read_adlmr(raw_data):
     
     return events
 
-def time_correction(chunk, idx, bound):
+def time_correction(chunk, idx):
     """
         chunk:  the result of concatenation between two different activity array
         idx:    the first event idx of second activity in chunk
@@ -164,10 +164,10 @@ def time_correction(chunk, idx, bound):
 
     sbegts=float(chunk[idx,2])
     fendts=float(chunk[idx-1, 2])
-    interval=np.random.randint(bound[0],bound[1])
+    # interval=np.random.randint(bound[0],bound[1])
     for i in range(idx, chunk.shape[0]):
         chunk[i, 2]=str(
-            float(chunk[i, 2])-sbegts+fendts+float(interval)
+            float(chunk[i, 2])-sbegts+fendts#+float(interval)
         )
     
     return chunk
