@@ -97,9 +97,9 @@ def read_twor(raw_data):
 def read_adlmr(raw_data):
     # tasks={'G'+item:[] for item in 'ABCDE'}
     # bucket=[]
-    events=[]
-    activity=""
-    start=False
+    events = []
+    activity = ""
+    start = False
     for i, line in enumerate(raw_data):
         single_event=[]
         f_info=line.decode().split()
@@ -117,21 +117,21 @@ def read_adlmr(raw_data):
             else: # triggered by multi-user
                 single_event.append(3)
 
-            if len(f_info)%2==1: # ACTIVITY START/END
+            if len(f_info)%2 == 1: # ACTIVITY START/END
                 label, boundary = str(f_info[-1]).split("_")
-                if 'START'==boundary:
-                    start=True
-                    activity=label
+                if 'START' == boundary:
+                    start = True
+                    activity = label
                     single_event.append(activity)
                     # bucket.append(single_event)
                     events.append(single_event)
-                elif 'END'==boundary:
+                elif 'END' == boundary:
                     single_event.append(activity)
                     # bucket.append(single_event)
                     events.append(single_event)
-                    start=False
+                    start = False
                     # tasks[label].append(bucket)
-                    activity=""
+                    activity = ""
                     #bucket=[]
                 else:
                     print("?")
