@@ -105,7 +105,9 @@ venv.bak/
 .mypy_cache/
 
 # segmentation
-segmentation/
+dataset/
+save/
+*.pdf
 *.pickle
 *.pkl
 *.json
