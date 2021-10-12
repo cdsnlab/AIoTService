@@ -103,12 +103,12 @@ def feature_extraction(events, data_name, sensor_list):
         feature[9] = sensor_list.index(window[0, 0])/float(NUMSENSORS) # FirstSensor
         feature[10] = sensor_list.index(event[0])/float(NUMSENSORS) # LastSensor
 
-        # feature[11] = (sum(np.square(coord_dict[event[0]]))-min_loc)/(max_loc-min_loc) # LastSensorLocation
+        feature[11] = (sum(np.square(coord_dict[event[0]]))-min_loc)/(max_loc-min_loc) # LastSensorLocation
 
-        # for ri in range(W-1, -1, -1):
-        #     if window[ri, 0][0]=='M':
-        #         feature[12] = (sum(np.square(coord_dict[window[ri, 0]]))-min_loc)/(max_loc-min_loc) #LastMotionSensorLocation
-        #         break
+        for ri in range(W-1, -1, -1):
+            if window[ri, 0][0]=='M':
+                feature[12] = (sum(np.square(coord_dict[window[ri, 0]]))-min_loc)/(max_loc-min_loc) #LastMotionSensorLocation
+                break
 
         # feature[13] = (sum(np.square(coord_dict[sensor_list[prevwin1]]))-min_loc)/(max_loc-min_loc) #DominantSensorLocation
 
