@@ -38,6 +38,8 @@ def generate_pair():
 
 def generate_pair_adlmr():
 
+    limits = 10
+
     with open("./dataset/adlmr/annotated", "rb") as f:
         events = read_adlmr(f.readlines())
 
@@ -65,7 +67,8 @@ def generate_pair_adlmr():
 
             activities[curr_label].append(sample)
 
-    min_sample_num = min([len(v) for v in activities.values()])
+    # min_sample_num = min([len(v) for v in activities.values()])
+    min_sample_num = limits
     for k in activities.keys():
         activities[k]=activities[k][:min_sample_num]
 
