@@ -3,7 +3,7 @@ from itertools import combinations
 
 def convert_motion_event_to_activation(episode, sensors, dataset):
 
-    expire = 40 if dataset=="testbed" else 5
+    expire = 40 if dataset=="testbed" else 8
 
     activation = ["true", "ON"]
 
