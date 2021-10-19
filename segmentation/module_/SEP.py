@@ -17,11 +17,15 @@ class DensityRatioSEP:
         self.__kernel_centers = ref_data
         self.__length = min(len(ref_data), len(test_data))
 
+        # implementation configurations: https://www.sciencedirect.com/science/article/pii/S0893608013000270?via%3Dihub
+        # Liu et al., Change-point detection in time-series data by relative density-ratio estimation
         total_samples = np.concatenate([ref_data, test_data], axis=0)
         median_distance = self.compute_median_distance(total_samples)
+
         sigma_range = median_distance * np.array([0.6, 0.8, 1., 1.2, 1.4])
         lambda_range = 10. ** np.array([-3, -2, -1, 0, 1])
-
+        
+        # the best combination is chosen by grid search via cross-validation
         sigma_, lambda_ = self.cross_validation(ref_data, test_data, sigma_range, lambda_range)
         self.__sigma_ = sigma_
         self.__lambda_ = lambda_
@@ -41,8 +45,6 @@ class DensityRatioSEP:
         return median_distance if median_distance != 0. else 0.1
             
     def cross_validation(self, ref_data, test_data, sigmas, lambdas):
-        # to determine theta (sigma and lambda) - leave-one-out
-        # lambda is empirically chosen by cross_validation
 
         n = self.__length
 
@@ -51,9 +53,6 @@ class DensityRatioSEP:
 
         one_nT=np.matrix(np.ones(n))    # (1, n)
         one_bT=np.matrix(np.ones(n))    # (1, b)
-
-        # TODO: What is optimization term? - SEP score
-        # find theta minimizing J and (sigma, lambda) of the theta 
 
         for sigma_ in sigmas:
 
