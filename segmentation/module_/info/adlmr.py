@@ -1,3 +1,5 @@
+import numpy as np
+
 dataset_list=['twor.2009','twor.summer.2009','twor.2010','adlmr']
 adlmr_location={
     'M04': (24, 28), 'M05': (29, 28), 'M11': (34, 28), 'M12': (39, 28), #
@@ -30,6 +32,38 @@ adlmr_location={
     ########################## >=40
 
 }
+
+maximum_distance = np.sqrt(
+    (adlmr_location['M25'][0]-adlmr_location['M12'][0])**2+(adlmr_location['M25'][1]-adlmr_location['M12'][1])**2
+)
+
+group_task_sensors = ['M01',
+ 'M02',
+ 'M03',
+ 'M04',
+ 'M05',
+ 'M06',
+ 'M07',
+ 'M08',
+ 'M09',
+ 'M10',
+ 'M11',
+ 'M12',
+ 'M13',
+ 'M14',
+ 'M15',
+ 'M16',
+ 'M17',
+ 'M18',
+ 'M19',
+ 'M20',
+ 'M21',
+ 'M22',
+ 'M23',
+ 'M24',
+ 'M25',
+ 'M26',
+ 'M51']
 
 #['AD1-A', 'AD1-B', 'AD1-C', clear
 # 'D1', 'D10', 'D11', 'D12', 'D13', 'D14', 'D15', 'D2', 'D3', 'D4', 'D5', 'D6', 'D7', 'D8', 'D9', clear
