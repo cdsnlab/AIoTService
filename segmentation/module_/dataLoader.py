@@ -14,17 +14,17 @@ from itertools import permutations
 def dataLoader(dataset, option=None):
     if dataset=="hh101":
         if option:
-            return load_hh101([1, 10], remove_other=True)
+            return load_hh101(remove_other=True)
         else:
-            return load_hh101([1, 10])
+            return load_hh101()
     if dataset=="adlmr":
-        return load_adlmr([1, 5])
+        return load_adlmr()
     if dataset=="testbed":
-        return load_testbed([1, 30])
+        return load_testbed()
     
     raise ValueError("Wrong dataset.")
 
-def load_hh101(BOUND, remove_other=False):
+def load_hh101(remove_other=False):
     # Load RAW
     with open("./dataset/hh/hh101/ann.txt", "rb") as f:
         rawevents = read_hh(f.readlines())
@@ -87,7 +87,7 @@ def load_hh101(BOUND, remove_other=False):
         episodes.append(np.concatenate((left, right)))
         labels.append("{}-{}".format(left[0,-1], right[0,-1]))
     
-    episodes = [time_correction(eps, transitions[i], BOUND) for i, eps in enumerate(episodes)]
+    episodes = [time_correction(eps, transitions[i]) for i, eps in enumerate(episodes)]
 
     print("""hh101 Data Load Completed.
     Number of Activity Pairs: {}
@@ -95,7 +95,7 @@ def load_hh101(BOUND, remove_other=False):
     
     return episodes, transitions, labels
 
-def load_adlmr(BOUND):
+def load_adlmr():
     with open("./dataset/adlmr/annotated", 'rb') as f:
         rawevents = read_adlmr(f.readlines())
 
@@ -128,44 +128,16 @@ def load_adlmr(BOUND):
     for i in range(len(activities)-1):
         l, r = activities[i:i+2]
         merge_activity = np.concatenate([l, r])
-        merge_activity = time_correction(merge_activity, len(l), BOUND)
+        merge_activity = time_correction(merge_activity, len(l))
         episodes.append(merge_activity)
         transitions.append(len(l))
         
         assert len(set(l[:,-1]))*len(set(r[:,-1]))==1
         labels.append(f"{l[0,-1]}-{r[0,-1]}")
 
-    # for i in range(len(activities)-series_number+1):
-    #     part_activities = activities[i:i+series_number]
-    #     corrected_activities = part_activities[0]
-    #     transition_ = len(corrected_activities)
-    #     part_transitions = [transition_]
-    #     part_labels = list(set(corrected_activities[:,-1]))
-    #     for j in range(1, len(part_activities)):
-    #         corrected_activities = np.concatenate([corrected_activities, part_activities[j]])
-    #         corrected_activities = time_correction(corrected_activities, transition_, BOUND)
-    #         if j!=len(part_activities)-1:
-    #             transition_+=len(part_activities[j])
-    #             part_transitions.append(transition_)
-    #         part_labels+=list(set(part_activities[j][:,-1]))
-        
-    #     if len(part_labels)!=series_number:
-    #         raise ValueError("Label Incorrect.")
-    #     transitions.append(part_transitions)
-    #     episodes.append(corrected_activities)
-    #     labels.append("-".join(part_labels))
-
-    
-    # task_dict = {i: [np.array(vv) for vv in v][2] for i, v in enumerate(tasks.values())}
-    # label_dict = {i: k for i, k in enumerate(tasks.keys())}
-
-    # episodes, transitions, labels = create_episodes(task_dict, label_dict)
-    # episodes, transitions, labels = create_random_episodes(tasks)
-    # episodes = [time_correction(eps, transitions[i], BOUND) for i, eps in enumerate(episodes)]
-
     return episodes, transitions, labels
 
-def load_testbed(BOUND):
+def load_testbed():
 
     testbed_directory = "./dataset/testbed/npy/seminar/MO/B"
 
@@ -200,45 +172,10 @@ def load_testbed(BOUND):
         ran, ra = task_dict[r].pop()
 
         merge_activity = np.concatenate([la, ra])
-        merge_activity = time_correction(merge_activity, len(la), BOUND)
+        merge_activity = time_correction(merge_activity, len(la))
 
         episodes.append(merge_activity)
         transitions.append(len(la))
         labels.append(f"{l}{lan}-{r}{ran}")
-
-    
-
-
-
-
-    # while True:
-    #     if i>=min_:
-    #         break
-    #     part_activities = [task_dict[item][i] for item in tasks]
-
-    #     corrected_activities = part_activities[0]
-    #     transition_ = len(corrected_activities)
-    #     part_transitions = [transition_]
-    #     part_labels = [tasks[0]]
-    #     for j in range(1, len(part_activities)):
-    #         corrected_activities = np.concatenate([corrected_activities, part_activities[j]])
-    #         corrected_activities = time_correction(corrected_activities, transition_, BOUND)
-    #         if j!=len(part_activities)-1:
-    #             transition_+=len(part_activities[j])
-    #             part_transitions.append(transition_)
-    #         part_labels+=[tasks[j]]
-
-    #     # transitions.append([len(item) for item in activities[i:i+4]])
-    #     transitions.append(part_transitions)
-    #     # episodes.append(np.concatenate(activities[i:i+5]))
-    #     episodes.append(corrected_activities)
-    #     labels.append("-".join(part_labels))
-    #     i+=1
-
-    # task_dict = {i: [np.load("{}/{}".format(testbed_directory, name)) for name in v] for i, v in enumerate(files.values())}
-    # label_dict = {i: k for i, k in enumerate(files.keys())}
-
-    # episodes, transitions, labels = create_episodes(task_dict, number_dict)
-    # episodes = [time_correction(eps, transitions[i], BOUND) for i, eps in enumerate(episodes)]
 
     return episodes, transitions, labels
