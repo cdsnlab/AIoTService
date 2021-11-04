@@ -165,30 +165,30 @@ motion_cosine_distance = \
     ]
 
 change_sensor_name = \
-{'7a00064336':          "",
- 'Aircon0Power':        "",
- 'Aircon1Power':        "",
- 'Color':               "",
- 'InferredPresence':     "",
- 'LightGroup1':          ["L"],
- 'LightGroup2':          ["L"],
- 'LightGroup3':          ["L"],
- 'Luminosity':           "",
- 'Mtest1':               ["M01"],
- 'Mtest2':              ["M02"],
- 'Mtest3':              ["M03"],
- 'Mtest4':              ["M04"],
- 'Mtest5':              ["M05"],
- 'Mtest6':              ["M06"],
- 'Mtest8':              ["M07"],
- 'Mtest9':              ["M08"],
- 'Present':             "",
- 'ProjectorInput':      "",
- 'ProjectorPower':      ["P"],
- 'Screen':              "",
- 'SeminarNumber':       "",
- 'SetColor':            "",
- 'SoundC':              "",
+{'7a00064336':          "",     # useless
+ 'Aircon0Power':        "",     # periodical-state
+ 'Aircon1Power':        "",     # ps
+ 'Color':               "",     # color
+ 'InferredPresence':     "",    # True/False, X
+ 'LightGroup1':          ["L01"], # ON/OFF
+ 'LightGroup2':          ["L02"], #
+ 'LightGroup3':          ["L03"], #
+ 'Luminosity':           "",        # X
+ 'Mtest1':               ["M01"],   #
+ 'Mtest2':              ["M02"],    #
+ 'Mtest3':              ["M03"],    #
+ 'Mtest4':              ["M04"],    #
+ 'Mtest5':              ["M05"],    #
+ 'Mtest6':              ["M06"],    #
+ 'Mtest8':              ["M07"],    #
+ 'Mtest9':              ["M08"],    #
+ 'Present':             "",         #
+ 'ProjectorInput':      "",         #
+ 'ProjectorPower':      ["P01"],      #
+ 'Screen':              "",         #
+ 'SeminarNumber':       "",         #
+ 'SetColor':            "",         #
+ 'SoundC':              "",         #
  'SoundCenter0':        ["SCN0"],
  'SoundCenter1':        ["SCN1"],
  'SoundCenter2':        ["SCN2"],
@@ -198,36 +198,36 @@ change_sensor_name = \
  'SoundWindow0':        ["SWN0"],
  'SoundWindow1':        ["SWN1"],
  'SoundWindow2':        ["SWN2"],
- 'StartAircon0':        "",
- 'StartAircon1':        "",
- 'StopAircon0':         "",
- 'StopAircon1':         "",
+ 'StartAircon0':        ["AC0", "On"],
+ 'StartAircon1':        ["AC1", "On"],
+ 'StopAircon0':         ["AC0", "Off"],
+ 'StopAircon1':         ["AC1", "Off"],
  'TurnOff':      "",
- 'TurnOffAirCon0':      "",
- 'TurnOffAirCon1':      "",
- 'TurnOffLightGroup1':      ("L", "Off"),
- 'TurnOffLightGroup2':      ("L", "Off"),
- 'TurnOffLightGroup3':      ("L", "Off"),
- 'TurnOffProjector':      ("P", "Off"),
+ 'TurnOffAirCon0':      ["AC0", "Off"],
+ 'TurnOffAirCon1':      ["AC1", "Off"],
+ 'TurnOffLightGroup1':      ["L01", "Off"],
+ 'TurnOffLightGroup2':      ["L02", "Off"],
+ 'TurnOffLightGroup3':      ["L03", "Off"],
+ 'TurnOffProjector':      ["P01", "Off"],
  'TurnOn':      "",
- 'TurnOnLightGroup1':      ("L", "On"),
- 'TurnOnLightGroup2':      ("L", "On"),
- 'TurnOnLightGroup3':      ("L", "On"),
+ 'TurnOnLightGroup1':      ["L01", "On"],
+ 'TurnOnLightGroup2':      ["L02", "On"],
+ 'TurnOnLightGroup3':      ["L03", "On"],
  'TurnOnOff':      "",
- 'TurnOnProjector':      ("P", "On"),
- 'seat1AOccupied':      "",
- 'seat1BOccupied':      "",
- 'seat2AOccupied':      "",
- 'seat2BOccupied':      "",
- 'seat3AOccupied':      "",
- 'seat3BOccupied':      "",
- 'seat4AOccupied':      "",
- 'seat4BOccupied':      "",
- 'seat5AOccupied':      "",
- 'seat5BOccupied':      "",
- 'seat6AOccupied':      "",
- 'seat6BOccupied':      "",
- 'seat7BOccupied':      "",
+ 'TurnOnProjector':      ["P01", "On"],
+ 'seat1AOccupied':      ["S01"],
+ 'seat1BOccupied':      ["S02"],
+ 'seat2AOccupied':      ["S03"],
+ 'seat2BOccupied':      ["S04"],
+ 'seat3AOccupied':      ["S05"],
+ 'seat3BOccupied':      ["S06"],
+ 'seat4AOccupied':      ["S07"],
+ 'seat4BOccupied':      ["S08"],
+ 'seat5AOccupied':      ["S09"],
+ 'seat5BOccupied':      ["S10"],
+ 'seat6AOccupied':      ["S11"],
+ 'seat6BOccupied':      ["S12"],
+ 'seat7BOccupied':      ["S13"],
  'sensor0_Brightness':      "",
  'sensor0_Humidity':      "",
  'sensor0_Temperature':      "",
