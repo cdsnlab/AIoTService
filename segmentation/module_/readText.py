@@ -95,50 +95,54 @@ def read_twor(raw_data):
     return events
 
 def read_adlmr(raw_data):
-    # tasks={'G'+item:[] for item in 'ABCDE'}
-    # bucket=[]
+
     events = []
     activity = ""
     start = False
     for i, line in enumerate(raw_data):
-        single_event=[]
-        f_info=line.decode().split()
+
+        single_event = []
+        f_info = line.decode().rstrip().split()
         try:
+            if f_info[2][0]!="M": continue
+
             single_event.append(str(np.array(f_info[2]))) # 1. sensor
             single_event.append(str(np.array(f_info[3]))) # 2. value
+
             if not ('.' in str(np.array(f_info[0])) + str(np.array(f_info[1]))):
                 f_info[1] = f_info[1] + '.000000'
-            timestamp=datetime.timestamp(datetime.strptime(str(np.array(f_info[0])) + str(np.array(f_info[1])),
+            timestamp = datetime.timestamp(datetime.strptime(str(np.array(f_info[0])) + str(np.array(f_info[1])),
                                                 "%Y-%m-%d%H:%M:%S.%f"))
             single_event.append(float(timestamp)) # 3. timestamp
 
-            if int(len(f_info)/2)==3: # triggered by single-user
+            if int(len(f_info)/2) == 3: # triggered by single-user
                 single_event.append(str(f_info[4]))
             else: # triggered by multi-user
                 single_event.append(3)
 
             if len(f_info)%2 == 1: # ACTIVITY START/END
                 label, boundary = str(f_info[-1]).split("_")
+                if label == 'GB': continue
+
                 if 'START' == boundary:
                     start = True
                     activity = label
-                    single_event.append(activity)
-                    # bucket.append(single_event)
+
+                    single_event.append(activity)        
                     events.append(single_event)
                 elif 'END' == boundary:
+                    assert activity != "", f"{i}, {f_info}"
                     single_event.append(activity)
-                    # bucket.append(single_event)
                     events.append(single_event)
+
                     start = False
-                    # tasks[label].append(bucket)
                     activity = ""
-                    #bucket=[]
+                
                 else:
                     print("?")
             else:
                 if start:
                     single_event.append(activity)
-                    # bucket.append(single_event)
                     events.append(single_event)
             
         except IndexError:
