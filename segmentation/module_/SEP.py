@@ -27,7 +27,7 @@ class DensityRatioSEP:
         lambda_range = 10. ** np.array([-3, -2, -1, 0, 1])
         
         # the best combination is chosen by grid search via cross-validation
-        sigma_, lambda_ = self.cross_validation(ref_data, test_data, sigma_range, lambda_range)
+        sigma_, lambda_ = self._CV(ref_data, test_data, sigma_range, lambda_range)
         self.__sigma_ = sigma_
         self.__lambda_ = lambda_
 
@@ -41,7 +41,41 @@ class DensityRatioSEP:
 
         median_distance = np.sqrt(0.5) * np.median(distances[distances>0])
 
-        return median_distance if median_distance != 0 and (not np.isnan(median_distance)) else 0.1
+        return median_distance
+
+    def _CV(self, ref_data, test_data, sigmas, lambdas):
+
+        n = self.__length
+
+        fold = 2
+
+        score_cv = np.zeros((len(sigmas), len(lambdas)))
+        cv_index_nu = np.random.mtrand.permutation(n)
+        cv_split_nu = np.floor(np.r_[0:n] * fold / n)
+
+        for sigma_index in np.r_[0:len(sigmas)]:
+            sigma = sigmas[sigma_index]
+            phi_test = self.kernel_matrix(test_data, ref_data, sigma)
+            score_tmp = np.zeros((fold, len(lambdas)))
+
+            for k in np.r_[0:fold]:
+                mKtmp = np.mean(phi_test[:, cv_index_nu[cv_split_nu != k]], 1) # k-index에 위치한 값을 제외하고 전부 (h)
+
+                for lambda_index in np.r_[0:len(lambdas)]:
+                    lbd = lambdas[lambda_index]
+                    thetah_cv = np.linalg.solve(lbd * np.eye(n), mKtmp)
+
+                    cv_g_x = np.mean(np.dot(mKtmp.T, thetah_cv).T)
+                    score_tmp[k, lambda_index] = abs(1 - cv_g_x)
+                
+                score_cv[sigma_index, :] = np.mean(score_tmp, 0)
+
+        score_cv_tmp = score_cv.min(1)
+        lambda_chosen_index, sigma_chosen_index = score_cv.argmin(1), score_cv_tmp.argmin()
+        lambda_chosen = lambdas[lambda_chosen_index[sigma_chosen_index]]
+        sigma_chosen = sigmas[sigma_chosen_index]
+
+        return sigma_chosen, lambda_chosen
             
     def cross_validation(self, ref_data, test_data, sigmas, lambdas):
 
@@ -49,39 +83,28 @@ class DensityRatioSEP:
         optimal_sigma = optimal_lambda = 0.
         opt_score = sys.maxsize
 
-        one_nT = np.matrix(np.ones(n))    # (1, n)
-        one_bT = np.matrix(np.ones(n))    # (1, b)
-
         for sigma_ in sigmas:
-
-            phi_ref = self.kernel_matrix(ref_data, self.__kernel_centers,  sigma_)
-            phi_test = self.kernel_matrix(test_data, self.__kernel_centers,  sigma_)
-
-            # H = phi_test@phi_test.T/n # (b, b)
-            h_hat = np.mean(phi_test, axis=0).T
 
             for lambda_ in lambdas:
 
-                # B = H + np.identity(n)*lambda_*(n-1)/n # (b, b)
-                B = np.identity(n)*lambda_*(n-1)/n
-            
-                BinvPtr = np.linalg.solve(B, phi_test) # (b, b)@(b, n) -> (b, n) # invCK_de
-                PtrBinvPtr = np.multiply(phi_test, BinvPtr) # (b, n) element-wise multiplication
-                denominator = n*one_nT - one_bT@PtrBinvPtr # (1, b)@(b, n) -> (1, n) # tmp
+                objective_score = 0.
+                for i in range(n):
+                    ref_i = np.concatenate((ref_data[:i], ref_data[i+1:]), axis=0)
+                    test_i = np.concatenate((test_data[:i], test_data[i+1:]), axis=0)
 
-                diagonal_B0 = np.diag((h_hat.T@BinvPtr).A1/denominator.A1) # (1, b)@(b, n) -> (1, n) -> (n, n)
-                B0 = np.linalg.solve(B, h_hat@one_nT) + BinvPtr@diagonal_B0 # (b,b)@(b, 1)@(1, n) -> (b,n)
+                    phi_ref_i = self.kernel_matrix(ref_i, ref_i, sigma_)
+                    phi_test_i = self.kernel_matrix(test_i, ref_i, sigma_)
 
-                diagonal_B1 = np.diag((one_bT@(np.multiply(phi_ref, BinvPtr))).A1/denominator.A1) # (1, b)@(b, n)->(1,n) -> (n,n)
-                B1 = np.linalg.solve(B, phi_ref) + BinvPtr@diagonal_B1 # (b,n)@(n,n)->(b,n) // (b,b)@(b,n) -> (b,n)
+                    h_hat_i = np.mean(phi_test_i, axis=0).T
+                    # h_hat_i = np.mean(phi_test_i, axis=1)
+                    theta = h_hat_i/lambda_
 
-                B2 = (n-1)*(n*B0-B1)/(n*(n-1)) # (b, n)
-                B2[B2<0] = 0
-
-                w_test = (one_bT@(np.multiply(phi_test, B2))).T # (1, b)@(b,n)->(1,n)->(n,1)
-                w_ref = (one_bT@(np.multiply(phi_ref, B2))).T # (1,b)@(b,n) -> (1,n) -> (n,1)
-
-                objective_score = abs(0.5 - w_ref.mean())
+                    w_test = abs(phi_test_i*theta)
+                    
+                    # J = abs(h_hat_i*theta) + lambda_*(theta**2)/2
+                    objective_score += w_test
+                
+                objective_score /= n
 
                 if objective_score < opt_score:
                     opt_score = objective_score
@@ -91,31 +114,19 @@ class DensityRatioSEP:
         return optimal_sigma, optimal_lambda
 
     def _SEP(self, ref_data, test_data):
-        
-        n = self.__length
 
-        phi_ref = self.kernel_matrix(ref_data, self.__kernel_centers, self.__sigma_)
-        phi_test = self.kernel_matrix(test_data, self.__kernel_centers, self.__sigma_)
+        phi_ref = self.kernel_matrix(ref_data, ref_data, self.__sigma_)
+        phi_test = self.kernel_matrix(test_data, ref_data, self.__sigma_)
 
-        assert phi_ref.shape==(self.__length, self.__length)
+        coe = self.__lambda_ * np.eye(self.__length)
+        var = np.mean(phi_test, 1)
 
-        h_hat = np.mean(phi_test, axis=0).T # mean of all centers of each test datum
+        thetat = np.linalg.solve(coe, var)
+        # wh_x_nu = np.dot(phi_test.T, thetat).T
+        wh_x_nu = np.dot(phi_ref.T, thetat).T
 
-        # theta = np.linalg.solve(np.identity(n)*self.__lambda_, h_hat)
-        theta = h_hat/self.__lambda_
-        theta[theta<0] = 0
+        score = max(0, 1 - np.mean(wh_x_nu))
 
-        self.__kernel_matrix = phi_test
-        self.__h_hat = h_hat
-        self.__theta = theta
-
-        density_ratio = phi_ref.T@theta
-
-        assert density_ratio.shape==theta.shape
-
-        score = max(0, 0.5 - density_ratio.mean())
-        
-        self.__density_ratio = density_ratio
         self.__score = score
         
 
