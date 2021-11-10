@@ -13,9 +13,11 @@ class DensityRatio:
 
         assert test_data.shape == train_data.shape
 
-        self.__test, self.__train = test_data, train_data
+        self.__test = test_data
+        self.__train = train_data
         self.__kernel_centers = self.__test
-        self.__kernel_num = self.__n = train_data.shape[0]
+        self.__kernel_num = test_data.shape[0]
+        self.__n = train_data.shape[0]
         self.__median_distance = self.median_distance(np.concatenate((self.__test, self.__train), axis=0))
 
         sigma_list = self.__median_distance * np.array([0.6, 0.8, 1.0, 1.2, 1.4])
@@ -33,8 +35,7 @@ class DensityRatio:
     def calculate_density_ratio(self, data, theta): # Input: data = (n, d), theta = (b, 1)
         phi_data = self.gaussian_kernel_matrix(data = data, centers = self.kernel_centers, sigma = self.__sigma) # (b, n)
         density_ratio = phi_data.T@theta                    # (n, b)@(b, 1) -> (n, 1)
-
-        assert density_ratio.shape[0]==self.__n
+        assert density_ratio.shape[0] == self.__n
 
         return density_ratio.T                              # (1, n)
     
@@ -52,10 +53,10 @@ class DensityRatio:
         
         sigma, lambda_ = self._LCV(test_data, train_data, alpha, sigma_list, lambda_list)
         
-        phi_test = self.gaussian_kernel_matrix(data=test_data, centers=self.__kernel_centers, sigma=sigma) # (b, n)
-        phi_train = self.gaussian_kernel_matrix(data=train_data, centers=self.__kernel_centers, sigma=sigma) # (b, n)
+        phi_test = self.gaussian_kernel_matrix(data = test_data, centers = self.__kernel_centers, sigma = sigma) # (b, n)
+        phi_train = self.gaussian_kernel_matrix(data = train_data, centers = self.__kernel_centers, sigma = sigma) # (b, n)
 
-        H = alpha*(phi_test@(phi_test.T)/self.__n)+(1-alpha)*(phi_train@(phi_train.T)/self.__n) # (b, b)
+        H = alpha*(phi_test@(phi_test.T)/self.__n) + (1 - alpha)*(phi_train@(phi_train.T)/self.__n) # (b, b)
         h = np.matrix(phi_test.mean(axis=1)) # (b, 1)
 
         theta = np.linalg.solve(H + np.identity(self.__kernel_num)*lambda_, h) # (b, b)@(b,1)-> (b,1)
@@ -83,11 +84,11 @@ class DensityRatio:
 
         for _, sigma_candidate in enumerate(sigma_list):
 
-            phi_test = self.gaussian_kernel_matrix(data=test_data, centers=self.__kernel_centers, sigma=sigma_candidate) # (b, n)
-            phi_train = self.gaussian_kernel_matrix(data=train_data, centers=self.__kernel_centers, sigma=sigma_candidate) # (b, n)
+            phi_test = self.gaussian_kernel_matrix(data = test_data, centers = self.__kernel_centers, sigma = sigma_candidate) # (b, n)
+            phi_train = self.gaussian_kernel_matrix(data = train_data, centers = self.__kernel_centers, sigma = sigma_candidate) # (b, n)
 
-            H = alpha*(phi_test@(phi_test.T)/self.__n) + (1-alpha)*(phi_train@(phi_train.T)/self.__n) # (b, b)
-            h = np.matrix(phi_test.mean(axis=1)) # (b, 1)
+            H = alpha*(phi_test@(phi_test.T)/self.__n) + (1 - alpha)*(phi_train@(phi_train.T)/self.__n) # (b, b)
+            h = np.matrix(phi_test.mean(axis = 1)) # (b, 1)
 
             for _, lambda_candidate in enumerate(lambda_list):
 
@@ -103,7 +104,7 @@ class DensityRatio:
                 B1 = np.linalg.solve(B, phi_test) + BinvPtr@diagonal_B1                               # (b,n)@(n,n)->(b,n) // (b,b)@(b,n) -> (b,n)
 
                 B2 = (self.__n-1)*(self.__n*B0-B1)/(self.__n*(self.__n-1))                            # (b, n)
-                B2[B2<0] = 0
+                B2[B2 < 0] = 0
 
                 w_train = (one_bT@(np.multiply(phi_train, B2))).T                                     # (1, b)@(b,n)->(1,n)->(n,1) 
                 w_test = (one_bT@(np.multiply(phi_test, B2))).T                                       # (1,b)@(b,n) -> (1,n) -> (n,1)
@@ -118,7 +119,7 @@ class DensityRatio:
         return _sigma_cv, _lambda_cv
 
     def gaussian_kernel_matrix(self, data, centers, sigma):
-        answer = [[gaussian_kernel(datum=datum, center=center, sigma=sigma) for datum in data] for center in centers]
+        answer = [[gaussian_kernel(datum = datum, center = center, sigma = sigma) for datum in data] for center in centers]
         return np.matrix(answer) # (b, n)
     
     @property
@@ -186,5 +187,13 @@ class DensityRatio:
 
         return score
 
+    @property
+    def SEPDistance(self):
+        g_x = self.calculate_density_ratio(self.__test, self.__theta)
+
+        distance = max(0, 0.5 - g_x.mean())
+
+        return distance
+
 def gaussian_kernel(datum, center, sigma):
-    return np.exp(-0.5*(np.linalg.norm(datum-center)**2)/(sigma**2))
+    return np.exp(-0.5*(np.linalg.norm(datum - center)**2)/(sigma**2))
