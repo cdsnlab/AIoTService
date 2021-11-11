@@ -166,12 +166,12 @@ def time_correction(chunk, idx):
     #     intervals.append(float(chunk[i, 2])-float(chunk[i-1, 2]))
     
 
-    sbegts=float(chunk[idx,2])
-    fendts=float(chunk[idx-1, 2])
-    # interval=np.random.randint(bound[0],bound[1])
+    sbegts = float(chunk[idx, 2])
+    fendts = float(chunk[idx-1, 2])
+    # interval = np.random.randint(bound[0], bound[1])
     for i in range(idx, chunk.shape[0]):
-        chunk[i, 2]=str(
-            float(chunk[i, 2])-sbegts+fendts#+float(interval)
+        chunk[i, 2] = str(
+            float(chunk[i, 2]) - sbegts + fendts#+float(interval)
         )
     
     return chunk
