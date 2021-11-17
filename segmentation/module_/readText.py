@@ -7,45 +7,49 @@ import pandas as pd
 import random
 
 def read_hh(raw_data):
-    activity=''
-    events=[]
+    activity = ''
+    events = []
     _cnt = 0
     for ln, line in enumerate(raw_data):
-        single_event=[]
-        f_info=line.decode().split()
+        single_event = []
+        f_info = line.decode().split()
         try:
             single_event.append(f_info[2])                  # 1. sensor
             single_event.append(f_info[3])                  # 2. value
             if not ('.' in str(np.array(f_info[0])) + f_info[1]):
                 f_info[1] = f_info[1] + '.000000'
-            timestamp=datetime.timestamp(datetime.strptime(f_info[0] + f_info[1], "%Y-%m-%d%H:%M:%S.%f"))
+            timestamp = datetime.timestamp(datetime.strptime(f_info[0] + f_info[1], "%Y-%m-%d%H:%M:%S.%f"))
             single_event.append(float(timestamp))           # 3. timestamp
 
             if len(f_info) != 4:  # if activity exists
                 des = str(' '.join(np.array(f_info[4:])))
                 if 'begin' in des:
-                    temp=des.split('=')[0].strip()
-                    if _cnt>0:
+                    temp = des.split('=')[0].strip()
+                    if _cnt > 0:
                         print("[line {}] {} - {} begin - {}".format(ln, activity, temp, activity))
-                    _cnt+=1
+                    _cnt += 1
 
                     activity = temp
                     single_event.append(activity)
                     
                 elif 'end' in des:
-                    _cnt-=1
-                    if _cnt>0:
+                    _cnt -= 1
+                    if _cnt > 0:
                         print("[line {}] ? - {} end - ?".format(ln, activity))
 
                     single_event.append(activity)
                     activity = ''
+                
                 else:
-                    # print(ln, line)
                     continue
 
             else:
                 single_event.append(activity)
+
+            assert len(single_event) == 4
+
             events.append(single_event)
+
         except IndexError:
             print(ln, line)
     
