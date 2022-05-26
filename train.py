@@ -227,7 +227,7 @@ if __name__ == "__main__":
             train_loss.reset_states()
             test_accuracy.reset_states()
             test_earliness.reset_states()
-        tf.keras.models.save_model(model, logdir, save_format='tf', save_traces=False)
+        model.save_weights(os.path.join(logdir, 'model'))
         print(f'tensor board dir: {logdir}')
-        # break
+        break
 

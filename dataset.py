@@ -360,7 +360,7 @@ class CASAS_RAW_NATURAL(CASAS_RAW_SEGMENTED):
         state_matrix.append(np.reshape(activated, [1, -1]))
         count_seq.append(count)
         labels.append(l)
-        return np.concatenate(state_matrix), labels, count_seq   
+        return np.concatenate(state_matrix), np.array(labels), count_seq   
 
 # args.dataset = "cairo"
 # data1 = CASAS_RAW_SEGMENTED(args)

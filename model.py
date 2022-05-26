@@ -127,6 +127,13 @@ class EARLIEST(tf.keras.Model):
             self.grad_mask[b, :(1 + int(halt_points[b, 0]))] = 1
         return logits
 
+    def get_config(self):
+        return {"hidden_units": self.hidden_units}
+
+    @classmethod
+    def from_config(cls, config):
+        return cls(**config)
+
 
 
 
