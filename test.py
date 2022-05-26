@@ -2,18 +2,12 @@ import os
 import random
 import pickle
 import argparse
-from math import sqrt
 from datetime import datetime
-from tkinter import X
 
 import numpy as np
 import pandas as pd
 from tqdm import tqdm
 import tensorflow as tf
-from focal_loss import SparseCategoricalFocalLoss
-# from sklearn.metrics import accuracy_score
-from sklearn.model_selection import StratifiedKFold
-from sklearn.metrics import precision_recall_fscore_support as f_score
 
 import utils
 from model import EARLIEST
@@ -68,19 +62,13 @@ exponentials = utils.exponentialDecay(args.nepochs, args.decay_weight)
 optimizer = tf.keras.optimizers.Adam(learning_rate=args.learning_rate)
 
 
-
+# To check the trained model was saved correctly by feeding the used y into loaded model.
+# Compared the accuracy with previous results, but there are slight differences.
+# It may be caused by random seed that is used when sampling action in Controller.
 args.dataset = "cairo"
-# data = CASAS_RAW_NATURAL(args)
 data = CASAS_RAW_SEGMENTED(args)
 
-data.state_matrix.shape
-data.labels.shape
-
-
-del model
 logdir = './output/log/220525-205141/'
-
-
 test_accuracy = tf.keras.metrics.SparseCategoricalAccuracy('test_accuracy')
 acc = []
 for k in range(5):
@@ -99,3 +87,49 @@ for k in range(5):
         test_accuracy(np.reshape(true_y, [-1,1]), pred_logit)
     acc.append(test_accuracy.result().numpy())
 
+
+
+# Evaluate the trained model when the data is coming in continuously at each timestep, not episode
+args.dataset = "cairo"
+data = CASAS_RAW_NATURAL(args)
+data.state_matrix.shape
+data.labels.shape
+
+del model
+logdir = './output/log/220525-204803/'
+args.nclasses = 7
+args.test = True
+model = EARLIEST(args)
+model._epsilon = 0
+model.t = 0
+model(np.reshape(data.X[0], (1, -1, 27)), is_train=False )
+model.load_weights(os.path.join(logdir, f'fold_{5}', 'model'))
+
+true_y = np.array([data.label2idx[data.mappingActivities[args.dataset][y]] for y in data.labels])
+prev_y = None
+start_points = []
+for i, y in enumerate(data.labels):
+    if prev_y != y:
+        start_points.append(i)
+    prev_y = y
+
+
+idx = []
+pred_y = []
+for i in tqdm(range(len(data.state_matrix))):
+    x = data.state_matrix[i]
+    pred_logit = model(np.reshape(x, (1, 1, -1)), is_train=False)
+    model.t += 1
+    if model.actions.numpy()[0][0] == 1:
+        pred_y.append(np.argmax(pred_logit))
+        idx.append(i)
+        model.t = 0
+
+
+
+# df = pd.read_csv(os.path.join(logdir, f'fold_{5}', 'test_results.csv'))
+# true_y_test = df['true_y'].to_numpy()
+# pred_y_test = df['pred_y'].to_numpy()
+
+metrics = utils.metrics(true_y[idx], pred_y)
+metrics.keys()

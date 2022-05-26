@@ -85,6 +85,8 @@ class EARLIEST(tf.keras.Model):
             yhat_t = tf.reshape(yhat_t, (-1, 1))
             
             # compute halting probability, sample an action, and baseline
+            if self.args.test:
+                t = self.t
             time = tf.ones([B,1]) * t
             c_in = tf.stop_gradient(tf.concat([output, time], axis=1))
             # c_in = tf.concat([output, time], axis=1)
@@ -127,53 +129,11 @@ class EARLIEST(tf.keras.Model):
             self.grad_mask[b, :(1 + int(halt_points[b, 0]))] = 1
         return logits
 
-    def get_config(self):
-        return {"hidden_units": self.hidden_units}
+    # def get_config(self):
+    #     return {"hidden_units": self.hidden_units}
 
-    @classmethod
-    def from_config(cls, config):
-        return cls(**config)
+    # @classmethod
+    # def from_config(cls, config):
+    #     return cls(**config)
 
-
-
-
-# actions = []
-# actions.append(action)
-# actions = tf.concat(actions, axis=1)
-# grad_mask = np.zeros_like(actions)
-
-# grad_mask[0, :(1 + halt_points[0, 0])] = 1
-# grad_mask[0, :1.]
-# halt_points = np.array([[3], [5], [2]])
-
-
-# t = 3
-# B = 4
-# Controller = Controller(args)
-# logits = tf.random.normal([B, 2])
-# predictions = tf.zeros([B, 2])
-# halt_points = -np.ones(shape=(B, 1))
-# time = tf.ones([B,1]) * t
-
-# c_in = tf.stop_gradient(tf.concat([logits, time], axis=1))
-# a_t, p_t, w_t = Controller(c_in)
-
-# halt_points.numpy() +1
-
-
-
-# log_pi = []
-# log_pi.append(m.log_prob(action))
-
-# tf.concat(log_pi, axis=1)
-
-# probs = np.array([[1], [0.5], [0.0]])
-# m = tfp.distributions.Bernoulli(probs=probs)
-# action = m.sample(seed=0)
-# action
-# m.log_prob(action)
-# m.log_prob([[0],[0],[0]])
-
-
-# -tf.math.log(0.0)
 

@@ -49,6 +49,7 @@ parser.add_argument("--exp_num", type=str, default="0", help="Experiment number"
 parser.add_argument("--gamma", type=int, default=0, help="gamma for focal loss.")
 parser.add_argument("--class_weight", type=bool, default=False, help="Apply class weight or not")
 parser.add_argument("--decay_weight", type=float, default=10, help="decay weight for exploration")
+parser.add_argument("--test", type=bool, default=False, help="test")
 
 
 args = parser.parse_args()
