@@ -8,6 +8,8 @@ import numpy as np
 import pandas as pd
 from tqdm import tqdm
 import tensorflow as tf
+from scipy.stats import mode
+from sklearn.metrics import precision_recall_fscore_support as f_score
 
 import utils
 from model import EARLIEST
@@ -90,20 +92,10 @@ for k in range(5):
 
 
 # Evaluate the trained model when the data is coming in continuously at each timestep, not episode
-args.dataset = "cairo"
+args.dataset = "milan"
 data = CASAS_RAW_NATURAL(args)
 data.state_matrix.shape
 data.labels.shape
-
-del model
-logdir = './output/log/220525-204803/'
-args.nclasses = 7
-args.test = True
-model = EARLIEST(args)
-model._epsilon = 0
-model.t = 0
-model(np.reshape(data.X[0], (1, -1, 27)), is_train=False )
-model.load_weights(os.path.join(logdir, f'fold_{5}', 'model'))
 
 true_y = np.array([data.label2idx[data.mappingActivities[args.dataset][y]] for y in data.labels])
 prev_y = None
@@ -112,6 +104,19 @@ for i, y in enumerate(data.labels):
     if prev_y != y:
         start_points.append(i)
     prev_y = y
+
+len(start_points)
+
+del model
+logdir = './output/log/220531-175128/'
+fold_num = 3
+args.nclasses = len(set(true_y))
+args.test = True
+model = EARLIEST(args)
+model._epsilon = 0
+model.t = 0
+model(np.reshape(data.X[0], (1, -1, len(data.sensor2index))), is_train=False )
+model.load_weights(os.path.join(logdir, f'fold_{fold_num}', 'model'))
 
 
 idx = []
@@ -124,12 +129,80 @@ for i in tqdm(range(len(data.state_matrix))):
         pred_y.append(np.argmax(pred_logit))
         idx.append(i)
         model.t = 0
+realtime_pred = {}
+realtime_pred['idx'] = idx
+realtime_pred['pred_y'] = pred_y
+with open(os.path.join(logdir, f'fold_{fold_num}', 'realtime_pred.pickle'), 'wb') as f:
+    pickle.dump(realtime_pred, f, pickle.HIGHEST_PROTOCOL)
 
 
 
-# df = pd.read_csv(os.path.join(logdir, f'fold_{5}', 'test_results.csv'))
-# true_y_test = df['true_y'].to_numpy()
-# pred_y_test = df['pred_y'].to_numpy()
 
-metrics = utils.metrics(true_y[idx], pred_y)
+with open(os.path.join(logdir, f'fold_{fold_num}', 'realtime_pred.pickle'), 'rb') as f:
+    realtime_pred = pickle.load(f)
+
+len(realtime_pred['idx'])
+
+# np.where(np.array(realtime_pred['pred_y']) != np.array(pred_y), 1, 0).sum()
+# np.where(np.array(realtime_pred['idx']) != np.array(idx), 1, 0).sum()
+
+start_idx = 0
+realtime_true = []
+for i in range(len(realtime_pred['idx'])):
+    start_idx = 0 if i == 0 else realtime_pred['idx'][i-1]
+    end_idx = realtime_pred['idx'][i]
+    if start_idx != end_idx:
+        realtime_true.append(mode(true_y[start_idx:end_idx]).mode[0])
+    else:
+        realtime_true.append(true_y[end_idx])
+np.where(realtime_true != true_y[realtime_pred["idx"]], 1, 0).sum()
+
+
+
+metrics = utils.metrics(realtime_true, realtime_pred["pred_y"])
 metrics.keys()
+metrics['FPR']
+metrics['FNR']
+metrics['F1']
+metrics['macro_FPR']
+metrics['macro_FNR']
+metrics['macro_F1']
+metrics['micro_FPR']
+metrics['micro_FNR']
+metrics['micro_F1']
+metrics['PPV']
+metrics['TPR']
+
+dir = os.path.join(logdir, f'fold_{fold_num}', 'confusion_matrix_real.png')
+utils.plot_confusion_matrix(realtime_true, realtime_pred["pred_y"], dir, target_names=list(data.idx2label.values()))
+
+
+
+
+df = pd.read_csv(os.path.join(logdir, f'fold_{fold_num}', 'test_results.csv'))
+true_y_sgm = df['true_y'].to_numpy()
+pred_y_sgm = df['pred_y'].to_numpy()
+
+metrics_sgm = utils.metrics(true_y_sgm, pred_y_sgm)
+metrics_sgm['FPR']
+metrics_sgm['FNR']
+metrics_sgm['F1']
+metrics_sgm['macro_FPR']
+metrics_sgm['macro_FNR']
+metrics_sgm['macro_F1']
+metrics_sgm['micro_FPR']
+metrics_sgm['micro_FNR']
+metrics_sgm['micro_F1']
+
+dir = os.path.join(logdir, f'fold_{fold_num}', 'confusion_matrix_ep.png')
+utils.plot_confusion_matrix(true_y_sgm, pred_y_sgm, dir, target_names=list(data.idx2label.values()))
+
+
+data.idx2label
+
+
+
+# precision, recall, f1, support = f_score(true_y_sgm, pred_y_sgm, average=None, labels=range(args.nclasses))
+# mac_precision, mac_recall, mac_f1, _ = f_score(true_y_sgm, pred_y_sgm, average='macro')
+# mic_precision, mic_recall, mic_f1, _ = f_score(true_y_sgm, pred_y_sgm, average='micro')
+

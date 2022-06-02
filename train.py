@@ -230,5 +230,5 @@ if __name__ == "__main__":
             test_earliness.reset_states()
         model.save_weights(os.path.join(logdir, 'model'))
         print(f'tensor board dir: {logdir}')
-        break
+        # break
 

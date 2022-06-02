@@ -280,3 +280,20 @@ a[9]
 
 data['raw_probs'][0][16]
 data['raw_probs'][9][0]
+
+
+# Load results from tensorboard.dev ----------------------------------------------
+import tensorboard as tb
+
+experiment_id = "ziDEnzY1QKybvw8YiZNXOQ"
+experiment = tb.data.experimental.ExperimentFromDev(experiment_id)
+df = experiment.get_scalars()
+df
+# dfw = experiment.get_scalars(pivot=True) 
+# dfw
+
+df1 = df.loc[df['run'].str.contains(r"test")]
+df1[df1["step"] == 49].groupby("tag").mean()
+
+
+
