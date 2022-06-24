@@ -24,6 +24,7 @@ parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFo
 parser.add_argument("--dataset", type=str, default="milan", help="Which dataset will be used")
 parser.add_argument("--seq_len", type=int, default=2000, help="The number of timesteps")
 parser.add_argument("--shuffle", type=bool, default=True, help="Shuffle training dataset or not.")
+parser.add_argument("--episode_pair", type=bool, default=True, help="Whether the two episodes are connected or not.")
 # parser.add_argument("--nclasses", type=int, default=15, help="The number of classes.")
 parser.add_argument("--nsplits", type=int, default=5, help="The number of splits for validation")
 parser.add_argument("--nseries", type=int, default=0, help="The number of time series")

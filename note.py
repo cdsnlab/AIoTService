@@ -109,3 +109,31 @@ df.to_csv(logdir + "/test_results.csv", index=False, encoding='utf=8')
 
 
 # logdir = "./output/log/" + "220506-193423" + f'/fold_{k+1}'
+
+
+N = 21
+tau = 2
+tmax = 5
+t = np.linspace(0, tmax, N)
+y = np.exp(-t/tau)
+y
+y_rev = np.sort(y)
+boundary = np.concatenate((y_rev, y[1:]))
+
+seg_point = 30
+# seg_labels = np.zeros(70)
+# seg_labels[seg_point-N+1:seg_point+N] = boundary
+# seg_labels[seg_point]
+
+
+
+gt_boundary = []
+if N - seg_point - 1 >= 0:
+    boundary = boundary[N-seg_point-1:]
+else:
+    zeros = np.zeros(seg_point-N+1)
+    boundary = np.concatenate((zeros, boundary))
+gt_boundary.append(boundary)
+
+gt_boundary = pad_sequences(gt_boundary, padding='post', truncating='post', dtype='float32', maxlen=2000)  # B * T * V
+

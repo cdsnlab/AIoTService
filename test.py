@@ -194,7 +194,7 @@ metrics_sgm['micro_FPR']
 metrics_sgm['micro_FNR']
 metrics_sgm['micro_F1']
 
-dir = os.path.join(logdir, f'fold_{fold_num}', 'confusion_matrix_ep.png')
+dir = os.path.join(logdir, f'fold_{fold_num}', 'confusion_matrix_sgm.png')
 utils.plot_confusion_matrix(true_y_sgm, pred_y_sgm, dir, target_names=list(data.idx2label.values()))
 
 
