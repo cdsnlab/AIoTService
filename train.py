@@ -98,7 +98,7 @@ def train_step(model, x, true_y):
     total_loss, grads, pred_logit, locations = grad(model, x, true_y=true_y)
     optimizer.apply_gradients(zip(grads, model.trainable_variables))
     train_loss(total_loss)
-    train_accuracy(np.reshape(true_y, [-1,1]), pred_logit)        
+    train_accuracy(np.reshape(true_y, [-1,1]), pred_logit)
 
 def test_step(model, x, true_y, length, num_event):
     if args.model == "EARLIEST":

@@ -111,27 +111,22 @@ df.to_csv(logdir + "/test_results.csv", index=False, encoding='utf=8')
 # logdir = "./output/log/" + "220506-193423" + f'/fold_{k+1}'
 
 
-N = 21
+offset = 21
 tau = 2
 tmax = 5
-t = np.linspace(0, tmax, N)
+t = np.linspace(0, tmax, offset)
 y = np.exp(-t/tau)
-y
 y_rev = np.sort(y)
 boundary = np.concatenate((y_rev, y[1:]))
 
 seg_point = 30
-# seg_labels = np.zeros(70)
-# seg_labels[seg_point-N+1:seg_point+N] = boundary
-# seg_labels[seg_point]
-
 
 
 gt_boundary = []
-if N - seg_point - 1 >= 0:
-    boundary = boundary[N-seg_point-1:]
+if offset - seg_point - 1 >= 0:
+    boundary = boundary[offset-seg_point-1:]
 else:
-    zeros = np.zeros(seg_point-N+1)
+    zeros = np.zeros(seg_point-offset+1)
     boundary = np.concatenate((zeros, boundary))
 gt_boundary.append(boundary)
 

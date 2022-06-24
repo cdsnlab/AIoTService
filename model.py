@@ -137,3 +137,88 @@ class EARLIEST(tf.keras.Model):
     #     return cls(**config)
 
 
+class SEGMENTATION(tf.keras.Model):
+    def __init__(self, args):
+        super(SEGMENTATION, self).__init__(name='')
+        self.args = args
+        self.LSTM = layers.LSTMCell(self.args.nhid)
+        self.initial_states = tf.zeros([self.args.batch_size, self.args.nhid])
+        self.out = layers.Dense(1, activation='sigmoid')  # Discriminator
+        
+    def call(self, X, tr_boundary, tr_point, lengths, is_train=True):
+        B, T, V = X.shape # Input shape (BATCH x TIMESTEPS x VARIABLES)     
+        hidden = [tf.identity(self.initial_states[:B, :]), tf.identity(self.initial_states[:B, :])]
+        # tr_predictions = -tf.ones([B, 1])
+        # pred_tr_points = -tf.ones([B, 1])
+        
+        pred_tr_list = []
+        for t in range(T):
+            x = X[:,t,:]
+            output, hidden = self.LSTM(x, states=hidden)
+            pred_tr = self.out(output)
+            pred_tr_list.append(pred_tr)
+        self.pred_tr = tf.concat(pred_tr_list, axis=1)
+                
+        offset = 1
+        idx_pos_samples = [[i for i in range(p-offset, p+offset+1, 1) if i >= 0] for p in tr_point]
+        idx_neg_samples = []
+        for i, idx_pos_sam in enumerate(idx_pos_samples):
+            range_pool = range(lengths[i] + tr_point[i]) if len(range(lengths[i] + tr_point[i])) < model.args.seq_len * 2 else range(model.args.seq_len * 2)
+            pool = set(range_pool) - set(idx_pos_sam)
+            replace = False if (len(pool) >= offset*2) else True
+            idx_neg_samples.append(list(np.random.choice(list(pool), offset*2, replace=replace)))
+        idx_pred = [a+b for a,b in zip(idx_pos_samples, idx_neg_samples)]
+        idx_pred = tf.convert_to_tensor(idx_pred, dtype=tf.int32)
+        pred_tr = tf.experimental.numpy.take_along_axis(model.pred_tr, idx_pred, axis=1)
+        true_tr = tf.experimental.numpy.take_along_axis(tr_boundary, idx_pred, axis=1)
+        return pred_tr, true_tr
+        
+        
+        
+        
+# args.dataset = "milan"
+# data = CASAS_RAW_NATURAL(args)
+# model = SEGMENTATION(args)
+
+# x = data.X[:10]
+# tr_b = data.gt_boundary[:10]
+# tr_point = data.tr_points[:10]
+# lengths = data.lengths[:10]
+
+# model(x, tr_b, tr_point, lengths, is_train=True)
+
+# offset = 1
+# idx_pos_samples = [[i for i in range(p-offset, p+offset+1, 1) if i >= 0] for p in tr_point]
+
+# idx_neg_samples = []
+# for i, idx_pos_sam in enumerate(idx_pos_samples):
+#     range_pool = range(lengths[i] + tr_point[i]) if len(range(lengths[i] + tr_point[i])) < model.args.seq_len * 2 else range(model.args.seq_len * 2)
+#     pool = set(range_pool) - set(idx_pos_sam)
+#     replace = False if (len(pool) >= offset*2) else True
+#     idx_neg_samples.append(list(np.random.choice(list(pool), offset*2, replace=replace)))
+# idx_pred = [a+b for a,b in zip(idx_pos_samples, idx_neg_samples)]
+# idx_pred = tf.convert_to_tensor(idx_pred, dtype=tf.int32)
+# pred_tr = tf.experimental.numpy.take_along_axis(model.pred_tr, idx_pred, axis=1)
+# true_tr = tf.experimental.numpy.take_along_axis(tr_b, idx_pred, axis=1)
+
+
+
+
+
+
+
+
+# np.take_along_axis(np.array(model.pred_tr), idx_pred, axis=1)
+
+
+        
+            
+            
+            #  # If a_t == 1 and this class hasn't been halted, save its logits
+            # pred_tr_points = tf.where((pred_tr_points == -1) & (logits >= 0.5), t, pred_tr_points)
+            # tr_predictions = tf.where((pred_tr_points != -1) & (a_t == 1), logits, tr_predictions)
+            
+            # actions.append(a_t)
+            # log_pi.append(p_t)
+            
+
