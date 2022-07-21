@@ -15,10 +15,10 @@ from tensorflow.keras.preprocessing.sequence import pad_sequences
 
 
 class Dataloader(Sequence):
-    def __init__(self, indices, x_set, y_set, len_set, count_set, tr_points, tr_boundary, batch_size, shuffle=False):
+    def __init__(self, indices, x_set, y_set, len_set, count_set, batch_size, shuffle=False, tr_points=None, tr_boundary=None):
         self.indices = indices
-        self.x, self.y, self.len, self.count, self.tr_points = x_set, y_set, len_set, count_set, tr_points
-        self.tr_boundary = tr_boundary
+        self.x, self.y, self.len, self.count = x_set, y_set, len_set, count_set
+        # self.tr_points, self.tr_boundary = tr_points, tr_boundary
         self.batch_size = batch_size
         self.shuffle = shuffle
         self.on_epoch_end()
@@ -33,9 +33,13 @@ class Dataloader(Sequence):
         batch_y = np.array([self.y[i] for i in indices])
         batch_len = np.array([self.len[i] for i in indices])
         batch_count = np.array([self.count[i] for i in indices])
-        batch_tr_point = np.array([self.tr_points[i] for i in indices])
-        batch_tr_boundary = np.array([self.tr_boundary[i] for i in indices])
-        return batch_x, batch_y, batch_len, batch_count, batch_tr_point, batch_tr_boundary
+        # if self.tr_points is not None and self.tr_boundary is not None:
+        #     batch_tr_point = np.array([self.tr_points[i] for i in indices])
+        #     batch_tr_boundary = np.array([self.tr_boundary[i] for i in indices])
+        # else:
+        #     batch_tr_point = None
+        #     batch_tr_boundary = None
+        return batch_x, batch_y, batch_len, batch_count
 
     def on_epoch_end(self):
         # self.indices = np.arange(len(self.x))
@@ -331,41 +335,39 @@ class CASAS_RAW_NATURAL(CASAS_RAW_SEGMENTED):
         Y.append(self.mappingActivities[self.args.dataset][prev_label])
         lengths.append(X[-1].shape[0])
         event_counts.append(np.array(counts) - prev_count)
-        
-        if self.args.episode_pair:
-            # self.X = X
-            # self.Y = Y
-            # self.lengths = lengths
-            # self.event_counts = event_counts
-            pair = []
-            tr_points = []
-            for i in range(len(X)-1):
-                if len(X[i]) > self.args.seq_len:
-                    former = X[i][:self.args.seq_len]
-                    transition = self.args.seq_len
-                else:
-                    former = X[i]
-                    transition = lengths[i]
-                pair.append(np.concatenate((former, X[i+1])))
-                tr_points.append(transition)
-            self.X = pad_sequences(pair, padding='post', truncating='post', dtype='float32', maxlen=self.args.seq_len*2)  # B * T * V
-            self.tr_points = np.array(tr_points)
-            Y = Y[1:]
-            lengths = lengths[1:]
-            event_counts = event_counts[1:]   
+        # self.X = X
+        # return None
+
+        self.noise_amount = int(self.args.noise_ratio / 100 * self.args.offset)
+        if self.noise_amount == 0:
+            X_noise = X[1:]
         else:
-            self.X = pad_sequences(X, padding='post', truncating='post', dtype='float32', maxlen=self.args.seq_len)  # B * T * V
-            self.tr_points = np.zeros(len(self.X), dtype=int)
+            X_noise = []
+            prev_events = X[0][-self.noise_amount:]
+            for i in range(len(X)-1):
+                noise = prev_events[-self.noise_amount:]
+                prev_events = np.concatenate((noise, X[i+1]))
+                X_noise.append(prev_events)
+        self.X = pad_sequences(X_noise, padding='post', truncating='post', dtype='float32', maxlen=self.args.seq_len)  # B * T * V
+        Y = np.array(Y[1:])
+        self.lengths = np.array(lengths[1:])
+        event_counts = event_counts[1:]
         
+        event_counts = pad_sequences(event_counts, padding='post', truncating='post', dtype='float32', maxlen=self.args.seq_len, value=0.0)
+        count_max = np.reshape(np.max(event_counts, axis=1), (-1, 1))
+        self.event_counts = np.where(event_counts != 0.0, event_counts, count_max)
+        
+        if self.args.with_other == False:
+            print("Other class is excluded.")
+            except_other = np.where(Y != 'Other')[0]
+            self.X = self.X[except_other]
+            Y = Y[except_other]
+            self.lengths = self.lengths[except_other]
+            self.event_counts = self.event_counts[except_other]
+            
         self.idx2label = {i:label for i, label in enumerate(sorted(set(Y)))}
         self.label2idx = {label:i for i, label in self.idx2label.items()}
-        Y = [self.label2idx[l] for l in Y]
-        self.Y = np.array(Y)
-        self.lengths = np.array(lengths)
-        event_counts = pad_sequences(event_counts, padding='post', truncating='post', dtype='float32', maxlen=self.args.seq_len*2, value=0.0)
-        count_max = np.reshape(np.max(event_counts, axis=1), (-1, 1))
-        self.event_counts = np.where(event_counts != 0.0, event_counts, count_max)        
-        self.gt_boundary = self.transition_boundary()
+        self.Y = np.array([self.label2idx[l] for l in Y])
         return None
         
     def event2matrix(self, sensors, values, timestamps, activities):
@@ -390,28 +392,71 @@ class CASAS_RAW_NATURAL(CASAS_RAW_SEGMENTED):
         labels.append(l)
         return np.concatenate(state_matrix), np.array(labels), count_seq   
     
-    def transition_boundary(self, offset=21):
-        tau = 2
-        tmax = 5
-        gt_boundary = []
-        for tr_point in self.tr_points:
-            t = np.linspace(0, tmax, offset)
-            y = np.exp(-t/tau)
-            y_rev = np.sort(y)
-            boundary = np.concatenate((y_rev, y[1:]))
-            if offset - tr_point - 1 >= 0:
-                boundary = boundary[offset-tr_point-1:]
-            else:
-                zeros = np.zeros(tr_point-offset+1)
-                boundary = np.concatenate((zeros, boundary))
-            gt_boundary.append(boundary)
-        gt_boundary = pad_sequences(gt_boundary, padding='post', truncating='post', dtype='float32', maxlen=self.args.seq_len*2)  # B * T * V
-        return gt_boundary
+    # def transition_boundary(self, offset=21):
+    #     tau = 2
+    #     tmax = 5
+    #     gt_boundary = []
+    #     for tr_point in self.tr_points:
+    #         t = np.linspace(0, tmax, offset)
+    #         y = np.exp(-t/tau)
+    #         y_rev = np.sort(y)
+    #         boundary = np.concatenate((y_rev, y[1:]))
+    #         if offset - tr_point - 1 >= 0:
+    #             boundary = boundary[offset-tr_point-1:]
+    #         else:
+    #             zeros = np.zeros(tr_point-offset+1)
+    #             boundary = np.concatenate((zeros, boundary))
+    #         gt_boundary.append(boundary)
+    #     gt_boundary = pad_sequences(gt_boundary, padding='post', truncating='post', dtype='float32', maxlen=self.args.seq_len*2)  # B * T * V
+    #     return gt_boundary
 
 
 
 # args.dataset = "milan"
+# args.with_other = True
+# args.noise_ratio = 100
 # data = CASAS_RAW_NATURAL(args)
+# len(data.X)
+# data.X[0][:,].shape
+# data.X[1].shape
+# set(data.Y)
+# data.X.shape
+# data.Y.shape
+# data.lengths.shape
+# data.event_counts.shape
+# data.idx2label
+
+# a = np.array(['Bed_to_toilet', 'Other', 'Sleep'])
+# np.where(a != 'Other')[0]
+
+# a = np.array([1,2,3,4,5,6,7])
+# a[np.where(a == data.label2idx['Other'])[0]]
+
+
+# X = data.X
+# np.concatenate((data.X[0], data.X[1])).shape
+
+
+
+# offset = 20
+# noise_ratio = 100
+# noise_amount = int(noise_ratio / 100 * offset)
+
+# X_noise = []
+# prev_events = X[0][-noise_amount:]
+# for i in range(len(X)-1):
+#     noise = prev_events[-noise_amount:]
+#     prev_events = np.concatenate((noise, X[i+1]))
+#     X_noise.append(prev_events)
+
+# self.X = pad_sequences(pair, padding='post', truncating='post', dtype='float32', maxlen=self.args.seq_len)  # B * T * V
+# Y = Y[1:]
+# lengths = lengths[1:]
+# event_counts = event_counts[1:]   
+
+
+
+# i = 0
 
 # l = np.array(data.lengths)
 # (np.where(l > 2000, 1, 0) * l).sum() / sum(np.where(l > 2000, 1, 0))

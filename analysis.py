@@ -285,7 +285,7 @@ data['raw_probs'][9][0]
 # Load results from tensorboard.dev ----------------------------------------------
 import tensorboard as tb
 
-experiment_id = "ziDEnzY1QKybvw8YiZNXOQ"
+experiment_id = "CoVG6yTnQoC3da66UYozJQ"
 experiment = tb.data.experimental.ExperimentFromDev(experiment_id)
 df = experiment.get_scalars()
 df
@@ -296,4 +296,69 @@ df1 = df.loc[df['run'].str.contains(r"test")]
 df1[df1["step"] == 49].groupby("tag").mean()
 
 
+
+df = df[df["step"] == 100]
+
+df["noise_proportion"] = df["run"].str.split('_').str[2]
+df['noise_proportion'] = df['noise_proportion'].str.split('.').str[0]
+df['noise_proportion'] = df['noise_proportion'].astype('int')
+df = df[['value', 'noise_proportion']]
+df = df.sort_values(by="noise_proportion")
+
+import matplotlib.pyplot as plt
+import pandas as pd
+noise_proportion = df['noise_proportion']
+Accuracy = df['value']
+x=list(noise_proportion)
+y=list(Accuracy)
+plt.plot(x, y, color = 'b', linestyle = 'solid', marker = 'o', label = "Using complete data stream")
+plt.xlabel('The proportion of the noise in the detected transition window (%)')
+# plt.xticks(rotation = 25)
+plt.ylabel('Accuracy')
+plt.title('Accuracy by the proportion of the noise')
+plt.legend()
+plt.show()
+plt.savefig('./analysis/noise_proportion.png')
+plt.clf()
+
+
+# To verify how much data is needed for adequate performances when the data is well-segmented
+def 
+pd.options.display.float_format = '{:.2f}'.format
+experiment_ids = ['HJhBnVoLRGGcnoBsEQ8cnA', 'D6cmxUNrRM6738uKBsJaJQ', '94h83WVmRAGCOBsE8kywYg', '1nJJzjxuRCaayy557xtNpw', '8UzwX8jKRD2u9WDIgeKBow', 'mav93aVfR2qiaYWOFqtduA', 'm2WBPWGLSLKrS8p6WIL9pg', 'WSP3ByeKTgiYkIMdbhGu7g', 'SYJF8QB9QRuwBnf7lexG9w', '6vk71j76SBu7yUy0Js5knQ' ]
+lam = [0.1, 0.05, 0.01, 0.005, 0.001, 0.0005, 0.0001, 0.00005, 0.00001, 0]
+df_list = []
+for i, experiment_id in enumerate(experiment_ids):
+    experiment = tb.data.experimental.ExperimentFromDev(experiment_id)
+    df = experiment.get_scalars()
+    df = df.loc[df['run'].str.contains(r"test")]
+    df = df[df["step"] == 49]
+    df = df[['tag', 'value']]
+    df["lambda"] = str(lam[i])
+    df_list.append(df)
+df_concat = pd.concat(df_list)
+df_concat = df_concat.pivot(index='lambda', columns='tag', values='value')
+df_concat = df_concat[['whole_accuracy', 'whole_count_mean', 'whole_earliness', 'whole_location_mean']]
+df_concat.rename(columns={"whole_accuracy": "Accuracy", 
+                          "whole_count_mean": "# used event", 
+                          "whole_earliness": "Earliness", 
+                          "whole_location_mean": "Waiting seconds"}, 
+                 inplace=True)
+df_concat['Earliness'] = df_concat['Earliness'] * 100
+df_concat['Accuracy'] = df_concat['Accuracy'] * 100
+df_concat = df_concat.sort_values(by="Earliness")
+
+x = df_concat['Earliness']
+y = df_concat['Accuracy']
+plt.plot(x, y, color = 'b', linestyle = 'solid', marker = 'o')
+plt.xlabel('Earliness (%)')
+# plt.xticks(rotation = 25)
+plt.ylabel('Accuracy (%)')
+plt.title('Accuracy by Earliness')
+plt.legend()
+plt.show()
+plt.savefig('./analysis/Acc_byEarliness.png')
+plt.clf()
+
+df_concat[['Accuracy', 'Earliness', 'Waiting seconds', '# used event']]
 

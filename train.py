@@ -18,20 +18,20 @@ import utils
 from model import EARLIEST
 from dataset import CASAS_ADLMR, CASAS_RAW_NATURAL, CASAS_RAW_SEGMENTED, Dataloader
 
-
 parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 # Dataset hyperparameters
 parser.add_argument("--dataset", type=str, default="milan", help="Which dataset will be used")
 parser.add_argument("--seq_len", type=int, default=2000, help="The number of timesteps")
-parser.add_argument("--shuffle", type=bool, default=True, help="Shuffle training dataset or not.")
-parser.add_argument("--episode_pair", type=bool, default=True, help="Whether the two episodes are connected or not.")
-# parser.add_argument("--nclasses", type=int, default=15, help="The number of classes.")
+parser.add_argument("--shuffle", type=utils.str2bool, default=True, help="Shuffle training dataset or not.")
+parser.add_argument("--offset", type=int, default=20, help="The offset of the detected segmented windows")
+parser.add_argument("--noise_ratio", type=int, default=0, help="The ratio of the noise in the detected segmented windows")
 parser.add_argument("--nsplits", type=int, default=5, help="The number of splits for validation")
 parser.add_argument("--nseries", type=int, default=0, help="The number of time series")
 parser.add_argument("--prefix_len", type=int, default=10, help="The length of prefix length of dataset")
-parser.add_argument("--remove_prefix", type=bool, default=False, help="Whether the prefix is removed")
-parser.add_argument("--rnd_prefix", type=bool, default=False, help="Whether to add random events to the beginning of the activity")
-parser.add_argument("--segmented", type=bool, default=True, help="Whether the activity episodes are segmented correctly")
+parser.add_argument("--remove_prefix", type=utils.str2bool, default=False, help="Whether the prefix is removed")
+parser.add_argument("--rnd_prefix", type=utils.str2bool, default=False, help="Whether to add random events to the beginning of the activity")
+parser.add_argument("--segmented", type=utils.str2bool, default=False, help="Whether the activity episodes are segmented correctly")
+parser.add_argument("--with_other", type=utils.str2bool, default=True, help="Whether Other class is going to be included in the dataset or not")
 # Model hyperparameters
 parser.add_argument("--nhid", type=int, default=100, help="Number of dimensions of the hidden state of EARLIEST")
 parser.add_argument("--lam", type=float, default=0.08, help="Penalty of waiting. This controls the emphasis on earliness: Larger values lead to earlier predictions.")
@@ -39,6 +39,7 @@ parser.add_argument("--dropout_rate", type=float, default="0.2", help="Dropout r
 parser.add_argument("--reg_rate", type=float, default="0.001", help="regularizer rate.")
 parser.add_argument("--_epsilon", type=float, default="0.1", help="epsilon for exploration/exploitation.")
 parser.add_argument("--model", type=str, default="EARLIEST", help="Which model will be used")
+parser.add_argument("--pred_at", type=int, default=-1, help="It forces model to make a prediction at the defined percentile of the input stream")
 # Training hyperparameters
 parser.add_argument("--batch_size", type=int, default=10, help="Batch size.")
 parser.add_argument("--nepochs", type=int, default=50, help="Number of epochs.")
@@ -48,17 +49,17 @@ parser.add_argument("--random_seed", type=int, default="42", help="Set the rando
 parser.add_argument("--device", type=str, default="0", help="Which device will be used")
 parser.add_argument("--exp_num", type=str, default="0", help="Experiment number")
 parser.add_argument("--gamma", type=int, default=0, help="gamma for focal loss.")
-parser.add_argument("--class_weight", type=bool, default=False, help="Apply class weight or not")
+parser.add_argument("--class_weight", type=utils.str2bool, default=False, help="Apply class weight or not")
 parser.add_argument("--decay_weight", type=float, default=10, help="decay weight for exploration")
-parser.add_argument("--test", type=bool, default=False, help="test")
+parser.add_argument("--test", type=utils.str2bool, default=False, help="test")
 
 
 args = parser.parse_args()
 
 
 
-def loss_EARLIEST(model, x, true_y):  # shape of true_y is (B,)
-    pred_logit = model(x, is_train=True)  # shape of pred_y is (B * nclasses)
+def loss_EARLIEST(model, x, true_y, length):  # shape of true_y is (B,)
+    pred_logit = model(x, is_train=True, length=length)  # shape of pred_y is (B * nclasses)
     pred_y = tf.argmax(pred_logit, 1)
     if args.class_weight:
         class_weight = [1 / sqrt(list(true_y).count(i)) if list(true_y).count(i) != 0 else 0 for i in range(args.nclasses)]
@@ -87,22 +88,22 @@ def loss_EARLIEST(model, x, true_y):  # shape of true_y is (B,)
     loss = loss_r + loss_b + loss_c + args.lam*(wait_penalty)
     return loss, pred_logit, model.locations
 
-def grad(model, x, true_y):
+def grad(model, x, true_y, length):
     with tf.GradientTape() as tape:
-        total_loss, pred_logit, model.locations = loss_EARLIEST(model, x, true_y)
+        total_loss, pred_logit, model.locations = loss_EARLIEST(model, x, true_y, length)
         # if args.model == "EARLIEST":
         # elif args.model == "basic":
     return total_loss, tape.gradient(total_loss, model.trainable_variables), pred_logit, model.locations
 
-def train_step(model, x, true_y):
-    total_loss, grads, pred_logit, locations = grad(model, x, true_y=true_y)
+def train_step(model, x, true_y, length):
+    total_loss, grads, pred_logit, locations = grad(model, x, true_y=true_y, length=length)
     optimizer.apply_gradients(zip(grads, model.trainable_variables))
     train_loss(total_loss)
     train_accuracy(np.reshape(true_y, [-1,1]), pred_logit)
 
 def test_step(model, x, true_y, length, num_event):
     if args.model == "EARLIEST":
-        pred_logit = model(x, is_train=False)
+        pred_logit = model(x, is_train=False, length=length)
         test_accuracy(np.reshape(true_y, [-1,1]), pred_logit)
         test_earliness(model.locations.flatten()/length)
         true_labels.append(true_y)
@@ -185,6 +186,7 @@ if __name__ == "__main__":
     # elif args.dataset == "adlmr":
     #     data = CASAS_ADLMR(args)
     args.nclasses = data.N_CLASSES
+    args.noise_amount = data.noise_amount
     kfold = StratifiedKFold(n_splits=args.nsplits, random_state=args.random_seed, shuffle=args.shuffle)
     
     # Metrics
@@ -208,7 +210,7 @@ if __name__ == "__main__":
         for epoch in tqdm(range(args.nepochs)):
             model._epsilon = exponentials[epoch]
             for x, true_y, length, _ in train_loader:
-                train_step(model, x, true_y)
+                train_step(model, x, true_y, length)
             # end of epoch
             with train_summary_writer.as_default():
                 tf.summary.scalar('whole_accuracy', train_accuracy.result(), step=epoch)
@@ -231,5 +233,5 @@ if __name__ == "__main__":
             test_earliness.reset_states()
         model.save_weights(os.path.join(logdir, 'model'))
         print(f'tensor board dir: {logdir}')
-        # break
+        break
 

@@ -1,6 +1,8 @@
 # Load data frame from tensor board.dev --------------------------------------------------
 import tensorboard as tb
 
+from thesis.model import SEGMENTATION
+
 experiment_id = "lL2XetbbT3ao7kfYj0ie2A"
 experiment = tb.data.experimental.ExperimentFromDev(experiment_id)
 df = experiment.get_scalars()
@@ -132,3 +134,46 @@ gt_boundary.append(boundary)
 
 gt_boundary = pad_sequences(gt_boundary, padding='post', truncating='post', dtype='float32', maxlen=2000)  # B * T * V
 
+
+
+import math
+y_true = 0.1
+
+space = np.linspace(0.0001, 0.9999, 11)
+loss = []
+for s in space:
+    l = -y_true * math.log2((s)) - (1-y_true) * math.log2((1-s))
+    loss.append(l)
+    
+np.argmin(loss)
+
+
+
+
+
+
+logdir = './output/log/220624-190200/'
+fold_num = 1
+# args.nclasses = len(set(true_y))
+# args.test = True
+model = SEGMENTATION(args)
+model(np.reshape(data.X[0], (1, -1, len(data.sensor2index))), is_train=False )
+model.load_weights(os.path.join(logdir, f'fold_{fold_num}', 'model'))
+
+
+model.
+
+for x, true_y, length, count, tr_point, tr_boundary in train_loader: 
+    pred_tr, _ = model(x, tr_boundary, tr_point, length,  is_train=False)
+    pred_tr_point = np.argmax(pred_tr, axis=1)
+    acc = np.where((pred_tr_point >= tr_point - args.offset) & (pred_tr_point <= tr_point + args.offset), 1, 0).mean()
+    test_accuracy(acc)
+    
+
+test_accuracy.result()
+test_accuracy.reset_states()
+    test_step(model, x, tr_boundary, tr_point, length)
+    
+    
+pred_tr[0][1680]
+tr_point[0]
