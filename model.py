@@ -76,6 +76,7 @@ class EARLIEST(tf.keras.Model):
         baselines = [] # Predicted baselines
         raw_probs = []
         pred_y = []
+        distribution = []
         
         if not is_train and pred_at != -1:
             halt_points = pred_at / 100 * length + noise_amount
@@ -125,6 +126,7 @@ class EARLIEST(tf.keras.Model):
             baselines.append(b_t)
             raw_probs.append(probs_t)
             pred_y.append(yhat_t)
+            distribution.append(logits)
             if np.sum((halt_points == -1)) == 0:  # If no negative values, every class has been halted
                 break
             # If one element in the batch has not been halting, use its final prediction
@@ -138,6 +140,10 @@ class EARLIEST(tf.keras.Model):
         self.baselines = tf.concat(baselines, axis=1)
         self.raw_probs = pad_sequences(tf.concat(raw_probs, axis=1), padding='post', truncating='post', dtype='float32', maxlen=self.args.seq_len, value=-1)
         self.pred_y = pad_sequences(tf.concat(pred_y, axis=1), padding='post', truncating='post', dtype='float32', maxlen=self.args.seq_len, value=-1)
+        
+        distribution = tf.concat(distribution, axis=1)
+        distribution = tf.reshape(distribution, (B, -1, self.args.nclasses))
+        self.distribution = pad_sequences(distribution, padding='post', truncating='post', dtype='float32', maxlen=self.args.seq_len, value=-1)
         
         # --- Compute mask for where actions are updated ---
         # this lets us batch the algorithm and just set the rewards to 0

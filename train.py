@@ -19,6 +19,7 @@ from model import EARLIEST
 from dataset import CASAS_ADLMR, CASAS_RAW_NATURAL, CASAS_RAW_SEGMENTED, Dataloader
 
 parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+parser.add_argument("--exp_info_file", type=str, default="exp_info", help="Where to save the model once it is trained.")
 # Dataset hyperparameters
 parser.add_argument("--dataset", type=str, default="milan", help="Which dataset will be used")
 parser.add_argument("--seq_len", type=int, default=2000, help="The number of timesteps")
@@ -32,6 +33,7 @@ parser.add_argument("--remove_prefix", type=utils.str2bool, default=False, help=
 parser.add_argument("--rnd_prefix", type=utils.str2bool, default=False, help="Whether to add random events to the beginning of the activity")
 parser.add_argument("--segmented", type=utils.str2bool, default=False, help="Whether the activity episodes are segmented correctly")
 parser.add_argument("--with_other", type=utils.str2bool, default=True, help="Whether Other class is going to be included in the dataset or not")
+parser.add_argument("--balance", type=utils.str2bool, default=False, help="Whether some classes are balanced")
 # Model hyperparameters
 parser.add_argument("--nhid", type=int, default=100, help="Number of dimensions of the hidden state of EARLIEST")
 parser.add_argument("--lam", type=float, default=0.08, help="Penalty of waiting. This controls the emphasis on earliness: Larger values lead to earlier predictions.")
@@ -52,6 +54,7 @@ parser.add_argument("--gamma", type=int, default=0, help="gamma for focal loss."
 parser.add_argument("--class_weight", type=utils.str2bool, default=False, help="Apply class weight or not")
 parser.add_argument("--decay_weight", type=float, default=10, help="decay weight for exploration")
 parser.add_argument("--test", type=utils.str2bool, default=False, help="test")
+parser.add_argument("--n_fold_cv", type=utils.str2bool, default=False, help="wether to conduct n-fold cross validation")
 
 
 args = parser.parse_args()
@@ -120,6 +123,7 @@ def test_step(model, x, true_y, length, num_event):
             #                       [4]])
         list_probs.append(model.raw_probs)
         list_yhat.append(model.pred_y)
+        list_distribution.append(model.distribution)
 
 def write_test_summary(true_y, pred_y):
     precision, recall, f1, support = f_score(true_y, pred_y, average=None, labels=range(args.nclasses))
@@ -130,6 +134,7 @@ def write_test_summary(true_y, pred_y):
     event_count = np.concatenate(list_event_count)
     raw_probs = np.concatenate(list_probs)
     all_yhat = np.concatenate(list_yhat)
+    all_dist = np.concatenate(list_distribution)
     
     # Calculate representative metric of whole data
     with test_summary_writer.as_default():
@@ -143,6 +148,7 @@ def write_test_summary(true_y, pred_y):
         tf.summary.scalar('whole_micro_f1', mic_f1, step=epoch)
         tf.summary.scalar('whole_location_mean', locations.mean(), step=epoch)
         tf.summary.scalar('whole_count_mean', event_count.mean(), step=epoch)
+        tf.summary.scalar('whole_earliness2', locations.mean() / lengths.mean(), step=epoch)
         
     # Calculate metrics by classes
     for i, summary_writer in cls_summary_writer.items():
@@ -158,10 +164,11 @@ def write_test_summary(true_y, pred_y):
             tf.summary.scalar('by_cls_earliness_std', (locations[idx] / lengths[idx]).std(), step=epoch)
             tf.summary.scalar('by_cls_event_count_mean', event_count[idx].mean(), step=epoch)
             tf.summary.scalar('by_cls_event_count_std',  event_count[idx].std(), step=epoch)
+            tf.summary.scalar('by_cls_earliness2_mean', locations[idx].mean() / lengths[idx].mean(), step=epoch)
     
     df = pd.DataFrame({'true_y': true_y, 'pred_y': pred_y, 'locations': locations, 'lengths': lengths, 'event_count': event_count})
     df.to_csv(logdir + "/test_results.csv", index=False, encoding='utf=8')
-    dict_analysis = {"idx":test_loader.indices, "raw_probs": raw_probs, "all_yhat": all_yhat, "true_y": true_y}
+    dict_analysis = {"idx":test_loader.indices, "raw_probs": raw_probs, "all_yhat": all_yhat, "true_y": true_y, "all_dist": all_dist}
     with open(logdir + '/dict_analysis.pickle', 'wb') as f:
         pickle.dump(dict_analysis, f, pickle.HIGHEST_PROTOCOL)
 
@@ -219,7 +226,7 @@ if __name__ == "__main__":
             # Run test for every 10 epochs
             if (epoch + 1) % 10 == 0:
                 true_labels, pred_labels, list_locations, list_lengths, list_event_count = [], [], [], [], []
-                list_probs, list_yhat = [], []
+                list_probs, list_yhat, list_distribution = [], [], []
                 for x, true_y, length, num_event in test_loader: 
                     test_step(model, x, true_y, length, num_event)
                 # Write summary
@@ -233,5 +240,9 @@ if __name__ == "__main__":
             test_earliness.reset_states()
         model.save_weights(os.path.join(logdir, 'model'))
         print(f'tensor board dir: {logdir}')
-        break
+        f = open(f"./exp_info/{args.exp_info_file}.txt", 'a')
+        f.write(f"{args.lam}\t{logdir}\n")
+        f.close()
+        if not args.n_fold_cv:
+            break
 

@@ -95,12 +95,12 @@ class AmbientData(metaclass=ABCMeta):
             count += 1
         state_matrix[t] = activated
         count_seq[t] = count
-        return [np.array(state_matrix), l, duration+1, count_seq, t]
+        return [np.array(state_matrix), l, duration+1, count_seq, t, start_time]
 
     def generateDataset(self):
         # if self.args.rnd_prefix:
         #     self.sample_suffix()
-        X, Y, lengths, event_counts = [], [], [], []
+        X, Y, lengths, event_counts, start_time = [], [], [], [], []
         for episode in self.episodes:
             # if self.args.remove_prefix:
             #     episode = episode[self.args.prefix_len:, :] if len(episode) > self.args.prefix_len else episode
@@ -114,6 +114,7 @@ class AmbientData(metaclass=ABCMeta):
             Y.append(converted[1])
             lengths.append(converted[2])
             event_counts.append(converted[3])
+            start_time.append(converted[5])
         X = pad_sequences(X, padding='post', truncating='post', dtype='float32', maxlen=self.args.seq_len)  # B * T * V
         self.idx2label = {i:label for i, label in enumerate(sorted(set(Y)))}
         self.label2idx = {label:i for i, label in self.idx2label.items()}
@@ -121,6 +122,7 @@ class AmbientData(metaclass=ABCMeta):
         Y = np.array(Y)
         lengths = np.array(lengths)
         event_counts = np.array(event_counts)
+        self.start_time = np.array(start_time)
         return X, Y, lengths, event_counts
 
 
@@ -317,6 +319,7 @@ class CASAS_RAW_NATURAL(CASAS_RAW_SEGMENTED):
         prev_label = None
         x, counts = [], []
         X, Y, lengths, event_counts  = [], [], [], []
+        org_Y = []
         for s, l, c in zip(self.state_matrix, self.labels, count_seq):
             if prev_label == l or prev_label is None:
                 x.append(s)
@@ -325,6 +328,7 @@ class CASAS_RAW_NATURAL(CASAS_RAW_SEGMENTED):
                 # if len(x) > 2:
                 X.append(np.array(x))
                 Y.append(self.mappingActivities[self.args.dataset][prev_label])
+                org_Y.append(prev_label)
                 lengths.append(X[-1].shape[0])
                 event_counts.append(np.array(counts) - prev_count)
                 prev_count = counts[-1]
@@ -333,6 +337,7 @@ class CASAS_RAW_NATURAL(CASAS_RAW_SEGMENTED):
             prev_label = l
         X.append(np.array(x))
         Y.append(self.mappingActivities[self.args.dataset][prev_label])
+        org_Y.append(prev_label)
         lengths.append(X[-1].shape[0])
         event_counts.append(np.array(counts) - prev_count)
         # self.X = X
@@ -350,7 +355,9 @@ class CASAS_RAW_NATURAL(CASAS_RAW_SEGMENTED):
                 X_noise.append(prev_events)
         self.X = pad_sequences(X_noise, padding='post', truncating='post', dtype='float32', maxlen=self.args.seq_len)  # B * T * V
         Y = np.array(Y[1:])
+        self.org_Y = np.array(org_Y[1:])
         self.lengths = np.array(lengths[1:])
+        self.lengths = np.where(self.lengths > self.args.seq_len, self.args.seq_len, self.lengths)
         event_counts = event_counts[1:]
         
         event_counts = pad_sequences(event_counts, padding='post', truncating='post', dtype='float32', maxlen=self.args.seq_len, value=0.0)
@@ -368,6 +375,8 @@ class CASAS_RAW_NATURAL(CASAS_RAW_SEGMENTED):
         self.idx2label = {i:label for i, label in enumerate(sorted(set(Y)))}
         self.label2idx = {label:i for i, label in self.idx2label.items()}
         self.Y = np.array([self.label2idx[l] for l in Y])
+        if self.args.balance:
+            self.balance_class()
         return None
         
     def event2matrix(self, sensors, values, timestamps, activities):
@@ -392,6 +401,30 @@ class CASAS_RAW_NATURAL(CASAS_RAW_SEGMENTED):
         labels.append(l)
         return np.concatenate(state_matrix), np.array(labels), count_seq   
     
+    def balance_class(self):
+        num_bed = len(np.where(self.Y == self.label2idx['Bed_to_toilet'])[0])
+        num_eat = len(np.where(self.Y == self.label2idx['Eat'])[0])
+
+        idx_bathing = np.where(self.Y == self.label2idx['Bathing'])[0]
+        idx_cook = np.where(self.Y == self.label2idx['Cook'])[0]
+        idx_bathing_chosen = np.random.choice(idx_bathing, size=num_bed, replace=False)
+        idx_cook_chosen = np.random.choice(idx_cook, size=num_eat, replace=False)
+
+        excluded_bathing = set(idx_bathing) - set(idx_bathing_chosen)
+        excluded_cook = set(idx_cook) - set(idx_cook_chosen)
+        excluded = excluded_bathing | excluded_cook
+
+        idx = set(range(len(self.Y))) - excluded
+        idx = np.array(list(idx))
+
+        self.X = self.X[idx]
+        self.Y = self.Y[idx]
+        self.org_Y = self.org_Y[idx]
+        self.lengths = self.lengths[idx]
+        self.event_counts = self.event_counts[idx]
+        print(f'The number of the instances: {len(self.Y)}')
+        
+        
     # def transition_boundary(self, offset=21):
     #     tau = 2
     #     tmax = 5
@@ -413,7 +446,7 @@ class CASAS_RAW_NATURAL(CASAS_RAW_SEGMENTED):
 
 
 # args.dataset = "milan"
-# args.with_other = True
+# args.with_other = False
 # args.noise_ratio = 100
 # data = CASAS_RAW_NATURAL(args)
 # len(data.X)
@@ -425,6 +458,9 @@ class CASAS_RAW_NATURAL(CASAS_RAW_SEGMENTED):
 # data.lengths.shape
 # data.event_counts.shape
 # data.idx2label
+
+
+
 
 # a = np.array(['Bed_to_toilet', 'Other', 'Sleep'])
 # np.where(a != 'Other')[0]
@@ -528,7 +564,6 @@ class CASAS_RAW_NATURAL(CASAS_RAW_SEGMENTED):
 # data_beg.X[0][0]
 # data_beg.lengths[2]
 # data_beg.X[2][8]
-
 
 
 
