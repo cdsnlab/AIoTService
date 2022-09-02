@@ -288,7 +288,7 @@ data['raw_probs'][9][0]
 # Load results from tensorboard.dev ----------------------------------------------
 import tensorboard as tb
 
-experiment_id = "CoVG6yTnQoC3da66UYozJQ"
+experiment_id = "LmnNS6b3SYainYUmSxPVbA"
 experiment = tb.data.experimental.ExperimentFromDev(experiment_id)
 df = experiment.get_scalars()
 df
@@ -296,7 +296,7 @@ df
 # dfw
 
 df1 = df.loc[df['run'].str.contains(r"test")]
-df1[df1["step"] == 49].groupby("tag").mean()
+df1[df1["step"] == 99].groupby("tag").mean()
 
 
 
@@ -328,13 +328,14 @@ plt.clf()
 # To verify how much data is needed for adequate performances when the data is well-segmented
 def acc_by_lam(experiment_ids, with_other):
     pd.options.display.float_format = '{:.2f}'.format
-    lam = [0.1, 0.05, 0.01, 0.005, 0.001, 0.0005, 0.0001, 0.00005, 0.00001, 0]
+    # lam = [0.1, 0.05, 0.01, 0.005, 0.001, 0.0005, 0.0001, 0.00005, 0.00001, 0]
+    lam = [0.5, 0.1, 0.05, 0.01, 0.005, 0.001, 0.0005, 0.0001, 0.00005, 0.00001]
     df_list = []
     for i, experiment_id in enumerate(experiment_ids):
         experiment = tb.data.experimental.ExperimentFromDev(experiment_id)
         df = experiment.get_scalars()
         df = df.loc[df['run'].str.contains(r"test")]
-        df = df[df["step"] == 49]
+        df = df[df["step"] == 99]
         df = df[['tag', 'value']]
         df["lambda"] = lam[i]
         df_list.append(df)
@@ -342,14 +343,16 @@ def acc_by_lam(experiment_ids, with_other):
     df_concat = df_concat.pivot(index='lambda', columns='tag', values='value')
     df_concat = df_concat.sort_values(by="lambda", ascending = False)
     df_concat.index = df_concat.index.astype(str)
-    df_concat = df_concat[['whole_accuracy', 'whole_count_mean', 'whole_earliness', 'whole_location_mean']]
+    df_concat = df_concat[['whole_accuracy', 'whole_count_mean', 'whole_earliness', 'whole_location_mean', 'whole_harmonic_mean']]
     df_concat.rename(columns={"whole_accuracy": "Accuracy", 
                             "whole_count_mean": "# used event", 
                             "whole_earliness": "Earliness", 
-                            "whole_location_mean": "Waiting seconds"}, 
+                            "whole_location_mean": "Waiting seconds",
+                            "whole_harmonic_mean": "Harmonic mean"}, 
                     inplace=True)
     df_concat['Earliness'] = df_concat['Earliness'] * 100
     df_concat['Accuracy'] = df_concat['Accuracy'] * 100
+    df_concat['Harmonic mean'] = df_concat['Harmonic mean'] * 100
     df_concat_sort = df_concat.sort_values(by="Earliness")
 
     x = df_concat_sort['Earliness']
@@ -375,13 +378,15 @@ def acc_by_lam(experiment_ids, with_other):
     plt.savefig(f'./analysis/Acc_byEarliness_{with_other}.png')
     plt.clf()
 
-    return df_concat[['Accuracy', 'Earliness', 'Waiting seconds', '# used event']]
+    return df_concat[['Accuracy', 'Earliness', 'Waiting seconds', '# used event', 'Harmonic mean']]
 
-experiment_ids_wo_other = ['A7oqlUEuRteRhbJyYRAZfg','gzZLlGroTAeSZWPt26V0mw','2eZoNUWZQOSyUwxcm31x1A','sMb8DC93RYmXMrZJPzTpiA','L30wvOFYSb2JvRtqf47aJA','0T4zC5BCReKeAM4Mvb9cKg','v0oGZndxRbOIlbKUJ2YUXw','2KOdOINrSveCn7WbYJ9yFQ','QAd5ilRXT7qVQAV2tpuR0Q','XFpbnJbhRp2UXOEkKtvTbA',]
-experiment_ids_w_other = ['vvfpZu4xQAmpQ6wDHxTBOw','YivqHn6gQPi4uQ8ZWk6sDQ','QU1PmCx5Qem6pPpj1D04vA','1XszRYfaQRCXubrB2Pjaig','onNHRy80SDuYWsAYoKvjLA','pd4KvqPPTdOeu62kS3rqqg','fgmrdXs9TDOAlfQFJEiZyQ','2PRN4seSREqJ2Saf01jKtg','aPUKI1a8R7eWLfMasJ3hzA','71qmw4bQR0aFlBC8yIRHXw']
+# experiment_ids_wo_other = ['A7oqlUEuRteRhbJyYRAZfg','gzZLlGroTAeSZWPt26V0mw','2eZoNUWZQOSyUwxcm31x1A','sMb8DC93RYmXMrZJPzTpiA','L30wvOFYSb2JvRtqf47aJA','0T4zC5BCReKeAM4Mvb9cKg','v0oGZndxRbOIlbKUJ2YUXw','2KOdOINrSveCn7WbYJ9yFQ','QAd5ilRXT7qVQAV2tpuR0Q','XFpbnJbhRp2UXOEkKtvTbA',]
+# experiment_ids_w_other = ['vvfpZu4xQAmpQ6wDHxTBOw','YivqHn6gQPi4uQ8ZWk6sDQ','QU1PmCx5Qem6pPpj1D04vA','1XszRYfaQRCXubrB2Pjaig','onNHRy80SDuYWsAYoKvjLA','pd4KvqPPTdOeu62kS3rqqg','fgmrdXs9TDOAlfQFJEiZyQ','2PRN4seSREqJ2Saf01jKtg','aPUKI1a8R7eWLfMasJ3hzA','71qmw4bQR0aFlBC8yIRHXw']
+experiment_ids_w_other = ['LmnNS6b3SYainYUmSxPVbA', 'UKtjkBHjQ8mXpuqEby7oQw', 'zhGjEhyCQmencpwb1dTzxw', 'meWeTlY9SVa0v8m6DV96rw', 'X4fL4sVHRteUobKNTaVNLg', '5ZfZa3TzQAqdlXVExqEX0w', 'iyeN3yLvT5iyNSyQYvZe1A', 'HKlNK3b4TLujFzn12NnCjg', 'Grazl2KDSJqplSMW2G8Asg', 'hOyGnw4SRyOFGn55Rq46eQ']
 
-df_wo_other = acc_by_lam(experiment_ids_wo_other, 'wo_other')
+# df_wo_other = acc_by_lam(experiment_ids_wo_other, 'wo_other')
 df_w_other = acc_by_lam(experiment_ids_w_other, 'w_other')
+
 
 
 # -----------------------------------------------------------------------------------------------------------------
@@ -490,10 +495,10 @@ data.idx2label[8]
 # confusion matrix
 import os
 import utils
-args.with_other = False
-args.balance = True
+args.with_other = True
+args.balance = False
 data = CASAS_RAW_NATURAL(args)
-logdir = './output/log/220802-212138'
+logdir = './output/log/backup/220723-013523'
 with open(os.path.join(logdir, f'fold_{1}', 'dict_analysis.pickle'), 'rb') as f:
     dict_analysis = pickle.load(f)
 dict_analysis.keys()
@@ -511,7 +516,7 @@ halt_pnt = np.where(a == 0, dict_analysis['all_yhat'].shape[1], a) - 1
 halt_pnt = halt_pnt.reshape((-1, 1))
 pred_y = np.take_along_axis(dict_analysis['all_yhat'], halt_pnt, axis=1).flatten()
 pred_y = pred_y.astype(int)
-np.where(dict_analysis['true_y'] == pred_y, 1, 0).mean
+np.where(dict_analysis['true_y'] == pred_y, 1, 0).mean()
 
 dir = os.path.join(logdir, f'fold_{1}', 'confusion_matrix_real.png')
 utils.plot_confusion_matrix(dict_analysis['true_y'], pred_y, dir, target_names=list(data.idx2label.values()))
@@ -821,14 +826,13 @@ args.with_other = False
 args.balance = True
 data_natural = CASAS_RAW_NATURAL(args)
 
-
 activities = list(data_natural.label2idx.keys()) + ['All']
-logdir = './output/log/220812-151545'
+logdir = './output/log/220820-115916'
 # concat_entropy_wrong, concat_entropy_correct = [], []
 concat_entropy_all = {a: [] for a in activities}
 concat_entropy_wrong = {a: [] for a in activities}
 concat_entropy_correct = {a: [] for a in activities}
-concat_true_y, concat_pred_y, concat_halt_prob = [], [], []
+concat_true_y, concat_pred_y, concat_halt_prob, concat_halt_pnt = [], [], [], []
 for i in range(5):
     with open(os.path.join(logdir, f'fold_{i+1}', 'dict_analysis.pickle'), 'rb') as f:
         dict_analysis = pickle.load(f)
@@ -842,6 +846,7 @@ for i in range(5):
     concat_true_y.append(dict_analysis['true_y'])
     concat_pred_y.append(pred_y)
     concat_halt_prob.append(halt_prob)
+    concat_halt_pnt.append(halt_pnt)
     for activity in activities:    
         entropy_all, entropy_wrong, entropy_correct = entropy_by_activity(halt_pnt, activity)
         concat_entropy_all[activity] += entropy_all
@@ -880,11 +885,27 @@ np.mean(mean_acc)
 
 concat_true_y = np.concatenate(concat_true_y)
 concat_pred_y = np.concatenate(concat_pred_y)
+concat_halt_pnt = np.concatenate(concat_halt_pnt)
 np.where(concat_true_y == concat_pred_y, 1, 0).mean()
 
 
 dir = os.path.join(logdir, f'fold_{1}', 'confusion_matrix_real.png')
 utils.plot_confusion_matrix(concat_true_y, concat_pred_y, dir, target_names=list(data_natural.idx2label.values()))
+
+
+concat_true_y = concat_true_y.reshape(-1, 1)
+concat_pred_y = concat_pred_y.reshape(-1, 1)
+cls_4 = np.array([0, 1, 2, 3])
+target_class = np.where(concat_true_y == cls_4, 1, 0).sum(axis=1).reshape(-1, 1)
+target_idx = np.where(target_class == 1)[0]
+
+acc_target = np.where(concat_true_y[target_idx] == concat_pred_y[target_idx], 1, 0).mean()
+location_target = concat_halt_pnt[target_idx].mean() + 1
+print(f'Accuracy for target classes: {acc_target}')
+print(f'Timesteps for target classes: {location_target}')
+
+
+
 
 # ------------------------------------------------------------------------------------------
 # Correlation between halting probability and entropy
@@ -932,4 +953,24 @@ stats.ranksums(concat_entropy_wrong[activity], concat_entropy_correct[activity])
 # stats.kruskal(concat_entropy_wrong[activity], concat_entropy_correct[activity]) # 3개 이상의 비교 집단, non-parametric(분포에 대한 가정 x)
 np.mean(concat_entropy_wrong[activity])
 np.mean(concat_entropy_correct[activity])
+
+
+
+
+# def entropy(p):
+#     id_p = np.where(p != 0)
+#     return -np.sum(p[id_p]*np.log(p[id_p]))
+
+
+
+# a = np.array([[0.1, 0.2, 0.3, 0.4],
+#                 [0.3, 0.1, 0.4, 0.2],
+#                 [0.4, 0.2, 0.1 ,0.3]])
+# -np.sum(a*np.log(a), axis=1)
+
+
+
+# -----------------------------------------------------------------------------------------
+# Threshold에 따른 분류 정확도
+
 

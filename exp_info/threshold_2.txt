@@ -1,0 +1,10 @@
+0.1	./output/log/220816-201532/fold_1
+0.1	./output/log/220816-201532/fold_2
+0.1	./output/log/220816-201532/fold_3
+0.1	./output/log/220816-201532/fold_4
+0.1	./output/log/220816-201532/fold_5
+0.1	./output/log/220816-203928/fold_1
+0.1	./output/log/220816-203928/fold_2
+0.1	./output/log/220816-203928/fold_3
+0.1	./output/log/220816-203928/fold_4
+0.1	./output/log/220816-203928/fold_5

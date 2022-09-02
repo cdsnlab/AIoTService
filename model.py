@@ -1,3 +1,4 @@
+import sys
 import numpy as np
 import tensorflow as tf
 from tensorflow.keras import layers
@@ -55,8 +56,12 @@ class EARLIEST(tf.keras.Model):
         self.LSTM = layers.LSTMCell(self.args.nhid)
         self.initial_states = tf.zeros([self.args.batch_size, self.args.nhid])
         self.out = layers.Dense(self.args.nclasses, activation='softmax')  # Discriminator
+    
+    def entropy(self, p):
+        id_p = np.where(p != 0)
+        return -np.sum(p[id_p]*np.log(p[id_p]))
         
-    def call(self, X, is_train=True, pred_at=-1, length=None, noise_amount=0):
+    def call(self, X, y_true, is_train=True, pred_at=-1, length=None, noise_amount=0):
         if is_train: # Model chooses for itself during testing
             self.Controller._epsilon = self._epsilon # set explore/exploit trade-off
         else:
@@ -98,18 +103,29 @@ class EARLIEST(tf.keras.Model):
             output, hidden = self.LSTM(x, states=hidden)
             
             # predict logits for all elements in the batch
-            logits = self.out(output)
+            logits = self.out(output)     
+            ent = -np.sum(logits*np.log(logits), axis=1).reshape(B, -1)
+            # ent = np.array([self.entropy(np.array(d)) for d in logits]).reshape(B, -1)
             yhat_t = tf.argmax(logits, 1)
             yhat_t = tf.reshape(yhat_t, (-1, 1))
             
             # compute halting probability, sample an action, and baseline
-            if self.args.test:
+            if self.args.test_t:
                 t = self.t
             time = tf.ones([B,1]) * t
             c_in = tf.stop_gradient(tf.concat([output, time], axis=1))
             # c_in = tf.concat([output, time], axis=1)
             a_t, p_t, w_t, probs_t = self.Controller(c_in)
             b_t = self.BaselineNetwork(c_in)
+            # if self.args.delay_halt and not is_train:
+            if self.args.delay_halt:
+                cls_4 = np.array([0, 1, 2, 3])
+                y_true = np.reshape(y_true, (B, -1))
+                target_class = np.where(y_true == cls_4, 1, 0).sum(axis=1).reshape(B, -1)
+                a_t = tf.where((ent > self.args.entropy_threshold) & (target_class == 1), 0, a_t)
+            
+            if t < self.args.offset and self.args.read_all_tw:
+                a_t = a_t * 0
             
             # If a_t == 1 and this class hasn't been halted, save its logits
             predictions = tf.where((a_t == 1) & (predictions == 0), logits, predictions)
@@ -248,5 +264,4 @@ class SEGMENTATION(tf.keras.Model):
             
             # actions.append(a_t)
             # log_pi.append(p_t)
-            
 

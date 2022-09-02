@@ -1,0 +1,10 @@
+0.5	./output/log/220901-115859/fold_1
+0.1	./output/log/220831-220226/fold_1
+0.05	./output/log/220831-222709/fold_1
+0.01	./output/log/220831-225413/fold_1
+0.005	./output/log/220831-233228/fold_1
+0.001	./output/log/220901-001410/fold_1
+0.0005	./output/log/220901-010832/fold_1
+0.0001	./output/log/220831-220244/fold_1
+5e-05	./output/log/220831-233323/fold_1
+1e-05	./output/log/220901-012209/fold_1

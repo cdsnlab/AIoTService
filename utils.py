@@ -1,4 +1,5 @@
 import os
+import argparse
 
 import itertools
 import numpy as np
@@ -115,6 +116,51 @@ def plot_confusion_matrix(true_y, pred_y, dir, target_names=None, cmap=None, nor
     plt.savefig(dir)
     plt.clf()
 
+def create_parser():
+    parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+    parser.add_argument("--exp_info_file", type=str, default="exp_info", help="Where to save the model once it is trained.")
+    # Dataset hyperparameters
+    parser.add_argument("--dataset", type=str, default="milan", help="Which dataset will be used")
+    parser.add_argument("--seq_len", type=int, default=2000, help="The number of timesteps")
+    parser.add_argument("--shuffle", type=str2bool, default=True, help="Shuffle training dataset or not.")
+    parser.add_argument("--offset", type=int, default=20, help="The offset of the detected segmented windows")
+    parser.add_argument("--noise_ratio", type=int, default=0, help="The ratio of the noise in the detected segmented windows")
+    parser.add_argument("--nsplits", type=int, default=5, help="The number of splits for validation")
+    parser.add_argument("--nseries", type=int, default=0, help="The number of time series")
+    parser.add_argument("--prefix_len", type=int, default=10, help="The length of prefix length of dataset")
+    parser.add_argument("--remove_prefix", type=str2bool, default=False, help="Whether the prefix is removed")
+    parser.add_argument("--rnd_prefix", type=str2bool, default=False, help="Whether to add random events to the beginning of the activity")
+    parser.add_argument("--segmented", type=str2bool, default=False, help="Whether the activity episodes are segmented correctly")
+    parser.add_argument("--with_other", type=str2bool, default=True, help="Whether Other class is going to be included in the dataset or not")
+    parser.add_argument("--balance", type=str2bool, default=False, help="Whether some classes are balanced")
+    # Model hyperparameters
+    parser.add_argument("--nhid", type=int, default=100, help="Number of dimensions of the hidden state of EARLIEST")
+    parser.add_argument("--lam", type=float, default=0.08, help="Penalty of waiting. This controls the emphasis on earliness: Larger values lead to earlier predictions.")
+    parser.add_argument("--dropout_rate", type=float, default="0.2", help="Dropout rate.")
+    parser.add_argument("--reg_rate", type=float, default="0.001", help="regularizer rate.")
+    parser.add_argument("--_epsilon", type=float, default="0.1", help="epsilon for exploration/exploitation.")
+    parser.add_argument("--model", type=str, default="EARLIEST", help="Which model will be used")
+    parser.add_argument("--pred_at", type=int, default=-1, help="It forces model to make a prediction at the defined percentile of the input stream")
+    parser.add_argument("--test_t", type=str2bool, default=False, help="test")
+    parser.add_argument("--read_all_tw", type=str2bool, default=False, help="test")
+    # Training hyperparameters
+    parser.add_argument("--batch_size", type=int, default=32, help="Batch size.")
+    parser.add_argument("--nepochs", type=int, default=100, help="Number of epochs.")
+    parser.add_argument("--learning_rate", type=float, default="0.001", help="Learning rate.")
+    # parser.add_argument("--model_save_path", type=str, default="./saved_models/", help="Where to save the model once it is trained.")
+    parser.add_argument("--random_seed", type=int, default="42", help="Set the random seed.")
+    parser.add_argument("--device", type=str, default="0", help="Which device will be used")
+    parser.add_argument("--exp_num", type=str, default="0", help="Experiment number")
+    parser.add_argument("--gamma", type=int, default=0, help="gamma for focal loss.")
+    parser.add_argument("--class_weight", type=str2bool, default=False, help="Apply class weight or not")
+    parser.add_argument("--decay_weight", type=float, default=10, help="decay weight for exploration")
+    parser.add_argument("--n_fold_cv", type=str2bool, default=False, help="whether to conduct n-fold cross validation")
+    parser.add_argument("--entropy_threshold", type=float, default="0.8", help="entropy threshold.")
+    parser.add_argument("--delay_halt", type=str2bool, default=False, help="whether to delay halting decision by threshold")
+    parser.add_argument("--train", type=str2bool, default=True, help="whether to train the model")
+    parser.add_argument("--test", type=str2bool, default=False, help="whether to test the model")
+    parser.add_argument("--model_dir", type=str, default="./saved_models/", help="Where to save the model once it is trained.")
+    return parser.parse_args()
 
 # def splitTrainingData(num_timesteps, split_props=[0.8, 0.1, 0.1]):
 #     """

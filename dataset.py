@@ -16,8 +16,10 @@ from tensorflow.keras.preprocessing.sequence import pad_sequences
 
 class Dataloader(Sequence):
     def __init__(self, indices, x_set, y_set, len_set, count_set, batch_size, shuffle=False, tr_points=None, tr_boundary=None):
+    # def __init__(self, indices, x_set, y_set, len_set, count_set, batch_size, prev_y_set, shuffle=False, tr_points=None, tr_boundary=None):
         self.indices = indices
         self.x, self.y, self.len, self.count = x_set, y_set, len_set, count_set
+        # self.prev_y = prev_y_set
         # self.tr_points, self.tr_boundary = tr_points, tr_boundary
         self.batch_size = batch_size
         self.shuffle = shuffle
@@ -33,6 +35,7 @@ class Dataloader(Sequence):
         batch_y = np.array([self.y[i] for i in indices])
         batch_len = np.array([self.len[i] for i in indices])
         batch_count = np.array([self.count[i] for i in indices])
+        # batch_prev_y = np.array([self.prev_y[i] for i in indices])
         # if self.tr_points is not None and self.tr_boundary is not None:
         #     batch_tr_point = np.array([self.tr_points[i] for i in indices])
         #     batch_tr_boundary = np.array([self.tr_boundary[i] for i in indices])
@@ -40,6 +43,7 @@ class Dataloader(Sequence):
         #     batch_tr_point = None
         #     batch_tr_boundary = None
         return batch_x, batch_y, batch_len, batch_count
+        # return batch_x, batch_y, batch_len, batch_count, batch_prev_y
 
     def on_epoch_end(self):
         # self.indices = np.arange(len(self.x))
@@ -357,8 +361,10 @@ class CASAS_RAW_NATURAL(CASAS_RAW_SEGMENTED):
         Y = np.array(Y[1:])
         self.org_Y = np.array(org_Y[1:])
         self.lengths = np.array(lengths[1:])
+        self.lengths = self.lengths + self.noise_amount
         self.lengths = np.where(self.lengths > self.args.seq_len, self.args.seq_len, self.lengths)
         event_counts = event_counts[1:]
+        self.prev_Y = np.array(Y[:-1])
         
         event_counts = pad_sequences(event_counts, padding='post', truncating='post', dtype='float32', maxlen=self.args.seq_len, value=0.0)
         count_max = np.reshape(np.max(event_counts, axis=1), (-1, 1))
@@ -367,10 +373,13 @@ class CASAS_RAW_NATURAL(CASAS_RAW_SEGMENTED):
         if self.args.with_other == False:
             print("Other class is excluded.")
             except_other = np.where(Y != 'Other')[0]
+            print(except_other.shape)
             self.X = self.X[except_other]
             Y = Y[except_other]
             self.lengths = self.lengths[except_other]
             self.event_counts = self.event_counts[except_other]
+            self.prev_Y = self.prev_Y[except_other]
+            print(except_other.shape)
             
         self.idx2label = {i:label for i, label in enumerate(sorted(set(Y)))}
         self.label2idx = {label:i for i, label in self.idx2label.items()}
@@ -422,6 +431,7 @@ class CASAS_RAW_NATURAL(CASAS_RAW_SEGMENTED):
         self.org_Y = self.org_Y[idx]
         self.lengths = self.lengths[idx]
         self.event_counts = self.event_counts[idx]
+        self.prev_Y = self.prev_Y[idx]
         print(f'The number of the instances: {len(self.Y)}')
         
         

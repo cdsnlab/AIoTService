@@ -18,51 +18,11 @@ import utils
 from model import EARLIEST
 from dataset import CASAS_ADLMR, CASAS_RAW_NATURAL, CASAS_RAW_SEGMENTED, Dataloader
 
-parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-parser.add_argument("--exp_info_file", type=str, default="exp_info", help="Where to save the model once it is trained.")
-# Dataset hyperparameters
-parser.add_argument("--dataset", type=str, default="milan", help="Which dataset will be used")
-parser.add_argument("--seq_len", type=int, default=2000, help="The number of timesteps")
-parser.add_argument("--shuffle", type=utils.str2bool, default=True, help="Shuffle training dataset or not.")
-parser.add_argument("--offset", type=int, default=20, help="The offset of the detected segmented windows")
-parser.add_argument("--noise_ratio", type=int, default=0, help="The ratio of the noise in the detected segmented windows")
-parser.add_argument("--nsplits", type=int, default=5, help="The number of splits for validation")
-parser.add_argument("--nseries", type=int, default=0, help="The number of time series")
-parser.add_argument("--prefix_len", type=int, default=10, help="The length of prefix length of dataset")
-parser.add_argument("--remove_prefix", type=utils.str2bool, default=False, help="Whether the prefix is removed")
-parser.add_argument("--rnd_prefix", type=utils.str2bool, default=False, help="Whether to add random events to the beginning of the activity")
-parser.add_argument("--segmented", type=utils.str2bool, default=False, help="Whether the activity episodes are segmented correctly")
-parser.add_argument("--with_other", type=utils.str2bool, default=True, help="Whether Other class is going to be included in the dataset or not")
-parser.add_argument("--balance", type=utils.str2bool, default=False, help="Whether some classes are balanced")
-# Model hyperparameters
-parser.add_argument("--nhid", type=int, default=100, help="Number of dimensions of the hidden state of EARLIEST")
-parser.add_argument("--lam", type=float, default=0.08, help="Penalty of waiting. This controls the emphasis on earliness: Larger values lead to earlier predictions.")
-parser.add_argument("--dropout_rate", type=float, default="0.2", help="Dropout rate.")
-parser.add_argument("--reg_rate", type=float, default="0.001", help="regularizer rate.")
-parser.add_argument("--_epsilon", type=float, default="0.1", help="epsilon for exploration/exploitation.")
-parser.add_argument("--model", type=str, default="EARLIEST", help="Which model will be used")
-parser.add_argument("--pred_at", type=int, default=-1, help="It forces model to make a prediction at the defined percentile of the input stream")
-# Training hyperparameters
-parser.add_argument("--batch_size", type=int, default=10, help="Batch size.")
-parser.add_argument("--nepochs", type=int, default=50, help="Number of epochs.")
-parser.add_argument("--learning_rate", type=float, default="0.001", help="Learning rate.")
-parser.add_argument("--model_save_path", type=str, default="./saved_models/", help="Where to save the model once it is trained.")
-parser.add_argument("--random_seed", type=int, default="42", help="Set the random seed.")
-parser.add_argument("--device", type=str, default="0", help="Which device will be used")
-parser.add_argument("--exp_num", type=str, default="0", help="Experiment number")
-parser.add_argument("--gamma", type=int, default=0, help="gamma for focal loss.")
-parser.add_argument("--class_weight", type=utils.str2bool, default=False, help="Apply class weight or not")
-parser.add_argument("--decay_weight", type=float, default=10, help="decay weight for exploration")
-parser.add_argument("--test", type=utils.str2bool, default=False, help="test")
-parser.add_argument("--n_fold_cv", type=utils.str2bool, default=False, help="wether to conduct n-fold cross validation")
 
-
-args = parser.parse_args()
-
-
+args = utils.create_parser()
 
 def loss_EARLIEST(model, x, true_y, length):  # shape of true_y is (B,)
-    pred_logit = model(x, is_train=True, length=length)  # shape of pred_y is (B * nclasses)
+    pred_logit = model(x, true_y, is_train=True, length=length)  # shape of pred_y is (B * nclasses)
     pred_y = tf.argmax(pred_logit, 1)
     if args.class_weight:
         class_weight = [1 / sqrt(list(true_y).count(i)) if list(true_y).count(i) != 0 else 0 for i in range(args.nclasses)]
@@ -106,7 +66,7 @@ def train_step(model, x, true_y, length):
 
 def test_step(model, x, true_y, length, num_event):
     if args.model == "EARLIEST":
-        pred_logit = model(x, is_train=False, length=length)
+        pred_logit = model(x, true_y, is_train=False, length=length)
         test_accuracy(np.reshape(true_y, [-1,1]), pred_logit)
         test_earliness(model.locations.flatten()/length)
         true_labels.append(true_y)
@@ -149,6 +109,8 @@ def write_test_summary(true_y, pred_y):
         tf.summary.scalar('whole_location_mean', locations.mean(), step=epoch)
         tf.summary.scalar('whole_count_mean', event_count.mean(), step=epoch)
         tf.summary.scalar('whole_earliness2', locations.mean() / lengths.mean(), step=epoch)
+        hm = (2 * (1 - test_earliness.result()) * test_accuracy.result()) / ((1 - test_earliness.result()) + test_accuracy.result())
+        tf.summary.scalar('whole_harmonic_mean', hm, step=epoch)
         
     # Calculate metrics by classes
     for i, summary_writer in cls_summary_writer.items():
@@ -201,48 +163,80 @@ if __name__ == "__main__":
     train_loss = tf.keras.metrics.Mean('train_loss')
     test_accuracy = tf.keras.metrics.SparseCategoricalAccuracy('test_accuracy')
     test_earliness = tf.keras.metrics.Mean('test_earliness', dtype=tf.float32)
-    for k, (train_idx, test_idx) in enumerate(kfold.split(data.X, data.Y)):
-        # Define data loaders and model
-        train_loader = Dataloader(train_idx, data.X, data.Y, data.lengths, data.event_counts, args.batch_size, shuffle=args.shuffle)
-        test_loader = Dataloader(test_idx, data.X, data.Y, data.lengths, data.event_counts, args.batch_size, shuffle=args.shuffle)
-        if args.model == "EARLIEST":
-            model = EARLIEST(args)
+    if args.train:
+        for k, (train_idx, test_idx) in enumerate(kfold.split(data.X, data.Y)):
+            # Define data loaders and model
+            train_loader = Dataloader(train_idx, data.X, data.Y, data.lengths, data.event_counts, args.batch_size, shuffle=args.shuffle)
+            test_loader = Dataloader(test_idx, data.X, data.Y, data.lengths, data.event_counts, args.batch_size, shuffle=args.shuffle)
+            if args.model == "EARLIEST":
+                model = EARLIEST(args)
+                
+            # Define summary writer
+            logdir = "./output/log/" + curr_time + f'/fold_{k+1}'
+            print(f'tensor board dir: {logdir}')
+            train_summary_writer = tf.summary.create_file_writer(logdir + '/train')
+            test_summary_writer = tf.summary.create_file_writer(logdir + '/test')
+            cls_summary_writer = {i:tf.summary.create_file_writer(logdir + f'/cls_{data.idx2label[i]}') for i in range(args.nclasses)}
+            for epoch in tqdm(range(args.nepochs)):
+                model._epsilon = exponentials[epoch]
+                for x, true_y, length, _ in train_loader:
+                    train_step(model, x, true_y, length)
+                # end of epoch
+                with train_summary_writer.as_default():
+                    tf.summary.scalar('whole_accuracy', train_accuracy.result(), step=epoch)
+                print("k{}_epoch {:03d}:  train_loss: {:.3}  train_acc: {:.3}".format(k+1, epoch, train_loss.result(), train_accuracy.result()))
+                
+                # Run test for every 10 epochs
+                if (epoch + 1) % 10 == 0:
+                    true_labels, pred_labels, list_locations, list_lengths, list_event_count = [], [], [], [], []
+                    list_probs, list_yhat, list_distribution = [], [], []
+                    for x, true_y, length, num_event in test_loader: 
+                        test_step(model, x, true_y, length, num_event)
+                    # Write summary
+                    write_test_summary(np.concatenate(true_labels), np.concatenate(pred_labels))
+                    print("Validation Accuracy: {:.3}".format(test_accuracy.result()))
+                    print("Mean proportion used: {:.3}".format(test_earliness.result()))
+                # Reset states of metrics
+                train_accuracy.reset_states()
+                train_loss.reset_states()
+                test_accuracy.reset_states()
+                test_earliness.reset_states()
+            model.save_weights(os.path.join(logdir, 'model'))
+            print(f'tensor board dir: {logdir}')
+            f = open(f"./exp_info/{args.exp_info_file}.txt", 'a')
+            f.write(f"{args.lam}\t{logdir}\n")
+            f.close()
+            if not args.n_fold_cv:
+                break
             
-        # Define summary writer
-        logdir = "./output/log/" + curr_time + f'/fold_{k+1}'
-        print(f'tensor board dir: {logdir}')
-        train_summary_writer = tf.summary.create_file_writer(logdir + '/train')
-        test_summary_writer = tf.summary.create_file_writer(logdir + '/test')
-        cls_summary_writer = {i:tf.summary.create_file_writer(logdir + f'/cls_{data.idx2label[i]}') for i in range(args.nclasses)}
-        for epoch in tqdm(range(args.nepochs)):
-            model._epsilon = exponentials[epoch]
-            for x, true_y, length, _ in train_loader:
-                train_step(model, x, true_y, length)
-            # end of epoch
-            with train_summary_writer.as_default():
-                tf.summary.scalar('whole_accuracy', train_accuracy.result(), step=epoch)
-            print("k{}_epoch {:03d}:  train_loss: {:.3}  train_acc: {:.3}".format(k+1, epoch, train_loss.result(), train_accuracy.result()))
+    if args.test:
+        epoch = 0
+        model = EARLIEST(args)
+        model._epsilon = 0
+        temp = np.array([[3]])
+        model(np.reshape(data.X[0], (1, -1, data.N_FEATURES)), temp, length=temp, is_train=False)
+        for k in range(args.nsplits):
+            model.load_weights(os.path.join(args.model_dir, f'fold_{k+1}', 'model'))
+            with open(os.path.join(args.model_dir, f'fold_{k+1}/dict_analysis.pickle'), 'rb') as f:
+                dict_analysis = pickle.load(f)
+            test_loader = Dataloader(dict_analysis["idx"], data.X, data.Y, data.lengths, data.event_counts, args.batch_size, shuffle=args.shuffle)
+            true_labels, pred_labels, list_locations, list_lengths, list_event_count = [], [], [], [], []
+            list_probs, list_yhat, list_distribution = [], [], []
             
-            # Run test for every 10 epochs
-            if (epoch + 1) % 10 == 0:
-                true_labels, pred_labels, list_locations, list_lengths, list_event_count = [], [], [], [], []
-                list_probs, list_yhat, list_distribution = [], [], []
-                for x, true_y, length, num_event in test_loader: 
-                    test_step(model, x, true_y, length, num_event)
-                # Write summary
-                write_test_summary(np.concatenate(true_labels), np.concatenate(pred_labels))
-                print("Validation Accuracy: {:.3}".format(test_accuracy.result()))
-                print("Mean proportion used: {:.3}".format(test_earliness.result()))
-            # Reset states of metrics
-            train_accuracy.reset_states()
-            train_loss.reset_states()
+            logdir = "./output/log/" + curr_time + f'/fold_{k+1}'
+            print(f'tensor board dir: {logdir}')
+            test_summary_writer = tf.summary.create_file_writer(logdir + '/test')
+            cls_summary_writer = {i:tf.summary.create_file_writer(logdir + f'/cls_{data.idx2label[i]}') for i in range(args.nclasses)}
+            
+            for x, true_y, length, num_event in test_loader: 
+                test_step(model, x, true_y, length, num_event)
+            # Write summary
+            write_test_summary(np.concatenate(true_labels), np.concatenate(pred_labels))
+            print("Validation Accuracy: {:.3}".format(test_accuracy.result()))
+            print("Mean proportion used: {:.3}".format(test_earliness.result()))
             test_accuracy.reset_states()
             test_earliness.reset_states()
-        model.save_weights(os.path.join(logdir, 'model'))
-        print(f'tensor board dir: {logdir}')
-        f = open(f"./exp_info/{args.exp_info_file}.txt", 'a')
-        f.write(f"{args.lam}\t{logdir}\n")
-        f.close()
-        if not args.n_fold_cv:
             break
-
+        f = open(f"./exp_info/{args.exp_info_file}.txt", 'a')
+        f.write(f"{args.model_dir}\t./output/log/{curr_time}\n")
+        f.close()
