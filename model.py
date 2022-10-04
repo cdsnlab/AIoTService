@@ -1,5 +1,5 @@
 # from this import d
-from tkinter.tix import X_REGION
+# from tkinter.tix import X_REGION
 import sys
 import random
 import numpy as np
@@ -175,6 +175,26 @@ class EARLIEST(tf.keras.Model):
                     self.attention_weights = []
                 # filter_flags = tf.where((filter_flags == 0) & (halt_points == -1), 1, filter_flags)
                 hidden = tf.where(filter_flags == 1, filter_hidden, hidden)
+                
+                
+                baselines_tw = tf.concat(baselines, axis=1)
+                pred_y_tw = tf.concat(pred_y, axis=1)
+                y_true_tw = tf.reshape(y_true, (B, -1))
+                
+                log_pi_tw = tf.concat(log_pi, axis=1)
+                filter_points_tw = tf.where(filter_points == self.args.seq_len, 0, filter_points)
+                log_pi_tw = tf.experimental.numpy.take_along_axis(log_pi_tw, filter_points_tw, axis=1)
+                log_pi_tw = tf.where(filter_points == self.args.seq_len, 0, log_pi_tw)
+            
+                grad_mask_tw = np.zeros((B, self.args.offset))
+                for b in range(B):
+                    grad_mask_tw[b, (1 + int(filter_points[b, 0])):] = 1
+                
+                r = tf.stop_gradient(tf.where((pred_y_tw == y_true_tw), -1.0, 1.0))
+                R = r * grad_mask_tw
+                b = baselines_tw * grad_mask_tw
+                adjusted_reward_tw = R - tf.stop_gradient(b)
+                self.loss_r_filter = tf.reduce_sum(-log_pi_tw*adjusted_reward_tw) / self.args.offset # RL loss  # 이것도 위와 마찬가지. 근데 어찌 되었든 배치의 평균을 구하기는 했음.
             output, hidden = self.LSTM(x, states=hidden)
             
             # predict logits for all elements in the batch

@@ -53,6 +53,8 @@ def loss_EARLIEST(model, x, true_y, length, tr_points):  # shape of true_y is (B
         CE_filter = tf.keras.losses.SparseCategoricalCrossentropy()
         loss_filter = CE_filter(y_true=true_y, y_pred=model.filter_logits) # Classification loss
         loss = loss_filter*(model._epsilon) + loss_r + loss_b + loss_c + args.lam*(wait_penalty)
+    if args.model == "PROPOSED":
+        loss += model.loss_r_filter
     return loss, pred_logit, model.locations
 
 def grad(model, x, true_y, length, tr_points):
