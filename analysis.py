@@ -400,10 +400,17 @@ import matplotlib.pyplot as plt
 
 from dataset import *
 
-args.dataset = "milan"
-args.with_other = True
+data_name = "kyoto7"
+args.dataset = data_name
+args.with_other = False
 data = CASAS_RAW_NATURAL(args)
-np.max(data.lengths)
+np.max(data.org_lengths)
+
+unique, counts = np.unique(data.lengths, return_counts=True)
+for u, c in zip(unique, counts):
+    print(f'activity:{u}, count:{c}')
+    if u > 20:
+        break
 
 # The amount of each activity
 data.org_Y.shape
@@ -423,13 +430,15 @@ for u, c in zip(unique, counts):
 # data.lengths = np.where(data.lengths > 2000, 2000, data.lengths)
 # data.lengths.mean()
 
-df = pd.DataFrame({"class":data.Y, "duration": data.lengths})
+df = pd.DataFrame({"class":data.Y, "duration": data.org_lengths})
 df['class'] = list(map(lambda x: data.idx2label[x], df['class']))
+df.groupby("class").mean()
+
 # df.groupby("class").mean().to_numpy()
 df = df[df["duration"] > 0]
 df["duration"].describe()
-df["duration"].quantile(0.88)
-df = df[df["duration"] < 2000]
+df["duration"].quantile(0.90)
+df = df[df["duration"] < 2897.5]
 df["duration"] = df["duration"] / 60
 df["duration"].describe()
 
@@ -439,7 +448,7 @@ plt.title("Histogram of activity duration")
 plt.xlabel("Duration (min)")
 plt.ylabel("Frequency")
 plt.show()
-plt.savefig("./analysis/hist_duration.png")
+plt.savefig(f"./analysis/data_length/hist_duration_{data_name}.png")
 plt.clf()
 
 
@@ -453,11 +462,11 @@ plt.show()
 plt.xlabel("Duration (min)")
 fig = plt.gcf()
 fig.set_size_inches(12, 8)
-plt.savefig("./analysis/boxplot.png")
+plt.savefig(f"./analysis/data_length/boxplot_{data_name}.png")
 plt.clf()
 
 
-# 클래스 별 평균 길이
+# 클래스 별 평균 길이 -----------------------------------------------------------------------
 df.groupby("class").mean()
 
 

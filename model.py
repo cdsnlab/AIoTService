@@ -162,7 +162,6 @@ class EARLIEST(tf.keras.Model):
         #     return logits
         
         for t in range(start_point, T):
-            x = X[:,t,:]
             if t == self.args.offset and self.args.model == "PROPOSED":
                 if self.args.hidden_as_input:
                     tr_window_hidden = tf.concat(tr_window_hidden, axis=1)
@@ -173,17 +172,16 @@ class EARLIEST(tf.keras.Model):
                     self.attention_weights = self.filter.attention_weights
                 else:
                     self.attention_weights = []
-                # filter_flags = tf.where((filter_flags == 0) & (halt_points == -1), 1, filter_flags)
+                filter_flags = tf.where((filter_flags == 1) & (length <= self.args.offset), 0, filter_flags)
                 hidden = tf.where(filter_flags == 1, filter_hidden, hidden)
-                
                 
                 baselines_tw = tf.concat(baselines, axis=1)
                 pred_y_tw = tf.concat(pred_y, axis=1)
                 y_true_tw = tf.reshape(y_true, (B, -1))
                 
                 log_pi_tw = tf.concat(log_pi, axis=1)
-                filter_points_tw = tf.where(filter_points == self.args.seq_len, 0, filter_points)
-                log_pi_tw = tf.experimental.numpy.take_along_axis(log_pi_tw, filter_points_tw, axis=1)
+                filter_points_tw = tf.where(filter_points == self.args.seq_len, 0, filter_points).numpy()
+                log_pi_tw = tf.experimental.numpy.take_along_axis(log_pi_tw, filter_points_tw.astype(np.int32), axis=1)
                 log_pi_tw = tf.where(filter_points == self.args.seq_len, 0, log_pi_tw)
             
                 grad_mask_tw = np.zeros((B, self.args.offset))
@@ -195,11 +193,11 @@ class EARLIEST(tf.keras.Model):
                 b = baselines_tw * grad_mask_tw
                 adjusted_reward_tw = R - tf.stop_gradient(b)
                 self.loss_r_filter = tf.reduce_sum(-log_pi_tw*adjusted_reward_tw) / self.args.offset # RL loss  # 이것도 위와 마찬가지. 근데 어찌 되었든 배치의 평균을 구하기는 했음.
+            x = X[:,t,:]
             output, hidden = self.LSTM(x, states=hidden)
             
             # predict logits for all elements in the batch
             logits = self.out(output)     
-            ent = -np.sum(logits*np.log(logits), axis=1).reshape(B, -1)
             yhat_t = tf.argmax(logits, 1)
             yhat_t = tf.reshape(yhat_t, (-1, 1))
             
@@ -208,6 +206,7 @@ class EARLIEST(tf.keras.Model):
                 t = self.t
             time = tf.ones([B,1]) * t
             if self.args.entropy_halting:
+                ent = -np.sum(logits*np.log(logits), axis=1).reshape(B, -1)
                 c_in = tf.stop_gradient(tf.concat([logits, ent, time], axis=1))
             else:
                 c_in = tf.stop_gradient(tf.concat([output, time], axis=1))
@@ -226,12 +225,12 @@ class EARLIEST(tf.keras.Model):
             if t < self.args.offset and self.args.model == "PROPOSED":
                 filter_points = tf.where((a_t == 2) & (filter_flags == 0), t, filter_points)
                 filter_flags = tf.where((a_t == 2) & (halt_points == -1), 1, filter_flags)
-                predictions = tf.where((length-1 <= t) & (predictions == 0) & (filter_flags == 0), logits, predictions)
+                predictions = tf.where((length-1 <= t) & (predictions == 0), logits, predictions)
                 predictions = tf.where((a_t == 1) & (predictions == 0) & (filter_flags == 0), logits, predictions)
                 probs_t = tf.where(halt_points == -1, probs_t, -1)
                 yhat_t = tf.where(halt_points == -1, yhat_t, -1)
                 # If a_t == 1 and this class hasn't been halted, save the time
-                halt_points = tf.where((halt_points == -1) & (length-1 <= t) & (filter_flags == 0), length-1, halt_points)
+                halt_points = tf.where((halt_points == -1) & (length-1 <= t), length-1, halt_points)
                 halt_points = tf.where((halt_points == -1) & (a_t == 1) & (filter_flags == 0), t, halt_points)
                 tr_window_hidden.append(tf.reshape(output, [B, 1, -1]))
             else:

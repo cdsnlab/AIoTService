@@ -169,7 +169,7 @@ def create_parser():
     parser.add_argument("--gamma", type=int, default=0, help="gamma for focal loss.")
     parser.add_argument("--class_weight", type=str2bool, default=False, help="Apply class weight or not")
     parser.add_argument("--decay_weight", type=float, default=10, help="decay weight for exploration")
-    parser.add_argument("--n_fold_cv", type=str2bool, default=False, help="whether to conduct n-fold cross validation")
+    parser.add_argument("--n_fold_cv", type=str2bool, default=True, help="whether to conduct n-fold cross validation")
     # parser.add_argument("--entropy_threshold", type=float, default="0.8", help="entropy threshold.")
     # parser.add_argument("--delay_halt", type=str2bool, default=False, help="whether to delay halting decision by threshold")
     parser.add_argument("--train", type=str2bool, default=True, help="whether to train the model")

@@ -476,6 +476,7 @@ class CASAS_RAW_NATURAL(CASAS_RAW_SEGMENTED):
         self.lengths = np.array(lengths[1:])
         idx_remove_short = np.where(self.lengths > 30)[0]
         self.lengths = self.lengths + self.noise_amount
+        self.org_lengths = self.lengths.copy()
         self.lengths = np.where(self.lengths > self.args.seq_len, self.args.seq_len, self.lengths)
         
         # event_counts = event_counts[1:]
@@ -489,6 +490,7 @@ class CASAS_RAW_NATURAL(CASAS_RAW_SEGMENTED):
             self.X = self.X[idx_remove_short]
             Y = Y[idx_remove_short]
             self.lengths = self.lengths[idx_remove_short]
+            self.org_lengths = self.org_lengths[idx_remove_short]
             self.event_counts = self.event_counts[idx_remove_short]
             self.org_Y = self.org_Y[idx_remove_short]
             self.prev_Y = self.prev_Y[idx_remove_short]
@@ -500,6 +502,7 @@ class CASAS_RAW_NATURAL(CASAS_RAW_SEGMENTED):
             self.X = self.X[except_other]
             Y = Y[except_other]
             self.lengths = self.lengths[except_other]
+            self.org_lengths = self.org_lengths[except_other]
             self.event_counts = self.event_counts[except_other]
             self.org_Y = self.org_Y[except_other]
             self.prev_Y = self.prev_Y[except_other]
@@ -554,6 +557,7 @@ class CASAS_RAW_NATURAL(CASAS_RAW_SEGMENTED):
         self.Y = self.Y[idx]
         self.org_Y = self.org_Y[idx]
         self.lengths = self.lengths[idx]
+        self.org_lengths = self.org_lengths[idx]
         self.event_counts = self.event_counts[idx]
         self.prev_Y = self.prev_Y[idx]
         self.noise_amount = self.noise_amount[idx]

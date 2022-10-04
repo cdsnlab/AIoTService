@@ -240,4 +240,3 @@ for i, state in enumerate(data_natural.state_matrix):
     if i % 100 == 0:
         print(i)
     
-missegmented data가 포함되어 있을 때 빠르게 분류하려다보면 missegmented data의 비율이 커진다.

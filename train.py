@@ -52,9 +52,9 @@ def loss_EARLIEST(model, x, true_y, length, tr_points):  # shape of true_y is (B
     if args.train_filter:
         CE_filter = tf.keras.losses.SparseCategoricalCrossentropy()
         loss_filter = CE_filter(y_true=true_y, y_pred=model.filter_logits) # Classification loss
-        loss = loss_filter*(model._epsilon) + loss_r + loss_b + loss_c + args.lam*(wait_penalty)
-    if args.model == "PROPOSED":
-        loss += model.loss_r_filter
+        loss += loss_filter*(model._epsilon)
+    # if args.model == "PROPOSED":
+    #     loss += model.loss_r_filter
     return loss, pred_logit, model.locations
 
 def grad(model, x, true_y, length, tr_points):
@@ -226,7 +226,7 @@ if __name__ == "__main__":
                 break
         print(f'tensor board dir: {logdir}')
         f = open(f"./exp_info/{args.exp_info_file}.txt", 'a')
-        f.write(f"{args.lam}\t{args.filter_name}\t{args.noise_test_index}\t{logdir}\n")
+        f.write(f"{args.dataset}\t{args.lam}\t{args.model}\t{logdir}\n")
         f.close()
             
     if args.test:
