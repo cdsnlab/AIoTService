@@ -329,7 +329,7 @@ plt.clf()
 def acc_by_lam(experiment_ids, with_other):
     pd.options.display.float_format = '{:.2f}'.format
     # lam = [0.1, 0.05, 0.01, 0.005, 0.001, 0.0005, 0.0001, 0.00005, 0.00001, 0]
-    lam = [0.5, 0.1, 0.05, 0.01, 0.005, 0.001, 0.0005, 0.0001, 0.00005, 0.00001]
+    lam = [0.5, 0.1, 0.05, 0.01, 0.005, 0.001, 0.0005, 0.0001, 0.00005, 0.00001, 0]
     df_list = []
     for i, experiment_id in enumerate(experiment_ids):
         experiment = tb.data.experimental.ExperimentFromDev(experiment_id)
@@ -380,12 +380,13 @@ def acc_by_lam(experiment_ids, with_other):
 
     return df_concat[['Accuracy', 'Earliness', 'Waiting seconds', '# used event', 'Harmonic mean']]
 
-# experiment_ids_wo_other = ['A7oqlUEuRteRhbJyYRAZfg','gzZLlGroTAeSZWPt26V0mw','2eZoNUWZQOSyUwxcm31x1A','sMb8DC93RYmXMrZJPzTpiA','L30wvOFYSb2JvRtqf47aJA','0T4zC5BCReKeAM4Mvb9cKg','v0oGZndxRbOIlbKUJ2YUXw','2KOdOINrSveCn7WbYJ9yFQ','QAd5ilRXT7qVQAV2tpuR0Q','XFpbnJbhRp2UXOEkKtvTbA',]
 # experiment_ids_w_other = ['vvfpZu4xQAmpQ6wDHxTBOw','YivqHn6gQPi4uQ8ZWk6sDQ','QU1PmCx5Qem6pPpj1D04vA','1XszRYfaQRCXubrB2Pjaig','onNHRy80SDuYWsAYoKvjLA','pd4KvqPPTdOeu62kS3rqqg','fgmrdXs9TDOAlfQFJEiZyQ','2PRN4seSREqJ2Saf01jKtg','aPUKI1a8R7eWLfMasJ3hzA','71qmw4bQR0aFlBC8yIRHXw']
+# experiment_ids_wo_other = ['A7oqlUEuRteRhbJyYRAZfg','gzZLlGroTAeSZWPt26V0mw','2eZoNUWZQOSyUwxcm31x1A','sMb8DC93RYmXMrZJPzTpiA','L30wvOFYSb2JvRtqf47aJA','0T4zC5BCReKeAM4Mvb9cKg','v0oGZndxRbOIlbKUJ2YUXw','2KOdOINrSveCn7WbYJ9yFQ','QAd5ilRXT7qVQAV2tpuR0Q','XFpbnJbhRp2UXOEkKtvTbA',]
 experiment_ids_w_other = ['LmnNS6b3SYainYUmSxPVbA', 'UKtjkBHjQ8mXpuqEby7oQw', 'zhGjEhyCQmencpwb1dTzxw', 'meWeTlY9SVa0v8m6DV96rw', 'X4fL4sVHRteUobKNTaVNLg', '5ZfZa3TzQAqdlXVExqEX0w', 'iyeN3yLvT5iyNSyQYvZe1A', 'HKlNK3b4TLujFzn12NnCjg', 'Grazl2KDSJqplSMW2G8Asg', 'hOyGnw4SRyOFGn55Rq46eQ']
+experiment_ids_wo_other = ['HrNAo5agSVqWF1x7PPdvKQ', 'FWurLNgbTXKWaJNYsK48bw', 'yMzgijl1SNG3J7smubojFg', 'dzokq0AjTnaxgW4H8D6tpg', 'X2jimn8VQyW1V4GqYwjR6w', 'r5Ia9ANHRwyzJSqCVsAHYg', 'KKc0lkELQS2Ou7vqRAnHmw', 'rkio7bLDR9mtxKoiqpKPVg', '4NJUYUXgRkqYjnWkW4GroQ', 'RdM7DR4bSVqiBuntrlM1Og', 'zxZt8w9sQRGKqmg9F6aT1A']
 
-# df_wo_other = acc_by_lam(experiment_ids_wo_other, 'wo_other')
 df_w_other = acc_by_lam(experiment_ids_w_other, 'w_other')
+df_wo_other = acc_by_lam(experiment_ids_wo_other, 'wo_other')
 
 
 
@@ -729,6 +730,8 @@ for subseq_len in subsequence_lengths:
 from dataset import CASAS_ADLMR, CASAS_RAW_NATURAL, CASAS_RAW_SEGMENTED, Dataloader
 
 args.dataset = "milan"
+args.except_all_other_events=False
+
 data = CASAS_RAW_SEGMENTED(args)
 
 def calc_duration(data, target_class, subseq_len):
@@ -753,12 +756,58 @@ def calc_duration(data, target_class, subseq_len):
     return np.mean(mean_duration), np.std(mean_duration)
 
 subsequence_lengths = [2, 4, 6, 8, 10, 12, 14, None]
+subsequence_lengths = [None]
 for subseq_len in subsequence_lengths:
-    # calc_duration(data=data, target_class='Bathing', subseq_len=subseq_len)
-    calc_duration(data=data, target_class='Bed_to_toilet', subseq_len=subseq_len)
+    calc_duration(data=data, target_class='Bathing', subseq_len=subseq_len)
+    # calc_duration(data=data, target_class='Bed_to_toilet', subseq_len=subseq_len)
 
 
-# 발생 시간대
+args.with_other=False
+args.random_noise=True
+args.except_all_other_events=True
+data = CASAS_RAW_NATURAL(args)
+
+args.except_all_other_events=False
+data_other = CASAS_RAW_NATURAL(args)
+
+
+count = np.zeros((data.N_FEATURES))
+flag = np.zeros((data.N_FEATURES))
+duration = []
+for state in data.state_matrix:
+    new_ON_idx = np.where((state==1) & (flag == 0))[0]
+    new_OFF_idx = np.where((state==0) & (flag == 1))[0]
+    # new_OFF_idx = np.where(((state==0) & (flag == 1)) | (count>=10))[0]
+    
+    flag[new_ON_idx] = 1
+    flag[new_OFF_idx] = 0
+    
+    duration.append(count[new_OFF_idx])
+    count[new_OFF_idx] = 0
+    
+    activated_idx = np.where(flag==1)[0]
+    count[activated_idx] += 1
+    
+import time
+for state in data_other.state_matrix:
+    print(state)
+    time.sleep(1)
+
+    
+duration = np.concatenate(duration)
+duration.mean()
+duration.std()
+duration.max()
+np.median(duration)
+
+
+
+duration_0 = duration.copy()
+duration_0.mean()
+duration_0.std()
+duration_0.max()
+
+# 발생 시간대 -----------------------------------------------------------------------
 import datetime
 from dataset import CASAS_ADLMR, CASAS_RAW_NATURAL, CASAS_RAW_SEGMENTED, Dataloader
 
@@ -971,6 +1020,785 @@ np.mean(concat_entropy_correct[activity])
 
 
 # -----------------------------------------------------------------------------------------
-# Threshold에 따른 분류 정확도
+# 노이즈 테스트 
+# dir_name: 220901-201847
+import os
+import pickle
+
+import numpy as np
+import pandas as pd
+from numpy import dot
+from numpy.linalg import norm
+import matplotlib.pyplot as plt
+
+import utils
 
 
+def cos_sim(A, B):
+  return dot(A, B)/(norm(A)*norm(B))
+
+def entropy(p):
+    id_p = np.where(p != 0)
+    return -np.sum(p[id_p]*np.log(p[id_p]))
+
+def calc_results(logdir, correct_answer):
+    # logdir = './output/log/220905-174712'
+    with open(os.path.join(logdir, f'fold_{1}', 'dict_analysis.pickle'), 'rb') as f:
+        dict_analysis = pickle.load(f)
+    dict_analysis.keys() # dict_keys(['idx', 'raw_probs', 'all_yhat', 'true_y', 'all_dist'])
+
+    # 20 이후에 halt 됐는지 확인
+    a = np.where(dict_analysis['all_yhat'] == -1, 0, 1)
+    a = np.argmin(a, axis=1)
+    halt_pnt = np.where(a == 0, dict_analysis['all_yhat'].shape[1], a) - 1
+    halt_pnt = halt_pnt.reshape((-1, 1))
+    pred_y = np.take_along_axis(dict_analysis['all_yhat'], halt_pnt, axis=1).flatten().astype(int)
+
+    idx_offset = np.where(halt_pnt.flatten() >= 20)[0]
+    if correct_answer:
+        idx_flitered = np.where(pred_y == dict_analysis['true_y'])[0]
+    else:
+        idx_flitered = np.where(pred_y != dict_analysis['true_y'])[0]
+    idx = np.array(list(set(idx_flitered) & set(idx_offset)))
+
+    halt_pnt = halt_pnt[idx]
+    raw_probs = dict_analysis['raw_probs'][idx]
+    all_yhat = dict_analysis['all_yhat'][idx]
+    true_y = dict_analysis['true_y'][idx]
+    all_dist = dict_analysis['all_dist'][idx]
+    # data.idx2label # {0: 'Bathing', 1: 'Bed_to_toilet', 2: 'Cook', 3: 'Eat', 4: 'Leave_Home', 5: 'Relax', 6: 'Sleep', 7: 'Take_medicine', 8: 'Work'}
+
+    all_gap, all_gap_abs = [], []
+    all_highest_p, all_target_p = [], []
+    all_entropy, all_entropy_gap, all_entropy_gap_abs = [], [], []
+    all_cossim, all_cossim_gap, all_cossim_gap_abs = [], [], []
+    for t_y, dist in zip(true_y, all_dist):
+        gap, gap_abs = [], []
+        highest_p, target_p = [], []
+        etrp, etrp_gap, etrp_gap_abs = [], [], []
+        cossim, cossim_gap, cossim_gap_abs = [], [], []
+        for i, dist_t in enumerate(dist[:args.offset]):
+            highest_p.append(np.max(dist_t))
+            target_p.append(dist_t[t_y])
+            etrp.append(entropy(dist_t))
+            if i == 0:
+                prev_target_p = dist_t[t_y]
+                prev_dist= dist_t.copy()
+                continue
+            gap.append(dist_t[t_y] - prev_target_p)
+            gap_abs.append(np.abs(dist_t[t_y] - prev_target_p))
+            etrp_gap.append(entropy(dist_t) - entropy(prev_dist))
+            etrp_gap_abs.append(np.abs(entropy(dist_t) - entropy(prev_dist)))
+            cossim.append(cos_sim(dist_t, prev_dist))
+            prev_target_p = dist_t[t_y]
+            prev_dist= dist_t.copy()
+        all_gap.append(np.array(gap))
+        all_gap_abs.append(np.array(gap_abs))
+        all_highest_p.append(np.array(highest_p))
+        all_target_p.append(np.array(target_p))
+        all_entropy.append(np.array(etrp))
+        all_entropy_gap.append(np.array(etrp_gap))
+        all_entropy_gap_abs.append(np.array(etrp_gap_abs))
+        all_cossim.append(np.array(cossim))
+    all_gap = np.array(all_gap)
+    all_gap_abs = np.array(all_gap_abs)
+    all_highest_p = np.array(all_highest_p)
+    all_target_p = np.array(all_target_p)
+    all_entropy = np.array(all_entropy)
+    all_entropy_gap = np.array(all_entropy_gap)
+    all_entropy_gap_abs = np.array(all_entropy_gap_abs)
+    all_cossim = np.array(all_cossim)
+
+    dict_results = {}
+    dict_results['all_gap'] = np.mean(all_gap, axis=0)
+    dict_results['all_gap_abs'] = np.mean(all_gap_abs, axis=0)
+    dict_results['all_highest_p'] = np.mean(all_highest_p, axis=0)
+    dict_results['all_target_p'] = np.mean(all_target_p, axis=0)
+    dict_results['all_entropy'] = np.mean(all_entropy, axis=0)
+    dict_results['all_entropy_gap'] = np.mean(all_entropy_gap, axis=0)
+    dict_results['all_entropy_gap_abs'] = np.mean(all_entropy_gap_abs, axis=0)
+    dict_results['all_cossim'] = np.mean(all_cossim, axis=0)
+    dict_results['raw_probs'] = np.mean(raw_probs[:, :args.offset], axis=0)
+    return dict_results
+
+correct_answer = False
+args = utils.create_parser()
+args.with_other = False
+args.noise_ratio = 50
+data = CASAS_RAW_NATURAL(args)
+dir = ['./output/log/220905-174613', './output/log/220905-174642', './output/log/220905-174712', './output/log/220905-174741', './output/log/220905-174810', './output/log/220905-174839', './output/log/220905-174908', './output/log/220905-174937', './output/log/220905-175007', './output/log/220905-191308']
+noise_ratio = range(10, 100, 10)
+
+result_name = 'all_gap'
+answer_type = [True, False]
+for answer in answer_type:
+    for logdir, ratio in zip(dir, noise_ratio):
+        print(logdir)
+        dict_results = calc_results(logdir=logdir, correct_answer=answer)
+
+        x = range(len(dict_results[result_name]))
+        y = dict_results[result_name]
+        plt.figure(figsize=(8,6))
+        plt.plot(x, y, color = 'b', linestyle = 'solid', marker = 'o')
+        plt.xlabel('Timestep')
+        plt.ylabel('Probability gap for true class')
+        plt.title(f'Noise {ratio}%')
+        plt.xticks(range(0, 20, 2), range(0, 20, 2)) 
+        plt.legend()
+        plt.show()
+        plt.savefig(f'./analysis/noise/{result_name}_{answer}_noise{ratio}.png')
+        plt.clf()
+        
+for answer in answer_type:
+    for logdir, ratio in zip(dir, noise_ratio):
+        dict_results = calc_results(logdir=logdir, correct_answer=answer)
+        df = pd.DataFrame({'timesteps':range(len(dict_results['all_highest_p'])),
+                        'highest_prob': dict_results['all_highest_p'], 
+                        'target_prob': dict_results['all_target_p']})
+
+        df.plot(x="timesteps", y=["highest_prob", "target_prob"], kind="bar",figsize=(9,8), color=['orange','green'])
+        # plt.xticks(rotation=45, ha="right")
+        plt.title(f'Noise {ratio}%')
+        plt.ylabel('Probability')
+        plt.show()
+        plt.savefig(f'./analysis/noise/all_prob_{answer}_noise{ratio}.png')
+        plt.clf()
+        
+        
+        
+        
+# noise ---------------------------------------------------------------------------------------------------
+dir = './output/log/220908-170442/fold_3'
+df = pd.read_csv(f'{dir}/test_results.csv')
+df['locations'].mean()
+np.where(df['true_y'] == df['pred_y'], 1, 0).mean()
+
+
+
+
+
+# attention ------------------------------------------------------------------------
+import pandas as pd
+import tensorboard as tb
+
+
+def get_exp_results(exp_ids, lam):
+    df_list = []
+    for i, experiment_id in enumerate(exp_ids):
+        experiment = tb.data.experimental.ExperimentFromDev(experiment_id)
+        df = experiment.get_scalars()
+        df = df.loc[df['run'].str.contains(r"test")]
+        df["step"] += 1
+        df["group"] = df["tag"] + "_" + df["step"].astype('str')
+        df_grouped = df.groupby("group").mean()
+        
+        df_grouped['metrics'] = list(map(lambda x: '_'.join(x.split('_')[:-1]) , df_grouped.index.to_list()))
+        df_grouped = df_grouped.sort_values(by=['metrics', 'step'])
+        df_grouped["lambda"] = lam[i]
+        df_list.append(df_grouped)
+    df_concat = pd.concat(df_list)
+    return df_concat
+
+# pd.options.display.float_format = '{:.2f}'.format
+lam = [0.1, 0.01, 0.001, 0.0001, 0.00001]
+exp_id_basic = ['v3jev14qS3CXdSlHXegPJg',
+                '8uW7Mi7FQNm9qK9FAGtLuQ',
+                'y5kYFpZMQmenJNmg9NumHA',
+                'nLZJSkvxSXeAwIKZbv79KQ',
+                'RIwwVbNyTVyWN59bslZgbQ']
+
+# exp_id_attn = ['QX0YpanESrmQ8k2Zjr8ZaQ',
+#                 '4btlIYCgSg2RWLbcNcZd6Q',
+#                 'jg2QEk3qSlSGruN3m9Jveg',
+#                 'mjoQytxkR6K88i19BoAVGg',
+#                 'FL00TO5GREW7ayjNlVQBpw']
+
+# exp_id_attn_l = ['0JfZOC7QRZ2rRzxePD6zFQ',
+#                 'FJLQRZtOTweAl9cPoprU6g',
+#                 'OmTV7s5mQuepF01GCM192g',
+#                 'YSa0q6E8SRK0x2Pravre5w',
+#                 'H4uDieYDQhKdFpjdQxVT7A']
+
+# exp_id_attn_drop = ['EahXBaPDQsaXmJt7b4kcdA',
+#                     'X7hXJGzRSBqC6Se12IogFA',
+#                     'bUdOu0gWQ0Wv1CXJgVR5Nw',
+#                     'FNoLX85LSEGYzJQKVcXEOw',
+#                     'ho5WWDTES8SLvrpF7NoINQ']
+
+exp_id_attn_drop = ['ZaVVDpQxREOOw249hPq20w',
+                    '7ck9gCDmTBazMoPH6S6srw',
+                    'TeB0D8vrTY6D8E1o9FdQwQ',
+                    'QgDqRCXKSau71jWg8ceO1g',
+                    'K09RhE46SLmDLYogqTkeag']
+
+# exp_id_attn_tr_points = ['S0ePzk5PRWGJHVqlZ7S6Ow',
+#                         'hpFezAAvTwibRRq29TeWuQ',
+#                         'QlYJpeByQYOZoLB7Nwmwqw',
+#                         'RlSeOE1ZRCmtVXWxVdA1tw',
+#                         'Ko2cqmLTR4KWFe2Zl4pRqA']
+
+exp_id_attn_tr_points = ['16s8Z5NESBOHa0lLOjyH5w',
+                        '4pOeDQKsQ8CO19xAAIe5sQ',
+                        '4ILAlSvWSq6XsYt8mGZJzg',
+                        'PnkbjclaRPOJZl64sxqumg',
+                        'dA57yRfdTPe5sQpcKRWSOg']
+
+
+# exp_id_basic_other = ['1zbqK6zDQM6DGdRf1C4x4Q',
+#                     'I70nJjM0RZOOq3xCLK7f5w',
+#                     'fZeBtQrGR0WNJsKVnRWlhQ',
+#                     'LbtW8N08Q7OMopAZgbWNhQ',
+#                     'cvxbUkiySRerLrpzXmAy3A']
+
+# exp_id_attn_other = ['LqN8D1AnSy6RqpHGlXMwMQ',
+#                     'GCzHZOE1R5mRVpZfd2e3bg',
+#                     'o96GQH2bQMqNVh9fASy02A',
+#                     'HLNMmCdpSmq1wDANjg9mUQ',
+#                     'pLnpcp7BRs2jENVpldTBjw']
+
+# exp_id_attn_tuning = ['ERpXUnkxQNuEhBZy19vjSA',
+#                     '7gRN31DHQouEHqd7cmJGtQ',
+#                     'bipqP93cQ4y6iMvohRCOYQ',
+#                     'ZpI16eEnQBWubZKBDmCWSg',
+#                     'glS63TJ7TxCg7d8I5ozpxQ',
+#                     'e3qwHJedSJSkGVGuLiLJsA',
+#                     'CWeX4NvPSKam9PYivpWJrA',
+#                     'RbVUlINxTzur776KFo1POA',
+#                     'XJv8qd3ZQTmpsrJ6MQ6DkQ']
+
+# exp_id_basic_halting = ['WXA992uxSkuq14AQQSnZmA',
+#                         'eePdxf15QWSLEg8ULZKMKg',
+#                         'I5tBSbMpRkCqQaclgw0bSw',
+#                         'W0AzDsxFRjOlPevdGY0I3g']
+
+exp_id_noise_ratio = ['WAOy8JjNSAunfvQmxN0LSQ',
+                        'W9d5Rd13TLmJDU1L4N7OUw',
+                        'm8QHATYURySLdwyuANIExA',
+                        'K47AelJYS0Onn9B3jS2NWQ',
+                        '7lVZe75pQK2ZKwjJZLATWQ',
+                        'X2WkYUxMRMGlnqDDhjqU4A',
+                        'R1gesXloS7GLpeAsZuOeTw',
+                        'zn0n4JrlTvqY6CEVzETJNg',
+                        'jgKE4vhRQG2lgKvecoQbfg',
+                        'vg1Ar3ztRVavl53Og8LWUw',
+                        'aQFMiGZVRYWENWAxeWIjXQ',
+                        'mxTB9tvjRoK7DKnhruzDmQ']
+
+exp_id_noise_ratio_cnn = ['CEr0svYASmmxm6L01aw9MA',
+                        'I0GzkFEwQTO7uDlzJoIwzQ',
+                        'zEGjEdcZQ5qeFGtebCnejA',
+                        'ZElc9y2rQ2qtZvVmcGBhDQ',
+                        'r0P2LRJYTXm0QA8JaQZCqQ',
+                        'OKvBfe31RpywRbhpQAbpNA',
+                        'xYwo30n7TNKdqV9asWNedw',
+                        '0F9typOVTKeVvGUnwQnRIA']
+
+
+exp_id_excl_other = ['PIaOMGxLQ3ujfrkV8SLWsQ',
+                    'gLL7epEpT2G093jNJMFW8w',
+                    'vnY0DyNYSai2ie5zdOlpmA',
+                    'XLjAHAp1QdijBAqfkorjVA',
+                    'uoquXU9ZQ46dJCJWjK2exw',
+                    'o8ag24WxRIyxuzVIX3AwPw',
+                    'GmW1YwknRqGrM793Wyed5g',
+                    'DbbjgMgqTRGfOJd9vpsWwg',
+                    '2YglPKjdQya1RpIzbbKoCQ',
+                    'QYdUOLFxSV29BgHqpezPVQ']
+
+# exp_id_attn_cls_token_1 = ['NMfAF46GQEqdFBd8Wztauw',
+#                         'Fgf0UmzoTOCw2WaUBMVtDA',
+#                         'QqBqte2FRzePjlfJGZqdFQ',
+#                         'RyZn8K82QFetXUXTACmMSA',
+#                         'TedklrWtRQiJ1tmUJQmibA']
+
+exp_id_attn_cls_token_2 = ['bcvhlgmcQzaQqxIYRwYDTQ',
+                            'cwky9l3WTvuru99NPHdTvg',
+                            'u0FGxkZuQJGxxJ4EjGywSw',
+                            'yBdbD6XdQIKrGKSBe4DxQw',
+                            'jZoU1SdBTQOq78da4BHkVQ']
+
+exp_id_cnn = ['Buxl1DMqTKG4a45Y6vSWFA',
+            'C6fyA6QDSQ6YldJh7s0ueA',
+            'X1yQXniXRW2xr0H9MGe3JA',
+            'Qu7Y0cXVSDWEG06xXf0Etg',
+            '5ckJyqpLR66gZFR69Ea2uw']
+
+exp_id_noise_relation = ['m4eQ3FGmSgSKikq4c9E4Dw',
+                        'xuN6Hl4SQo20KpAr8AIrCA',
+                        'XoXLEypOSJ6cdlyqktNqAg',
+                        'ETpMF0b8Qv67OLdUJPmK3w',
+                        '4LgOOl5YQeKaIKeUxWKT0g',
+                        'R73ZoXUDTeKQmmvnX9SVXQ',
+                        'Y40LI69sQFKy9NAJmcDWzQ',
+                        'fLGTeDe1Ra2WYFGSbLI4Ag',
+                        'pKu1VPyhQPazRrjnUllk9Q',
+                        'G1nqfxGaRwK2McR4Zfnocw',
+                        'T1JFX0MWQvS2zXpVqU6p8Q',
+                        'eujZj3GORG2cjYLC4E3flw',
+                        'ouQ2eZvnQc2zMhyA9rabvQ',
+                        'cNflIvlaRMu8kokQkolmDQ',
+                        '6Y0VG69ORpKXTgvtk05YOQ',
+                        'Lc8szfK3TRevgi3Gj4fOaw',
+                        'dbR5cb2UQsym2l7iJMGPFw',
+                        'Sn1cLc0vQceoAb0KoKoWOQ',
+                        'VoVZyqWKQLG7Gg36ZurcwQ',
+                        '5750Cj2oQm6UwmYOFlWw7Q',
+                        'xVWtpw1vQpe6R8PwqIPjjg',
+                        'OZaYRrSGTpOgwJaU9jlQGA',
+                        'UNYOSVF4QXmqobZJHnhwrg',
+                        'xWWAAIRhQL6KNPYaiqw8ug',
+                        '9WcZLN3uQpiKYEoaq5R8Ng',
+                        'LHzqXTAvS5GOzTbI3jkU0Q',
+                        'gPLZoyMxRImP4Najoey8Vg',
+                        'peu1W3wGT9GErRzrOYQuJg',
+                        'G8ZBBTmnRHOEYhzq5lOgYA',
+                        'hPUmRy0XQj64pFPgppKjng',
+                        'KGFp7r5BSwuNmOy1gH0ZPg',
+                        '6ujFACXjRSKRSbP6X0tvTw',
+                        'bxT9DZ0WQQ6vW4PPAnO84g',
+                        'xHxksZTBT0aC1MM3Pj5OXQ',
+                        'dfN6lWjqSzmGns5zer7exQ',
+                        'niW9LfGQQeqG7M0GOxS5Aw',
+                        'M0KXD6jTRcmLbgPE7TgUnw',
+                        'qbh6nAeNQ8WtV2PJxwCAgQ',
+                        'Vaqv3L1OTOiou9IvfaDG4w',
+                        'BV4mO8nfQyKCvd4CrPQbRg']
+
+
+# lam = [0.1, 0.2, 0.3, 0.4, 0.5]
+lam=['0.1', '0.01', '0.001', '0.0001', '0.00001']
+df_attn = get_exp_results(exp_id_attn, lam)
+df_attn_l = get_exp_results(exp_id_attn_l, lam)
+df_basic = get_exp_results(exp_id_basic, lam)
+df_attn_drop = get_exp_results(exp_id_attn_drop, lam)
+
+df_basic_other = get_exp_results(exp_id_basic_other, lam)
+df_attn_other = get_exp_results(exp_id_attn_other, lam)
+df_attn_tr_points = get_exp_results(exp_id_attn_tr_points, lam)
+# df_attn_cls_token_1 = get_exp_results(exp_id_attn_cls_token_1, lam)
+df_attn_cls_token_2 = get_exp_results(exp_id_attn_cls_token_2, lam)
+df_cnn = get_exp_results(exp_id_cnn, lam)
+
+exp_num = ['31_1', '31_2', '31_3',
+            '64_1', '64_2', '64_3',
+            '128_1', '128_2', '128_3',]
+df_attn_tuning = get_exp_results(exp_id_attn_tuning, exp_num)
+
+df_basic_halting = get_exp_results(exp_id_basic_halting, lam)
+
+exp_num = ['none_0', 'none_1', 'none_2', 'none_3',
+            'basic_0', 'basic_1', 'basic_2','basic_3', 
+            'Attn_0', 'Attn_1', 'Attn_2', 'Attn_3']
+df_noise_ratio = get_exp_results(exp_id_noise_ratio, exp_num)
+
+exp_num = ['cnn_0.1_0', 'cnn_0.1_1', 'cnn_0.1_2', 'cnn_0.1_3',
+           'cnn_0.01_0', 'cnn_0.01_1', 'cnn_0.01_2', 'cnn_0.01_3']
+df_noise_ratio_cnn = get_exp_results(exp_id_noise_ratio_cnn, exp_num)
+
+exp_num = list(range(10))
+df_excl_other = get_exp_results(exp_id_excl_other, exp_num)
+
+from itertools import product
+noise_high=['4', '6', '8', '10', '12', '14', '16', '18']
+lam=['0.1', '0.01', '0.001', '0.0001', '0.00001']
+exp_num = []
+for i in product(noise_high, lam):
+    exp_num.append('_'.join(i))
+df_noise_relation = get_exp_results(exp_id_noise_relation, exp_num)
+
+
+
+# df_attn[(df_attn['lambda'] == 0.0001) & (df_attn['metrics'] == 'whole_accuracy')]
+# df_attn[(df_attn['lambda'] == 0.0001) & (df_attn['metrics'] == 'whole_earliness')]
+# df_attn[(df_attn['lambda'] == 0.0001) & (df_attn['metrics'] == 'whole_harmonic_mean')]
+
+df_attn_l[(df_attn_l['lambda'] == '0.01') & (df_attn_l['metrics'] == 'whole_accuracy')]
+df_attn_l[(df_attn_l['lambda'] == '0.01') & (df_attn_l['metrics'] == 'whole_earliness')]
+df_attn_l[(df_attn_l['lambda'] == '0.001') & (df_attn_l['metrics'] == 'whole_harmonic_mean')]
+
+df_basic[(df_basic['lambda'] == 0.01) & (df_basic['metrics'] == 'whole_accuracy')]
+df_basic[(df_basic['lambda'] == 0.1) & (df_basic['metrics'] == 'whole_earliness')]
+df_basic[(df_basic['lambda'] == 0.00001) & (df_basic['metrics'] == 'whole_harmonic_mean')]
+
+df_attn_drop[(df_attn_drop['lambda'] == 0.01) & (df_attn_drop['metrics'] == 'whole_accuracy')]
+df_attn_drop[(df_attn_drop['lambda'] == 0.01) & (df_attn_drop['metrics'] == 'whole_earliness')]
+df_attn_drop[(df_attn_drop['lambda'] == 0.01) & (df_attn_drop['metrics'] == 'whole_harmonic_mean')]
+
+# df_basic_other[(df_basic_other['lambda'] == 0.00001) & (df_basic_other['metrics'] == 'whole_accuracy')]
+# df_basic_other[(df_basic_other['lambda'] == 0.0001) & (df_basic_other['metrics'] == 'whole_earliness')]
+# df_basic_other[(df_basic_other['lambda'] == 0.0001) & (df_basic_other['metrics'] == 'whole_harmonic_mean')]
+
+# df_attn_other[(df_attn_other['lambda'] == 0.00001) & (df_attn_other['metrics'] == 'whole_accuracy')]
+# df_attn_other[(df_attn_other['lambda'] == 0.00001) & (df_attn_other['metrics'] == 'whole_earliness')]
+# df_attn_other[(df_attn_other['lambda'] == 0.00001) & (df_attn_other['metrics'] == 'whole_harmonic_mean')]
+
+# df_attn_tuning[(df_attn_tuning['lambda'] == '64_1') & (df_attn_tuning['metrics'] == 'whole_accuracy')]
+# df_attn_tuning[(df_attn_tuning['lambda'] == '64_1') & (df_attn_tuning['metrics'] == 'whole_earliness')]
+# df_attn_tuning[(df_attn_tuning['lambda'] == '64_1') & (df_attn_tuning['metrics'] == 'whole_harmonic_mean')]
+
+df_basic_halting[(df_basic_halting['lambda'] == 0.1) & (df_basic_halting['metrics'] == 'whole_accuracy')]
+df_basic_halting[(df_basic_halting['lambda'] == 0.0001) & (df_basic_halting['metrics'] == 'whole_earliness')]
+df_basic_halting[(df_basic_halting['lambda'] == 0.01) & (df_basic_halting['metrics'] == 'whole_harmonic_mean')]
+
+id = 'none_3'
+df_noise_ratio[(df_noise_ratio['lambda'] == id) & (df_noise_ratio['metrics'] == 'whole_accuracy')]
+df_noise_ratio[(df_noise_ratio['lambda'] == id) & (df_noise_ratio['metrics'] == 'whole_earliness')]
+df_noise_ratio[(df_noise_ratio['lambda'] == id) & (df_noise_ratio['metrics'] == 'whole_location_mean')]
+df_noise_ratio[(df_noise_ratio['lambda'] == id) & (df_noise_ratio['metrics'] == 'whole_harmonic_mean')]
+
+id = 'cnn_0.01_3'
+df_noise_ratio_cnn[(df_noise_ratio_cnn['lambda'] == id) & (df_noise_ratio_cnn['metrics'] == 'whole_accuracy')]
+df_noise_ratio_cnn[(df_noise_ratio_cnn['lambda'] == id) & (df_noise_ratio_cnn['metrics'] == 'whole_earliness')]
+df_noise_ratio_cnn[(df_noise_ratio_cnn['lambda'] == id) & (df_noise_ratio_cnn['metrics'] == 'whole_location_mean')]
+df_noise_ratio_cnn[(df_noise_ratio_cnn['lambda'] == id) & (df_noise_ratio_cnn['metrics'] == 'whole_harmonic_mean')]
+
+id = 7
+df_excl_other[(df_excl_other['lambda'] == id) & (df_excl_other['metrics'] == 'whole_accuracy')]
+df_excl_other[(df_excl_other['lambda'] == id) & (df_excl_other['metrics'] == 'whole_earliness')]
+df_excl_other[(df_excl_other['lambda'] == id) & (df_excl_other['metrics'] == 'whole_harmonic_mean')]
+
+
+id = 0.1
+df_attn_tr_points[(df_attn_tr_points['lambda'] == id) & (df_attn_tr_points['metrics'] == 'whole_accuracy')]
+df_attn_tr_points[(df_attn_tr_points['lambda'] == id) & (df_attn_tr_points['metrics'] == 'whole_earliness')]
+df_attn_tr_points[(df_attn_tr_points['lambda'] == id) & (df_attn_tr_points['metrics'] == 'whole_harmonic_mean')]
+
+id = 0.01
+df_attn_cls_token_1[(df_attn_cls_token_1['lambda'] == id) & (df_attn_cls_token_1['metrics'] == 'whole_accuracy')]
+df_attn_cls_token_1[(df_attn_cls_token_1['lambda'] == id) & (df_attn_cls_token_1['metrics'] == 'whole_earliness')]
+df_attn_cls_token_1[(df_attn_cls_token_1['lambda'] == id) & (df_attn_cls_token_1['metrics'] == 'whole_harmonic_mean')]
+
+id = 0.01
+df_attn_cls_token_2[(df_attn_cls_token_2['lambda'] == id) & (df_attn_cls_token_2['metrics'] == 'whole_accuracy')]
+df_attn_cls_token_2[(df_attn_cls_token_2['lambda'] == id) & (df_attn_cls_token_2['metrics'] == 'whole_earliness')]
+df_attn_cls_token_2[(df_attn_cls_token_2['lambda'] == id) & (df_attn_cls_token_2['metrics'] == 'whole_harmonic_mean')]
+
+id = 0.01
+df_cnn[(df_cnn['lambda'] == id) & (df_cnn['metrics'] == 'whole_accuracy')]
+df_cnn[(df_cnn['lambda'] == id) & (df_cnn['metrics'] == 'whole_earliness')]
+df_cnn[(df_cnn['lambda'] == id) & (df_cnn['metrics'] == 'whole_harmonic_mean')]
+
+pd.options.display.float_format = '{:.4f}'.format
+id = '4_0.00001'
+df_noise_relation[(df_noise_relation['lambda'] == id) & (df_noise_relation['metrics'] == 'whole_accuracy')]
+df_noise_relation[(df_noise_relation['lambda'] == id) & (df_noise_relation['metrics'] == 'whole_earliness')]
+df_noise_relation[(df_noise_relation['lambda'] == id) & (df_noise_relation['metrics'] == 'whole_harmonic_mean')]
+
+
+
+df_list = []
+for i, experiment_id in enumerate(exp_ids):
+    experiment = tb.data.experimental.ExperimentFromDev(experiment_id)
+    df = experiment.get_scalars()
+    df = df.loc[df['run'].str.contains(r"train")]
+    
+    df["group"] = df["tag"] + "_" + df["step"].astype('str')
+    df_grouped = df.groupby("group").mean()
+    
+    df_grouped['metrics'] = list(map(lambda x: '_'.join(x.split('_')[:-1]) , df_grouped.index.to_list()))
+    df_grouped = df_grouped.sort_values(by=['metrics', 'step'])
+    df_grouped["lambda"] = lam[i]
+    df_list.append(df_grouped)
+df_concat = pd.concat(df_list)
+
+df_concat
+
+df_concat[(df_concat['lambda'] == 0.1) & (df_concat['metrics'] == 'whole_accuracy')]
+
+
+# attention score 확인 ---------------------------------------------------------------------------
+
+
+import pickle
+import numpy as np
+
+dir = '220926-154933'
+all_noise_amount, all_attn_scores = [], []
+for i in range(1, 4):
+    with open(f'./output/log/{dir}/fold_{i}/dict_analysis.pickle', 'rb') as f:
+        data = pickle.load(f)
+    all_noise_amount.append(data['noise_amount'])
+    all_attn_scores.append(data['attn_scores'])
+        
+
+all_noise_amount = np.concatenate(all_noise_amount)
+all_attn_scores = np.concatenate(all_attn_scores)
+
+
+before_tr, after_tr = [], []
+for amount, weight in zip(all_noise_amount, all_attn_scores):
+    if amount != 0:
+        before_tr.append(weight[0][:amount+1].sum() * 100)
+        after_tr.append(weight[0][amount+1:].sum() * 100)
+np.mean(before_tr)
+np.mean(after_tr)
+
+self.attn_encoder
+
+acc = [0.217, 0.156, 0.221]
+earliness = [0.0126, 0.0121, 0.0139]
+HM = [0.356, 0.27, 0.361]
+np.mean(acc)
+np.mean(earliness)
+np.mean(HM)
+
+np.mean([100, 75])
+# ------------------------------------------------------------------------------ 
+# 노이즈의 양에 따른 Basic과 attn의 퍼포먼스
+
+import os
+import utils
+from dataset import CASAS_ADLMR, CASAS_RAW_NATURAL, CASAS_RAW_SEGMENTED, Dataloader
+
+
+def group_results(logdir, model):
+    concat_idx, concat_noise_amount, concat_attn_scores = [], [], []
+    concat_true_y, concat_pred_y, concat_halt_prob, concat_halt_pnt = [], [], [], []
+    for i in range(1, 4):
+        with open(os.path.join(logdir, f'fold_{i}', 'dict_analysis.pickle'), 'rb') as f:
+            dict_analysis = pickle.load(f)
+            print(dict_analysis.keys())
+        a = np.where(dict_analysis['all_yhat'] == -1, 0, 1)
+        a = np.argmin(a, axis=1)
+        halt_pnt = np.where(a == 0, dict_analysis['all_yhat'].shape[1], a) - 1
+        halt_pnt = halt_pnt.reshape((-1, 1))
+        pred_y = np.take_along_axis(dict_analysis['all_yhat'], halt_pnt, axis=1).flatten().astype(int)
+        halt_prob = np.take_along_axis(dict_analysis['raw_probs'], halt_pnt, axis=1).flatten()
+        concat_idx.append(dict_analysis['idx'])
+        concat_noise_amount.append(dict_analysis['noise_amount'])
+        if dict_analysis.get('attn_scores') is not None:
+            concat_attn_scores.append(dict_analysis['attn_scores'])
+        else:
+            concat_attn_scores.append([])
+        concat_true_y.append(dict_analysis['true_y'])
+        concat_pred_y.append(pred_y)
+        concat_halt_prob.append(halt_prob)
+        concat_halt_pnt.append(halt_pnt)
+        
+
+    concat_idx = np.concatenate(concat_idx)
+    concat_noise_amount = np.concatenate(concat_noise_amount)
+    concat_attn_scores = np.concatenate(concat_attn_scores)
+    concat_true_y = np.concatenate(concat_true_y)
+    concat_pred_y = np.concatenate(concat_pred_y)
+    if model == 'attn':
+        concat_location = np.concatenate(concat_halt_pnt).flatten() + 1 + args.offset
+    else:
+        concat_location = np.concatenate(concat_halt_pnt).flatten() + 1 
+
+    concat_lengths = data_natural.lengths[concat_idx]
+    concat_location = np.where(concat_location > concat_lengths, concat_lengths, concat_location)
+
+    idx_5 = np.where((concat_noise_amount >= 0) & (concat_noise_amount < 5))[0]
+    idx_10 = np.where((concat_noise_amount >= 5) & (concat_noise_amount < 10))[0]
+    idx_15 = np.where((concat_noise_amount >= 10) & (concat_noise_amount < 15))[0]
+    idx_20 = np.where((concat_noise_amount >= 15) & (concat_noise_amount < 20))[0]
+
+    acc_25 = np.where(concat_true_y[idx_5] == concat_pred_y[idx_5], 1, 0).mean()
+    acc_50 = np.where(concat_true_y[idx_10] == concat_pred_y[idx_10], 1, 0).mean()
+    acc_75 = np.where(concat_true_y[idx_15] == concat_pred_y[idx_15], 1, 0).mean()
+    acc_100 = np.where(concat_true_y[idx_20] == concat_pred_y[idx_20], 1, 0).mean()
+
+    earliness_25 = (concat_location[idx_5] / concat_lengths[idx_5]).mean()
+    earliness_50 = (concat_location[idx_10] / concat_lengths[idx_10]).mean()
+    earliness_75 = (concat_location[idx_15] / concat_lengths[idx_15]).mean()
+    earliness_100 = (concat_location[idx_20] / concat_lengths[idx_20]).mean()
+
+    correct = np.where(concat_true_y == concat_pred_y, 1, 0)
+    
+    acc_by_amount=[]
+    for i in range(20):
+        idx_amount = np.where(concat_noise_amount == i)[0]
+        acc_by_amount.append(correct[idx_amount].mean())
+    
+    return [acc_25, acc_50, acc_75, acc_100], [earliness_25, earliness_50, earliness_75, earliness_100], concat_noise_amount, concat_attn_scores, correct, acc_by_amount
+
+
+
+
+# 노이즈에 따른 구간 별 acc --------------------------------------------------------------------------------------
+args = utils.create_parser()
+
+args.with_other = False
+args.balance = False
+args.random_noise = True
+args.except_all_other_events = False
+data_natural = CASAS_RAW_NATURAL(args)
+
+
+# activities = list(data_natural.label2idx.keys()) + ['All']
+# 
+# logdir = './output/log/220920-122104' # w/o PASS
+# logdir = './output/log/220908-153132' # w/ PASS
+# logdir = './output/log/220916-205235' # attn
+
+basic_logdir_excOther = ['220921-225941'] # w/ PASS (Other events are excluded)
+attn_logdir_excOther = ['220921-220448'] # attn  (Other events are excluded)
+
+basic_logdir = ['220908-140057',
+                '220908-143133',
+                '220908-153132',
+                '220908-170442',
+                '220908-194622']
+
+basic_rand_seed = ['220923-110959',
+                    '220923-124519',
+                    '220923-142429',
+                    '220923-160043',
+                    '220923-173808']
+
+
+attn_logdir = ['220915-203726',
+                '220915-210906',
+                '220915-214253',
+                '220915-222409',
+                '220916-113309']
+
+# attn_tr_points = ['220923-203510',
+#                     '220923-210606',
+#                     '220923-213757',
+#                     '220923-221619',
+#                     '220923-230213']
+
+# attn_tr_points = ['220924-232921',
+#                 '220925-000043',
+#                 '220925-003150',
+#                 '220925-010318',
+#                 '220925-021823']
+
+attn_cls_token = ['220926-151900',
+                '220926-154933',
+                '220926-162156',
+                '220926-170742',
+                '220926-183659']
+attn_cls_token = ['220926-154933']
+
+attn_noise_amount = ['220927-160021']
+
+cnn_tuning = ['220928-222633',
+            '220928-225317',
+            '220928-232000',
+            '220928-234818',
+            '220929-001458',
+            '220929-004212',
+            '220929-010907',
+            '220929-013533',
+            '220929-020247',
+            '220929-022925',
+            '220929-025621',
+            '220929-032248']
+cnn_amount = ['220928-235539']
+
+220928-223058
+220928-225928
+220928-232745
+220928-235539
+
+
+for corr in list_correct:
+    corr.mean()
+
+
+list_acc, list_earliness = [], []
+list_noise_amount, list_attn_scores = [], []
+list_correct, list_acc_by_amount = [], []
+for logdir in cnn_amount:
+    logdir = os.path.join('./output/log/', logdir)
+    acc, earliness, noise_amount, attn_scores, correct, acc_by_amount = group_results(logdir, 'basic')
+    list_acc.append(acc)
+    list_earliness.append(earliness)
+    list_noise_amount.append(noise_amount)
+    list_attn_scores.append(attn_scores)
+    list_correct.append(correct)
+    list_acc_by_amount.append(acc_by_amount)
+list_acc = np.array(list_acc)
+list_earliness = np.array(list_earliness)
+list_noise_amount = np.concatenate(list_noise_amount)
+list_attn_scores = np.concatenate(list_attn_scores)
+list_correct = np.concatenate(list_correct)
+list_acc_by_amount = np.array(list_acc_by_amount)
+
+
+basic_acc = np.mean(list_acc, axis=0)
+# attn_acc = np.mean(list_acc, axis=0)
+
+
+idx_5 = np.where((list_noise_amount >= 0) & (list_noise_amount < 5))[0]
+idx_10 = np.where((list_noise_amount >= 5) & (list_noise_amount < 10))[0]
+idx_15 = np.where((list_noise_amount >= 10) & (list_noise_amount < 15))[0]
+idx_20 = np.where((list_noise_amount >= 15) & (list_noise_amount < 20))[0]
+
+
+all_noise_amount = list_noise_amount[idx_20]
+all_attn_scores = list_attn_scores[idx_20]
+
+before_tr, after_tr = [], []
+consecutive_three_before, consecutive_three_after = [], []
+for amount, weight in zip(all_noise_amount, all_attn_scores):
+    if amount != 0:
+        if amount < 3 or amount > 17:
+            continue
+        before_tr.append(weight[0][:amount+1].mean() * 100)
+        after_tr.append(weight[0][amount+1:].mean() * 100)
+        consecutive_three_before.append(weight[0][amount] * 100)
+        consecutive_three_after.append(weight[0][amount+1] * 100)
+        # consecutive_three_before.append(weight[0][amount-2:amount+1].sum() * 100)
+        # consecutive_three_after.append(weight[0][amount+1:amount+4].sum() * 100)
+np.mean(before_tr)
+np.mean(after_tr)
+# np.mean(consecutive_three)
+np.mean(consecutive_three_after) / np.mean(consecutive_three_before)
+# np.mean(after_tr) / np.mean(before_tr)
+
+
+
+
+idx_correct = np.where(list_correct == 1)[0]
+list_noise_amount = list_noise_amount[idx_correct]
+list_attn_scores = list_attn_scores[idx_correct]
+list_correct = list_correct[idx_correct]
+
+amount = 10
+idx_10 = np.where(list_noise_amount == amount)[0]
+attn_scores_10 = list_attn_scores[idx_10]
+attn_scores_10[:,0,1:].mean(axis=0) * 100
+# list_attn_scores[:,10,:].mean(axis=0) * 100
+
+
+# noise amount와 earliness의 관계
+best_HM = ['220929-201723',
+            '220930-015421',
+            '220930-083630',
+            '220930-163443',
+            '220930-005211',
+            '220930-091900',
+            '220930-004513',
+            '220930-083124']
+
+
+results = []
+for logdir in best_HM:
+    cv_amount_target, cv_amount_noise, cv_ratio = [], [], []
+    for i in range(1, 4):
+        path = os.path.join('./output/log/', logdir)
+        with open(os.path.join(path, f'fold_{i}', 'dict_analysis.pickle'), 'rb') as f:
+            dict_analysis = pickle.load(f)
+            print(dict_analysis.keys())
+        idx_correct = np.where(dict_analysis['true_y'] == dict_analysis['pred_y'])[0]
+            
+        cv_amount_target.append(np.mean(dict_analysis['locations'][idx_correct] - dict_analysis['noise_amount'][idx_correct]))
+        cv_amount_noise.append(np.mean(dict_analysis['noise_amount'][idx_correct]))
+        # ratio = (dict_analysis['locations'] - dict_analysis['noise_amount']) / dict_analysis['noise_amount']
+        # cv_ratio.append(ratio.mean())
+    results.append((np.mean(cv_amount_noise), np.mean(cv_amount_target)))
+
+
+
+a.mean()
+
+
+ls = []
+a = np.array([1,2,3,4])
+ls.append(a)
+ls
+tf.concat(ls, axis=1)

@@ -3,7 +3,7 @@ import pandas as pd
 
 activity = ''  # empty
 sensors, values, timestamps, activities, raw = [], [], [], [], []
-with open('./dataset/cairo', 'rb') as features:
+with open('./dataset/kyoto11', 'rb') as features:
     database = features.readlines()
     for i, line in enumerate(database):  # each line
         f_info = line.decode().split()  # find fields
@@ -26,8 +26,8 @@ with open('./dataset/cairo', 'rb') as features:
                     raw.append('')
                     
                 else:  # if activity exists
-                    raw.append(des)
                     des = ''.join(f_info[4:])
+                    raw.append(des)
                     if 'begin' in des:
                         activity = re.sub('begin', '', des)
                         activities.append(activity)
@@ -44,17 +44,17 @@ df_wo_raw = pd.DataFrame({'sensors': sensors, 'values': values,
 df_w_raw = pd.DataFrame({'sensors': sensors, 'values': values,
                         'timestamps': timestamps, 'activities': activities, "raw":raw})
 
+idx = df_wo_raw[df_wo_raw.duplicated()].index
+df_w_raw.loc[idx]
 
 idx = list(set(df_wo_raw[df_wo_raw.duplicated()].index) - set(df_w_raw[df_w_raw.duplicated()].index))
-
 df_wo_raw.loc[idx]
-
 
 
 # 순서 맞는지 확인
 timestamps = []
 act = []
-with open('./dataset/annotated_kyoto7', 'rb') as features:
+with open('./dataset/cairo', 'rb') as features:
     database = features.readlines()
     for i, line in enumerate(database):  # each line
         f_info = line.decode().split()  # find fields
@@ -67,6 +67,13 @@ with open('./dataset/annotated_kyoto7', 'rb') as features:
 len(timestamps)
 len(database)
 
+prev_t = 0
+for i, t in enumerate(timestamps):
+    if t < prev_t:
+        print(i, t)
+    prev_t = t
+    
+    
 idx_sorted = np.argsort(timestamps)
 sorted_act = np.array(act)[idx_sorted]
 sorted_ts = np.array(timestamps)[idx_sorted]
@@ -84,11 +91,6 @@ for ts in sorted_ts:
 np.argmax(term)
 np.max(term) / 3600 / 24
 
-prev_t = 0
-for i, t in enumerate(timestamps):
-    if t < prev_t:
-        print(i, t)
-    prev_t = t
 
 database[535]
 (np.max(timestamps) - np.min(timestamps)) / 3600 / 24
@@ -150,3 +152,92 @@ for i, (db1, db2) in enumerate(zip(database, database_dwn)):  # each line
         break
 
 database_dwn[0] == database[0]
+
+
+
+# filename = './dataset/kyoto11'
+# activity = ''  # empty
+# sensors, values, timestamps, activities = [], [], [], []
+# with open(filename, 'rb') as features:
+#     database = features.readlines()
+#     for i, line in enumerate(database):  # each line
+#         f_info = line.decode().split()  # find fields
+#         try:
+#             # if 'M' == f_info[2][0] or 'D' == f_info[2][0]:
+#             # choose only M D sensors, avoiding unexpected errors
+#             if '.' not in f_info[1]:
+#                 f_info[1] = f_info[1] + '.000000'
+#             s = str(f_info[0]) + str(f_info[1])
+#             timestamps.append(int(time.mktime(datetime.strptime(s, "%Y-%m-%d%H:%M:%S.%f").timetuple())))
+#             if f_info[3] == 'OPEN':
+#                 f_info[3] = 'ON'
+#             elif f_info[3] == 'CLOSE':
+#                 f_info[3] = 'OFF'
+#             sensors.append(f_info[2])
+#             values.append(f_info[3])
+
+#             if len(f_info) == 4:  # if activity does not exist
+#                 activities.append(activity)
+#             else:  # if activity exists
+#                 des = ''.join(f_info[4:])
+#                 if 'begin' in des:
+#                     activity = re.sub('begin', '', des)
+#                     activities.append(activity)
+#                 # if 'end' in des and activity == re.sub('end', '', des):
+#                 if 'end' in des:
+#                     activities.append(activity)
+#                     activity = ''
+#             if f_info[2][0] not in ['M', 'D']:
+#                 del sensors[-1]
+#                 del values[-1]
+#                 del timestamps[-1]
+#                 del activities[-1]
+#         except IndexError:
+#             print(i, line)
+# features.close()
+# set(i[0] for i in set(sensors))
+
+
+
+# 센서간 correlation -------------------------------------------------------------------------------------------
+args = utils.create_parser()
+args.with_other = False
+args.balance = False
+args.random_noise = True
+args.except_all_other_events = False
+data_natural = CASAS_RAW_NATURAL(args)
+
+data_natural.state_matrix.shape
+
+
+def calc_duration_corr(duration):
+    list_duration_corr = []
+    for i in range(len(duration)):
+        diff = np.abs(duration - duration[i])
+        pivot = np.broadcast_to(duration[i], (data_natural.N_FEATURES))
+        duration_max = np.max([duration, pivot], axis=0) 
+        duration_max[np.where(duration_max==0)[0]] = 0.0001
+        duration_corr = 1 - (diff / duration_max)
+        list_duration_corr.append(duration_corr)
+    return np.array(list_duration_corr)
+    
+duration = np.zeros((data_natural.N_FEATURES))
+flag = np.zeros((data_natural.N_FEATURES))
+duration_corr = []
+for i, state in enumerate(data_natural.state_matrix):
+    new_ON_idx = np.where((state==1) & (flag == 0))[0]
+    new_OFF_idx = np.where((state==0) & (flag == 1))[0]
+    # new_OFF_idx = np.where(((state==0) & (flag == 1)) | (count>=10))[0]
+    
+    flag[new_ON_idx] = 1
+    activated_idx = np.where(flag==1)[0]
+    duration[activated_idx] += 1
+    
+    duration_corr.append(calc_duration_corr(duration))
+    
+    flag[new_OFF_idx] = 0
+    duration[new_OFF_idx] = 0
+    if i % 100 == 0:
+        print(i)
+    
+missegmented data가 포함되어 있을 때 빠르게 분류하려다보면 missegmented data의 비율이 커진다.

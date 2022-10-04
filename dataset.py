@@ -20,7 +20,7 @@ class Dataloader(Sequence):
         self.indices = indices
         self.x, self.y, self.len, self.count = x_set, y_set, len_set, count_set
         # self.prev_y = prev_y_set
-        # self.tr_points, self.tr_boundary = tr_points, tr_boundary
+        self.tr_points, self.tr_boundary = tr_points, tr_boundary
         self.batch_size = batch_size
         self.shuffle = shuffle
         self.on_epoch_end()
@@ -35,6 +35,7 @@ class Dataloader(Sequence):
         batch_y = np.array([self.y[i] for i in indices])
         batch_len = np.array([self.len[i] for i in indices])
         batch_count = np.array([self.count[i] for i in indices])
+        batch_tr_point = np.array([self.tr_points[i] for i in indices])
         # batch_prev_y = np.array([self.prev_y[i] for i in indices])
         # if self.tr_points is not None and self.tr_boundary is not None:
         #     batch_tr_point = np.array([self.tr_points[i] for i in indices])
@@ -42,7 +43,7 @@ class Dataloader(Sequence):
         # else:
         #     batch_tr_point = None
         #     batch_tr_boundary = None
-        return batch_x, batch_y, batch_len, batch_count
+        return batch_x, batch_y, batch_len, batch_count, batch_tr_point
         # return batch_x, batch_y, batch_len, batch_count, batch_prev_y
 
     def on_epoch_end(self):
@@ -149,7 +150,39 @@ class CASAS_ADLMR(AmbientData):
             episodes.append(episode[:, col])
         self.episodes = episodes
   
-  
+
+# args.with_other=False
+# args.random_noise=True
+# args.except_all_other_events=True
+# data = CASAS_RAW_NATURAL(args)
+# sensors, values, timestamps, activities = data.preprocessing()
+
+# temp_sensors, temp_values, temp_timestamps, temp_activities = [], [], [], []
+# other_t = []
+# total_offset = 0
+# for s, v, t, l in zip(sensors, values, timestamps, activities):
+#     if data.mappingActivities[data.args.dataset][l] == 'Other':
+#         other_t.append(t)
+#         prev_l = l
+#         continue
+#     if data.mappingActivities[data.args.dataset][prev_l] == 'Other':
+#         total_offset += other_t[-1] - other_t[0]
+#         other_t = []
+#     temp_sensors.append(s)
+#     temp_values.append(v)
+#     temp_timestamps.append(t - total_offset)
+#     temp_activities.append(l)
+#     prev_l = l
+
+# prev_t = 0
+# count = 0
+# for i, t in enumerate(temp_timestamps):
+#     if prev_t > t:
+#         count += 1
+#     prev_t = t
+    
+
+
 class CASAS_RAW_SEGMENTED(AmbientData):
     def __init__(self, args):
         self.args = args
@@ -243,6 +276,8 @@ class CASAS_RAW_SEGMENTED(AmbientData):
                               "Guest_Bathroom": "Bathing"}}
         self.filename = f'./dataset/{self.args.dataset}'
         sensors, values, timestamps, activities = self.preprocessing()
+        if self.args.except_all_other_events:
+            sensors, values, timestamps, activities = self.exclude_other_events(sensors, values, timestamps, activities)            
         self.sensors = sorted(set(sensors))
         self.N_FEATURES = len(self.sensors)
         self.sensor2index = {sensor: i for i, sensor in enumerate(self.sensors)}
@@ -272,30 +307,35 @@ class CASAS_RAW_SEGMENTED(AmbientData):
             for i, line in enumerate(database):  # each line
                 f_info = line.decode().split()  # find fields
                 try:
-                    if 'M' == f_info[2][0] or 'D' == f_info[2][0]:
-                        # choose only M D sensors, avoiding unexpected errors
-                        if '.' not in f_info[1]:
-                            f_info[1] = f_info[1] + '.000000'
-                        s = str(f_info[0]) + str(f_info[1])
-                        timestamps.append(int(time.mktime(datetime.strptime(s, "%Y-%m-%d%H:%M:%S.%f").timetuple())))
-                        if f_info[3] == 'OPEN':
-                            f_info[3] = 'ON'
-                        elif f_info[3] == 'CLOSE':
-                            f_info[3] = 'OFF'
-                        sensors.append(f_info[2])
-                        values.append(f_info[3])
+                    # if 'M' == f_info[2][0] or 'D' == f_info[2][0]:
+                    # choose only M D sensors, avoiding unexpected errors
+                    if '.' not in f_info[1]:
+                        f_info[1] = f_info[1] + '.000000'
+                    s = str(f_info[0]) + str(f_info[1])
+                    timestamps.append(int(time.mktime(datetime.strptime(s, "%Y-%m-%d%H:%M:%S.%f").timetuple())))
+                    if f_info[3] == 'OPEN':
+                        f_info[3] = 'ON'
+                    elif f_info[3] == 'CLOSE':
+                        f_info[3] = 'OFF'
+                    sensors.append(f_info[2])
+                    values.append(f_info[3])
 
-                        if len(f_info) == 4:  # if activity does not exist
+                    if len(f_info) == 4:  # if activity does not exist
+                        activities.append(activity)
+                    else:  # if activity exists
+                        des = ''.join(f_info[4:])
+                        if 'begin' in des:
+                            activity = re.sub('begin', '', des)
                             activities.append(activity)
-                        else:  # if activity exists
-                            des = ''.join(f_info[4:])
-                            if 'begin' in des:
-                                activity = re.sub('begin', '', des)
-                                activities.append(activity)
-                            # if 'end' in des and activity == re.sub('end', '', des):
-                            if 'end' in des:
-                                activities.append(activity)
-                                activity = ''
+                        # if 'end' in des and activity == re.sub('end', '', des):
+                        if 'end' in des:
+                            activities.append(activity)
+                            activity = ''
+                    if f_info[2][0] not in ['M', 'D']:
+                        del sensors[-1]
+                        del values[-1]
+                        del timestamps[-1]
+                        del activities[-1]
                 except IndexError:
                     print(i, line)
         features.close()
@@ -307,7 +347,45 @@ class CASAS_RAW_SEGMENTED(AmbientData):
                         'timestamps': timestamps, 'activities': activities})
         df.sort_values(by=['timestamps'], inplace=True)
         return df['sensors'].tolist(), df['values'].tolist(), df['timestamps'].tolist(), df['activities'].tolist()
-
+    
+    def limit_duration(self):
+        count = np.zeros((self.N_FEATURES))
+        flag = np.zeros((self.N_FEATURES))
+        temp_state_matrix = []
+        for state in self.state_matrix:
+            new_ON_idx = np.where((state==1) & (flag == 0))[0]
+            new_OFF_idx = np.where(((state==0) & (flag == 1)) | (count>=10))[0]
+            
+            flag[new_ON_idx] = 1
+            flag[new_OFF_idx] = 0
+            count[new_OFF_idx] = 0
+            
+            activated_idx = np.where(flag==1)[0]
+            count[activated_idx] += 1
+            temp_state_matrix.append(flag.copy())
+        self.state_matrix = np.concatenate(temp_state_matrix).reshape((-1, self.N_FEATURES))
+        print("limit the duration of the sensor activation")
+    
+    def exclude_other_events(self, sensors, values, timestamps, activities):
+        temp_sensors, temp_values, temp_timestamps, temp_activities = [], [], [], []
+        other_t = []
+        total_offset = 0
+        for s, v, t, l in zip(sensors, values, timestamps, activities):
+            if self.mappingActivities[self.args.dataset][l] == 'Other':
+                other_t.append(t)
+                prev_l = l
+                continue
+            if self.mappingActivities[self.args.dataset][prev_l] == 'Other':
+                total_offset += other_t[-1] - other_t[0]
+                other_t = []
+            temp_sensors.append(s)
+            temp_values.append(v)
+            temp_timestamps.append(t - total_offset)
+            temp_activities.append(l)
+            prev_l = l
+        print("Events for Other class are excluded.")
+        return temp_sensors, temp_values, temp_timestamps, temp_activities
+    
 
 class CASAS_RAW_NATURAL(CASAS_RAW_SEGMENTED):
     def __init__(self, args):
@@ -317,14 +395,15 @@ class CASAS_RAW_NATURAL(CASAS_RAW_SEGMENTED):
         self.N_CLASSES = len(np.unique(self.Y))
 
     def create_episodes(self, sensors, values, timestamps, activities):
-        self.state_matrix, self.labels, count_seq = self.event2matrix(sensors, values, timestamps, activities)
-        
+        self.state_matrix, self.labels, prev_counts = self.event2matrix(sensors, values, timestamps, activities)
+        if self.args.except_all_other_events:
+            self.limit_duration()
         prev_count = 0
         prev_label = None
         x, counts = [], []
         X, Y, lengths, event_counts  = [], [], [], []
         org_Y = []
-        for s, l, c in zip(self.state_matrix, self.labels, count_seq):
+        for s, l, c in zip(self.state_matrix, self.labels, prev_counts):
             if prev_label == l or prev_label is None:
                 x.append(s)
                 counts.append(c)
@@ -347,39 +426,84 @@ class CASAS_RAW_NATURAL(CASAS_RAW_SEGMENTED):
         # self.X = X
         # return None
 
-        self.noise_amount = int(self.args.noise_ratio / 100 * self.args.offset)
-        if self.noise_amount == 0:
+        if self.args.random_noise:
+            self.noise_amount = np.random.randint(low=self.args.offset, size=(len(X) - 1)) 
+            if self.args.noise_test_index != -1:
+                self.noise_amount = np.random.randint(low=5*self.args.noise_test_index, high=5*(self.args.noise_test_index+1), size=(len(X) - 1)) 
+            if self.args.noise_high != -1:
+                self.noise_amount = np.random.randint(low=self.args.noise_high-4, high=self.args.noise_high, size=(len(X) - 1)) 
+        else:
+            noise_amount = int(self.args.noise_ratio / 100 * self.args.offset)
+            self.noise_amount = np.ones((len(X) - 1), dtype=int) * noise_amount
+
+        if self.noise_amount.sum() == 0:
             X_noise = X[1:]
+            event_counts = event_counts[1:]
         else:
             X_noise = []
-            prev_events = X[0][-self.noise_amount:]
-            for i in range(len(X)-1):
-                noise = prev_events[-self.noise_amount:]
-                prev_events = np.concatenate((noise, X[i+1]))
-                X_noise.append(prev_events)
+            temp_count = []
+            prev_events = X[0]
+            prev_counts = event_counts[0]
+            for i, noise_amount in enumerate(self.noise_amount):          
+                if noise_amount == 0:
+                    X_noise.append(X[i+1])
+                    temp_count.append(event_counts[i+1])
+                    prev_events = np.concatenate((prev_events[-self.args.offset:], X[i+1]))
+                    
+                    curr_count = event_counts[i+1] + prev_counts.max()
+                    prev_counts = np.concatenate((prev_counts, curr_count))
+                    continue
+                
+                noise = prev_events[-noise_amount:]
+                prev_events = np.concatenate((prev_events[-self.args.offset:], X[i+1]))
+                X_noise.append(np.concatenate((noise, X[i+1])))
+
+                noise_count = prev_counts[-noise_amount:] - prev_counts[-noise_amount:].min() + 1
+                curr_count = event_counts[i+1] + noise_count.max()
+                temp_count.append(np.concatenate((noise_count, curr_count)))
+
+                # print(prev_counts[:self.args.offset].max(), prev_counts[-self.args.offset:].min())
+                prev_counts = prev_counts[-self.args.offset:] - prev_counts[-self.args.offset:].min() + 1
+                count_ = event_counts[i+1] + prev_counts.max()
+                prev_counts = np.concatenate((prev_counts, count_))
+            event_counts = temp_count
+            
         self.X = pad_sequences(X_noise, padding='post', truncating='post', dtype='float32', maxlen=self.args.seq_len)  # B * T * V
+        # print(Y[:10])
+        self.prev_Y = np.array(Y[:-1])
         Y = np.array(Y[1:])
         self.org_Y = np.array(org_Y[1:])
         self.lengths = np.array(lengths[1:])
+        idx_remove_short = np.where(self.lengths > 30)[0]
         self.lengths = self.lengths + self.noise_amount
         self.lengths = np.where(self.lengths > self.args.seq_len, self.args.seq_len, self.lengths)
-        event_counts = event_counts[1:]
-        self.prev_Y = np.array(Y[:-1])
+        
+        # event_counts = event_counts[1:]
         
         event_counts = pad_sequences(event_counts, padding='post', truncating='post', dtype='float32', maxlen=self.args.seq_len, value=0.0)
         count_max = np.reshape(np.max(event_counts, axis=1), (-1, 1))
         self.event_counts = np.where(event_counts != 0.0, event_counts, count_max)
         
+        if self.args.remove_short:
+            print("data shorter than 30 is excluded.")
+            self.X = self.X[idx_remove_short]
+            Y = Y[idx_remove_short]
+            self.lengths = self.lengths[idx_remove_short]
+            self.event_counts = self.event_counts[idx_remove_short]
+            self.org_Y = self.org_Y[idx_remove_short]
+            self.prev_Y = self.prev_Y[idx_remove_short]
+            self.noise_amount = self.noise_amount[idx_remove_short]
+            
         if self.args.with_other == False:
             print("Other class is excluded.")
             except_other = np.where(Y != 'Other')[0]
-            print(except_other.shape)
             self.X = self.X[except_other]
             Y = Y[except_other]
             self.lengths = self.lengths[except_other]
             self.event_counts = self.event_counts[except_other]
+            self.org_Y = self.org_Y[except_other]
             self.prev_Y = self.prev_Y[except_other]
-            print(except_other.shape)
+            self.noise_amount = self.noise_amount[except_other]
             
         self.idx2label = {i:label for i, label in enumerate(sorted(set(Y)))}
         self.label2idx = {label:i for i, label in self.idx2label.items()}
@@ -432,9 +556,10 @@ class CASAS_RAW_NATURAL(CASAS_RAW_SEGMENTED):
         self.lengths = self.lengths[idx]
         self.event_counts = self.event_counts[idx]
         self.prev_Y = self.prev_Y[idx]
+        self.noise_amount = self.noise_amount[idx]
         print(f'The number of the instances: {len(self.Y)}')
-        
-        
+
+
     # def transition_boundary(self, offset=21):
     #     tau = 2
     #     tmax = 5
@@ -453,12 +578,118 @@ class CASAS_RAW_NATURAL(CASAS_RAW_SEGMENTED):
     #     gt_boundary = pad_sequences(gt_boundary, padding='post', truncating='post', dtype='float32', maxlen=self.args.seq_len*2)  # B * T * V
     #     return gt_boundary
 
-
+# import utils
+# args = utils.create_parser()
 
 # args.dataset = "milan"
 # args.with_other = False
-# args.noise_ratio = 100
-# data = CASAS_RAW_NATURAL(args)
+
+# args.noise_ratio = 0
+# args.random_noise = False
+# data_false = CASAS_RAW_NATURAL(args)
+# # args.noise_ratio = 100
+# args.random_noise = True
+# data_true = CASAS_RAW_NATURAL(args)
+
+# np.unique(data.noise_amount, return_counts=True)
+# np.min(data.lengths)
+# data.X[2][21]
+# data.noise_amount[2]
+
+# prev_count = data.event_counts[0][-3:] - data.event_counts[0][-3:].min() + 1
+# prev_count.max()
+
+# data.event_counts[-5][:10]
+# data.noise_amount[2]
+
+
+
+# a = np.array([1,2,3,4,5])
+# a[-2:]
+
+# idx = 19
+# data_true.noise_amount[idx]
+# data_false.event_counts[idx][:10]
+# data_true.event_counts[idx][data_true.noise_amount[idx]:10]
+
+# data_true.noise_amount[18]
+# np.where(data_true.noise_amount == 0)[0].min()
+# data_false.event_counts[33][:10]
+# data_true.event_counts[33][:10]
+
+
+# np.max(data_true.event_counts[11])
+# np.argmax(data_true.event_counts[11])
+# data_true.lengths[11]
+# data_true.event_counts[7][:10]
+# data_true.noise_amount[7]
+
+# np.max(data_false.event_counts[11])
+# np.argmax(data_false.event_counts[11])
+# data_false.lengths[11]
+# data_false.event_counts[7][:30]
+
+
+# data_true.event_counts[2][2:12]
+# data_true.event_counts[2][:10]
+# data_false.event_counts[2][:10]
+
+# i = 0
+# zero=[]
+# for j, (t, f) in enumerate(zip(data_true.event_counts, data_false.event_counts)):
+#     x = data_true.noise_amount[j]
+#     if x == 0:
+#         zero.append(j)
+#         continue
+#     t_ = t[x:] - t[:x].max()
+#     f_ = f[:-x]
+#     # t_ = t[x:x+10] - t[:x].max()
+#     # f_ = f[:10]
+#     a = np.where(t_==f_,0,1).sum()
+#     if a != 0:
+#         i += 1
+#         print('f')
+# np.where(data_true.event_counts[zero] != data_false.event_counts[zero], 1, 0).sum()
+
+
+# i=0
+# for j, (t, f) in enumerate(zip(data_true.X, data_false.X)):
+#     x = data_true.noise_amount[j]
+#     if x == 0:
+#         continue
+#     t_ = t[x:]
+#     f_ = f[:-x]
+#     a = np.where(t_ != f_, 1, 0).sum()
+#     if a != 0:
+#         i+=1
+#         print(a, j)
+# np.where(data_true.X[zero] != data_false.X[zero], 1, 0).sum()
+
+
+
+# data_true.noise_amount[7]
+# x = data_true.noise_amount[7]
+# t = data_true.X[7]
+# f = data_false.X[7]
+# t_ = t[x:]
+# f_ = f[:-x]
+# a = np.where(t_ != f_, 1, 0).sum()
+
+# len(t_)
+# len(f_)
+
+# t_[1]
+# f_[1]
+
+# t[3]
+# t[4]
+# data_true.event_counts[2169][:10]
+# data_false.event_counts[2169][:10]
+
+# len(data_true.noise_amount)
+
+# data_true.X[0]
+
 # len(data.X)
 # data.X[0][:,].shape
 # data.X[1].shape
@@ -468,7 +699,6 @@ class CASAS_RAW_NATURAL(CASAS_RAW_SEGMENTED):
 # data.lengths.shape
 # data.event_counts.shape
 # data.idx2label
-
 
 
 

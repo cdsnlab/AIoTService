@@ -13,7 +13,7 @@ device="3" # 7 8 9 10
 for i in $threshold_list
 do
     echo "threshold: $i"
-    python train.py --device $device --lam 0.1 --with_other False --exp_info_file $file_name --balance True --entropy_threshold $i --delay_halt True --n_fold_cv True
+    python ../train.py --device $device --lam 0.1 --with_other False --exp_info_file $file_name --balance True --entropy_threshold $i --delay_halt True --n_fold_cv True
 done
 
 

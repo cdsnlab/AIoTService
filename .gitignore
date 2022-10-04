@@ -169,4 +169,4 @@ cython_debug/
 analysis/
 dataset/
 output/
-
+exp_info/

@@ -12,8 +12,8 @@ device="3"
 for i in $lambda_list
 do
     echo "Lambda: $i"
-    python train.py --device $device --lam $i --exp_info_file $file_name --with_other False
-    # python train.py --device $device --lam $i --exp_info_file $file_name --with_other False --noise_ratio 50
+    python ../train.py --device $device --lam $i --exp_info_file $file_name --with_other False
+    # python ../train.py --device $device --lam $i --exp_info_file $file_name --with_other False --noise_ratio 50
 done
 
 
