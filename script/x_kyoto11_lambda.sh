@@ -17,7 +17,7 @@ do
     do
         echo "device: $device"
         echo "lambda: $i"
-        echo "model: $model"
+        echo "model: $j"
         echo "dataset: $dataset"
         python train.py --lam $i \
                         --exp_info_file $file_name \

@@ -4,7 +4,7 @@
 # lambda_list="0.1"
 random_noise="True"
 lambda_list="0.1 0.01 0.001 0.0001 0.00001"
-model="ATTENTION EARLIEST"
+model="CNN"
 
 file_name="x_kyoto7_lambda_1004"
 device="1"
@@ -17,7 +17,7 @@ do
     do
         echo "device: $device"
         echo "lambda: $i"
-        echo "model: $model"
+        echo "model: $j"
         echo "dataset: $dataset"
         python train.py --lam $i \
                         --exp_info_file $file_name \

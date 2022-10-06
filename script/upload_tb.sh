@@ -4,7 +4,9 @@ echo "Directory: $1"
 echo "Experiment name: $2"
 echo "Description: $3"
 
-tensorboard dev upload --logdir /SSD4TB/taehoon/online_HAR/thesis/output/log/$1 --name $1/$2 --description "$3"
+tensorboard dev upload --logdir /SSD4TB/taehoon/online_HAR/thesis/output/log/$1 \
+                        --name $1/$2 \
+                        --description "$3"
 
 
 # Usage: 

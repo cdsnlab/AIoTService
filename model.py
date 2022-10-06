@@ -433,12 +433,22 @@ class CNNLayer(tf.keras.layers.Layer):
         self.args = args
         
     def build(self, input_shape):
-        self.cnn = tf.keras.Sequential([   
+        # self.cnn = tf.keras.Sequential([   # conv - bn - activation - dropout - pooling
+        #             # tf.keras.layers.Conv1D(filters=self.args.filters, kernel_size=self.args.kernel_size, activation="relu", input_shape=(self.args.batch_size, self.args.offset, self.args.N_FEATURES)),
+        #             tf.keras.layers.Conv1D(filters=self.args.filters, kernel_size=self.args.kernel_size, activation="relu"),
+        #             tf.keras.layers.Conv1D(filters=self.args.filters, kernel_size=self.args.kernel_size, activation="relu"),
+        #             tf.keras.layers.Conv1D(filters=self.args.filters, kernel_size=self.args.kernel_size, activation="relu"),
+        #             tf.keras.layers.Flatten()
+        #             ])
+        self.cnn = tf.keras.Sequential([   # conv - bn - activation - dropout - pooling
                     # tf.keras.layers.Conv1D(filters=self.args.filters, kernel_size=self.args.kernel_size, activation="relu", input_shape=(self.args.batch_size, self.args.offset, self.args.N_FEATURES)),
                     tf.keras.layers.Conv1D(filters=self.args.filters, kernel_size=self.args.kernel_size, activation="relu"),
+                    tf.keras.layers.Dropout(self.args.dropout_rate),
+                    tf.keras.layers.MaxPool1D(pool_size=self.args.kernel_size, strides=1, padding='valid'),
                     tf.keras.layers.Conv1D(filters=self.args.filters, kernel_size=self.args.kernel_size, activation="relu"),
-                    tf.keras.layers.Conv1D(filters=self.args.filters, kernel_size=self.args.kernel_size, activation="relu"),
-                    tf.keras.layers.Flatten()
+                    tf.keras.layers.Dropout(self.args.dropout_rate),
+                    tf.keras.layers.MaxPool1D(pool_size=self.args.kernel_size, strides=1, padding='valid'),
+                    tf.keras.layers.Flatten(),
                     ])
         self.dropout1 = tf.keras.layers.Dropout(self.args.dropout_rate)
         self.hidden = layers.Dense(self.args.nhid, activation='tanh')
@@ -456,16 +466,20 @@ class CNNLayer(tf.keras.layers.Layer):
         return hidden_states, outputs
 
 
-# input = data_natural.X[:4, :args.offset, :]
+
+# input = data.X[:4, :args.offset, :15]
 # input_shape = input.shape
 
 # cnn = tf.keras.Sequential([   
-#                 tf.keras.layers.Conv1D(filters=32, kernel_size=5, activation="relu", input_shape=(self.args.batch_size, self.args.offset, self.args.N_FEATURES)),
-#                 tf.keras.layers.Conv1D(filters=32, kernel_size=5, activation="relu"),
-#                 tf.keras.layers.Conv1D(filters=32, kernel_size=5, activation="relu"),
+#                 tf.keras.layers.Conv1D(filters=4, kernel_size=2, activation="relu"),
+#                 tf.keras.layers.Dropout(0.5),
+#                 tf.keras.layers.MaxPool1D(pool_size=2, strides=1, padding='valid'),
+#                 tf.keras.layers.Conv1D(filters=4, kernel_size=2, activation="relu"),
+#                 tf.keras.layers.Dropout(0.5),
+#                 tf.keras.layers.MaxPool1D(pool_size=2, strides=1, padding='valid'),
 #                 tf.keras.layers.Flatten(),
-#                 tf.keras.layers.Dropout(self.args.dropout_rate)
 #             ])
+
 # a = cnn(input)
 # a.shape
 

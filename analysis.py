@@ -1515,43 +1515,6 @@ df_concat
 df_concat[(df_concat['lambda'] == 0.1) & (df_concat['metrics'] == 'whole_accuracy')]
 
 
-# attention score 확인 ---------------------------------------------------------------------------
-
-
-import pickle
-import numpy as np
-
-dir = '220926-154933'
-all_noise_amount, all_attn_scores = [], []
-for i in range(1, 4):
-    with open(f'./output/log/{dir}/fold_{i}/dict_analysis.pickle', 'rb') as f:
-        data = pickle.load(f)
-    all_noise_amount.append(data['noise_amount'])
-    all_attn_scores.append(data['attn_scores'])
-        
-
-all_noise_amount = np.concatenate(all_noise_amount)
-all_attn_scores = np.concatenate(all_attn_scores)
-
-
-before_tr, after_tr = [], []
-for amount, weight in zip(all_noise_amount, all_attn_scores):
-    if amount != 0:
-        before_tr.append(weight[0][:amount+1].sum() * 100)
-        after_tr.append(weight[0][amount+1:].sum() * 100)
-np.mean(before_tr)
-np.mean(after_tr)
-
-self.attn_encoder
-
-acc = [0.217, 0.156, 0.221]
-earliness = [0.0126, 0.0121, 0.0139]
-HM = [0.356, 0.27, 0.361]
-np.mean(acc)
-np.mean(earliness)
-np.mean(HM)
-
-np.mean([100, 75])
 # ------------------------------------------------------------------------------ 
 # 노이즈의 양에 따른 Basic과 attn의 퍼포먼스
 
@@ -1803,11 +1766,112 @@ for logdir in best_HM:
 
 
 
-a.mean()
+# filter module이 transition point를 찾아내는 이유 justify ------------------------------------------------------
+from dataset import *
+
+args
+args.with_other = False
+args.random_noise = False
+args.noise_ratio = 50
+data_name = "milan"
+args.dataset = data_name
+data = CASAS_RAW_NATURAL(args)
+
+idx = np.where(data.lengths >= 20)[0]
+X = data.X[idx]
+X = X[:, :20, :]
+
+# 이벤트 개수
+X_count = np.sum(X, axis=2)
+X_count.shape
+X_count[:,9].mean()
+X_count[:,10].mean()
+
+np.mean(X_count, axis=0)
 
 
-ls = []
-a = np.array([1,2,3,4])
-ls.append(a)
-ls
-tf.concat(ls, axis=1)
+# sensor state vector간 유사도
+X_dot = np.matmul(X, np.transpose(X, (0, 2, 1)))
+
+norm = np.sqrt(np.sum(X, axis=2))
+norm_a = np.reshape(norm, (-1, args.offset, 1))
+norm_b = np.reshape(norm, (-1, 1, args.offset))
+norm = norm_a * norm_b
+
+idx_0 = np.where(X_dot == 0)
+norm[idx_0] = 1  # avoid divided by 0
+X_cos = X_dot / norm
+
+a = X_cos.mean(axis=0)
+before_tr = a[:10].mean(axis=0)
+after_tr = a[10:].mean(axis=0)
+
+before_tr[:10].mean()
+after_tr[10:].mean()
+before_tr[10:].mean()
+after_tr[:10].mean()
+
+
+
+x = ['t-9', 't-8', 't-7', 't-6', 't-5', 't-4', 't-3', 't-2', 't-1', 't', 't+1', 't+2', 't+3', 't+4', 't+5', 't+6', 't+7', 't+8', 't+9']
+y = [a[i][i+1] for i in range(args.offset - 1)]
+plt.plot(x, y, color = 'b', linestyle = 'solid', marker = 'o')
+
+plt.xticks(np.arange(0, args.offset-1, 3))
+plt.xlabel('timesteps')
+# plt.xticks(rotation = 25)
+plt.ylabel('Cosine similarity')
+plt.title(f'Similarity between Adjacent Two Sensor States ({data_name})')
+plt.legend()
+plt.show()
+plt.savefig(f'./analysis/similarity_{data_name}.png')
+plt.clf()
+
+
+# attention score 확인 ---------------------------------------------------------------------------
+import pickle
+import numpy as np
+
+dir = '220926-154933'
+all_noise_amount, all_attn_scores = [], []
+for i in range(1, 4):
+    with open(f'./output/log/{dir}/fold_{i}/dict_analysis.pickle', 'rb') as f:
+        data = pickle.load(f)
+    all_noise_amount.append(data['noise_amount'])
+    all_attn_scores.append(data['attn_scores'])
+
+all_noise_amount = np.concatenate(all_noise_amount)
+all_attn_scores = np.concatenate(all_attn_scores)
+
+# all_attn_scores = all_attn_scores[:, 1:, 1:]
+# amount = 5
+# idx_10 = np.where(all_noise_amount == amount)[0]
+# all_attn_scores[idx_10]
+
+# a = all_attn_scores.mean(axis=0)
+# before_tr = a[:amount].mean(axis=0)
+# after_tr = a[amount:].mean(axis=0)
+
+# before_tr[:amount].mean()
+# after_tr[amount:].mean()
+# before_tr[amount:].mean()
+# after_tr[:amount].mean()
+
+# i=17
+# a[i][i+1]
+
+within_before_tr, within_after_tr, between_1, between_2 = [], [], [], []
+all_attn_scores_ = all_attn_scores[:, 1:, 1:]
+for amount, weight in zip(all_noise_amount, all_attn_scores_):
+    if amount != 0 :
+        before_tr = weight[:amount].mean(axis=0)
+        after_tr = weight[amount:].mean(axis=0)
+        
+        within_before_tr.append(before_tr[:amount].mean() * 100)
+        within_after_tr.append(after_tr[amount:].mean() * 100)
+        between_1.append(before_tr[amount:].mean() * 100)
+        between_2.append(after_tr[:amount].mean() * 100)
+np.mean(within_before_tr)
+np.mean(within_after_tr)
+np.mean(between_1)
+np.mean(between_2)

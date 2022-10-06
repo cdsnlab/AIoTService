@@ -152,7 +152,7 @@ def create_parser():
     # parser.add_argument("--read_all_tw", type=str2bool, default=False, help="test")
     parser.add_argument("--dff", type=int, default=64, help="The number of neurons of feed-forward network in the transformer encoder")
     parser.add_argument("--num_encoder", type=int, default=1, help="The number of encoders in the transformer structure")
-    parser.add_argument("--filters", type=int, default=32, help="The number of kernels in the CNN layer")
+    parser.add_argument("--filters", type=int, default=8, help="The number of kernels in the CNN layer")
     parser.add_argument("--kernel_size", type=int, default=2, help="The size of kernel")
     parser.add_argument("--entropy_halting", type=str2bool, default=False, help="entropy and class membership prob are considered when calculating halting probability")
     parser.add_argument("--hidden_as_input", type=str2bool, default=False, help="entropy and class membership prob are considered when calculating halting probability")
