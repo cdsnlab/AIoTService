@@ -400,10 +400,17 @@ import matplotlib.pyplot as plt
 
 from dataset import *
 
-data_name = "kyoto7"
+data_name = "cairo"
 args.dataset = data_name
 args.with_other = False
 data = CASAS_RAW_NATURAL(args)
+data.X.shape
+# The number of the episodes
+# milan: 2170
+# cairo: 428
+# kyoto7: 461
+# kyoto8: 1170
+# kyoto11: 3699
 np.max(data.org_lengths)
 
 unique, counts = np.unique(data.lengths, return_counts=True)
@@ -412,12 +419,17 @@ for u, c in zip(unique, counts):
     if u > 20:
         break
 
-# The amount of each activity
-data.org_Y.shape
 data.Y.shape
-unique, counts = np.unique(data.org_Y, return_counts=True)
+unique, counts = np.unique(data.Y, return_counts=True)
 for u, c in zip(unique, counts):
-    print(f'activity:{u}, count:{c}')
+    print(f'activity:{data.idx2label[u]}, count:{c}')
+
+# # The amount of each activity
+# data.org_Y.shape
+# data.Y.shape
+# unique, counts = np.unique(data.org_Y, return_counts=True)
+# for u, c in zip(unique, counts):
+#     print(f'activity:{u}, count:{c}')
 
 
 # # Dataset hyperparameters
@@ -1207,291 +1219,149 @@ def get_exp_results(exp_ids, lam):
         df_list.append(df_grouped)
     df_concat = pd.concat(df_list)
     return df_concat
+def save_results(exp_num, data_name, df):
+    acc_100, ear_100, hm_100 = [], [], []
+    for id in exp_num:
+        # id = 'basic_0.01'
+        acc = df[(df['lambda'] == id) & (df['metrics'] == 'whole_accuracy')]
+        ear = df[(df['lambda'] == id) & (df['metrics'] == 'whole_earliness')]
+        hm = df[(df['lambda'] == id) & (df['metrics'] == 'whole_harmonic_mean')]
+        acc_100.append(acc[acc['step'] == 100]['value'].values[0])
+        ear_100.append(ear[ear['step'] == 100]['value'].values[0])
+        hm_100.append(hm[hm['step'] == 100]['value'].values[0])
+    df_result = pd.DataFrame({'exp_id': exp_num, 'accuracy': acc_100, 'earliness': ear_100, 'hm': hm_100})
+    df_result.to_csv(f'./results/{data_name}_1.csv')
+    # print(f'{acc_100: .4f} {ear_100: .4f} {hm_100: .4f}')
 
 # pd.options.display.float_format = '{:.2f}'.format
 lam = [0.1, 0.01, 0.001, 0.0001, 0.00001]
-exp_id_basic = ['v3jev14qS3CXdSlHXegPJg',
-                '8uW7Mi7FQNm9qK9FAGtLuQ',
-                'y5kYFpZMQmenJNmg9NumHA',
-                'nLZJSkvxSXeAwIKZbv79KQ',
-                'RIwwVbNyTVyWN59bslZgbQ']
-
-# exp_id_attn = ['QX0YpanESrmQ8k2Zjr8ZaQ',
-#                 '4btlIYCgSg2RWLbcNcZd6Q',
-#                 'jg2QEk3qSlSGruN3m9Jveg',
-#                 'mjoQytxkR6K88i19BoAVGg',
-#                 'FL00TO5GREW7ayjNlVQBpw']
-
-# exp_id_attn_l = ['0JfZOC7QRZ2rRzxePD6zFQ',
-#                 'FJLQRZtOTweAl9cPoprU6g',
-#                 'OmTV7s5mQuepF01GCM192g',
-#                 'YSa0q6E8SRK0x2Pravre5w',
-#                 'H4uDieYDQhKdFpjdQxVT7A']
-
-# exp_id_attn_drop = ['EahXBaPDQsaXmJt7b4kcdA',
-#                     'X7hXJGzRSBqC6Se12IogFA',
-#                     'bUdOu0gWQ0Wv1CXJgVR5Nw',
-#                     'FNoLX85LSEGYzJQKVcXEOw',
-#                     'ho5WWDTES8SLvrpF7NoINQ']
-
-exp_id_attn_drop = ['ZaVVDpQxREOOw249hPq20w',
-                    '7ck9gCDmTBazMoPH6S6srw',
-                    'TeB0D8vrTY6D8E1o9FdQwQ',
-                    'QgDqRCXKSau71jWg8ceO1g',
-                    'K09RhE46SLmDLYogqTkeag']
-
-# exp_id_attn_tr_points = ['S0ePzk5PRWGJHVqlZ7S6Ow',
-#                         'hpFezAAvTwibRRq29TeWuQ',
-#                         'QlYJpeByQYOZoLB7Nwmwqw',
-#                         'RlSeOE1ZRCmtVXWxVdA1tw',
-#                         'Ko2cqmLTR4KWFe2Zl4pRqA']
-
-exp_id_attn_tr_points = ['16s8Z5NESBOHa0lLOjyH5w',
-                        '4pOeDQKsQ8CO19xAAIe5sQ',
-                        '4ILAlSvWSq6XsYt8mGZJzg',
-                        'PnkbjclaRPOJZl64sxqumg',
-                        'dA57yRfdTPe5sQpcKRWSOg']
-
-
-# exp_id_basic_other = ['1zbqK6zDQM6DGdRf1C4x4Q',
-#                     'I70nJjM0RZOOq3xCLK7f5w',
-#                     'fZeBtQrGR0WNJsKVnRWlhQ',
-#                     'LbtW8N08Q7OMopAZgbWNhQ',
-#                     'cvxbUkiySRerLrpzXmAy3A']
-
-# exp_id_attn_other = ['LqN8D1AnSy6RqpHGlXMwMQ',
-#                     'GCzHZOE1R5mRVpZfd2e3bg',
-#                     'o96GQH2bQMqNVh9fASy02A',
-#                     'HLNMmCdpSmq1wDANjg9mUQ',
-#                     'pLnpcp7BRs2jENVpldTBjw']
-
-# exp_id_attn_tuning = ['ERpXUnkxQNuEhBZy19vjSA',
-#                     '7gRN31DHQouEHqd7cmJGtQ',
-#                     'bipqP93cQ4y6iMvohRCOYQ',
-#                     'ZpI16eEnQBWubZKBDmCWSg',
-#                     'glS63TJ7TxCg7d8I5ozpxQ',
-#                     'e3qwHJedSJSkGVGuLiLJsA',
-#                     'CWeX4NvPSKam9PYivpWJrA',
-#                     'RbVUlINxTzur776KFo1POA',
-#                     'XJv8qd3ZQTmpsrJ6MQ6DkQ']
-
-# exp_id_basic_halting = ['WXA992uxSkuq14AQQSnZmA',
-#                         'eePdxf15QWSLEg8ULZKMKg',
-#                         'I5tBSbMpRkCqQaclgw0bSw',
-#                         'W0AzDsxFRjOlPevdGY0I3g']
-
-exp_id_noise_ratio = ['WAOy8JjNSAunfvQmxN0LSQ',
-                        'W9d5Rd13TLmJDU1L4N7OUw',
-                        'm8QHATYURySLdwyuANIExA',
-                        'K47AelJYS0Onn9B3jS2NWQ',
-                        '7lVZe75pQK2ZKwjJZLATWQ',
-                        'X2WkYUxMRMGlnqDDhjqU4A',
-                        'R1gesXloS7GLpeAsZuOeTw',
-                        'zn0n4JrlTvqY6CEVzETJNg',
-                        'jgKE4vhRQG2lgKvecoQbfg',
-                        'vg1Ar3ztRVavl53Og8LWUw',
-                        'aQFMiGZVRYWENWAxeWIjXQ',
-                        'mxTB9tvjRoK7DKnhruzDmQ']
-
-exp_id_noise_ratio_cnn = ['CEr0svYASmmxm6L01aw9MA',
-                        'I0GzkFEwQTO7uDlzJoIwzQ',
-                        'zEGjEdcZQ5qeFGtebCnejA',
-                        'ZElc9y2rQ2qtZvVmcGBhDQ',
-                        'r0P2LRJYTXm0QA8JaQZCqQ',
-                        'OKvBfe31RpywRbhpQAbpNA',
-                        'xYwo30n7TNKdqV9asWNedw',
-                        '0F9typOVTKeVvGUnwQnRIA']
-
-
-exp_id_excl_other = ['PIaOMGxLQ3ujfrkV8SLWsQ',
-                    'gLL7epEpT2G093jNJMFW8w',
-                    'vnY0DyNYSai2ie5zdOlpmA',
-                    'XLjAHAp1QdijBAqfkorjVA',
-                    'uoquXU9ZQ46dJCJWjK2exw',
-                    'o8ag24WxRIyxuzVIX3AwPw',
-                    'GmW1YwknRqGrM793Wyed5g',
-                    'DbbjgMgqTRGfOJd9vpsWwg',
-                    '2YglPKjdQya1RpIzbbKoCQ',
-                    'QYdUOLFxSV29BgHqpezPVQ']
-
-# exp_id_attn_cls_token_1 = ['NMfAF46GQEqdFBd8Wztauw',
-#                         'Fgf0UmzoTOCw2WaUBMVtDA',
-#                         'QqBqte2FRzePjlfJGZqdFQ',
-#                         'RyZn8K82QFetXUXTACmMSA',
-#                         'TedklrWtRQiJ1tmUJQmibA']
-
-exp_id_attn_cls_token_2 = ['bcvhlgmcQzaQqxIYRwYDTQ',
-                            'cwky9l3WTvuru99NPHdTvg',
-                            'u0FGxkZuQJGxxJ4EjGywSw',
-                            'yBdbD6XdQIKrGKSBe4DxQw',
-                            'jZoU1SdBTQOq78da4BHkVQ']
-
-exp_id_cnn = ['Buxl1DMqTKG4a45Y6vSWFA',
+exp_milan = ['v3jev14qS3CXdSlHXegPJg',
+            '8uW7Mi7FQNm9qK9FAGtLuQ',
+            'y5kYFpZMQmenJNmg9NumHA',
+            'nLZJSkvxSXeAwIKZbv79KQ',
+            'RIwwVbNyTVyWN59bslZgbQ',
+            'Buxl1DMqTKG4a45Y6vSWFA',
             'C6fyA6QDSQ6YldJh7s0ueA',
             'X1yQXniXRW2xr0H9MGe3JA',
             'Qu7Y0cXVSDWEG06xXf0Etg',
-            '5ckJyqpLR66gZFR69Ea2uw']
+            '5ckJyqpLR66gZFR69Ea2uw',
+            'bcvhlgmcQzaQqxIYRwYDTQ',
+            'cwky9l3WTvuru99NPHdTvg',
+            'u0FGxkZuQJGxxJ4EjGywSw',
+            'yBdbD6XdQIKrGKSBe4DxQw',
+            'jZoU1SdBTQOq78da4BHkVQ']
 
-exp_id_noise_relation = ['m4eQ3FGmSgSKikq4c9E4Dw',
-                        'xuN6Hl4SQo20KpAr8AIrCA',
-                        'XoXLEypOSJ6cdlyqktNqAg',
-                        'ETpMF0b8Qv67OLdUJPmK3w',
-                        '4LgOOl5YQeKaIKeUxWKT0g',
-                        'R73ZoXUDTeKQmmvnX9SVXQ',
-                        'Y40LI69sQFKy9NAJmcDWzQ',
-                        'fLGTeDe1Ra2WYFGSbLI4Ag',
-                        'pKu1VPyhQPazRrjnUllk9Q',
-                        'G1nqfxGaRwK2McR4Zfnocw',
-                        'T1JFX0MWQvS2zXpVqU6p8Q',
-                        'eujZj3GORG2cjYLC4E3flw',
-                        'ouQ2eZvnQc2zMhyA9rabvQ',
-                        'cNflIvlaRMu8kokQkolmDQ',
-                        '6Y0VG69ORpKXTgvtk05YOQ',
-                        'Lc8szfK3TRevgi3Gj4fOaw',
-                        'dbR5cb2UQsym2l7iJMGPFw',
-                        'Sn1cLc0vQceoAb0KoKoWOQ',
-                        'VoVZyqWKQLG7Gg36ZurcwQ',
-                        '5750Cj2oQm6UwmYOFlWw7Q',
-                        'xVWtpw1vQpe6R8PwqIPjjg',
-                        'OZaYRrSGTpOgwJaU9jlQGA',
-                        'UNYOSVF4QXmqobZJHnhwrg',
-                        'xWWAAIRhQL6KNPYaiqw8ug',
-                        '9WcZLN3uQpiKYEoaq5R8Ng',
-                        'LHzqXTAvS5GOzTbI3jkU0Q',
-                        'gPLZoyMxRImP4Najoey8Vg',
-                        'peu1W3wGT9GErRzrOYQuJg',
-                        'G8ZBBTmnRHOEYhzq5lOgYA',
-                        'hPUmRy0XQj64pFPgppKjng',
-                        'KGFp7r5BSwuNmOy1gH0ZPg',
-                        '6ujFACXjRSKRSbP6X0tvTw',
-                        'bxT9DZ0WQQ6vW4PPAnO84g',
-                        'xHxksZTBT0aC1MM3Pj5OXQ',
-                        'dfN6lWjqSzmGns5zer7exQ',
-                        'niW9LfGQQeqG7M0GOxS5Aw',
-                        'M0KXD6jTRcmLbgPE7TgUnw',
-                        'qbh6nAeNQ8WtV2PJxwCAgQ',
-                        'Vaqv3L1OTOiou9IvfaDG4w',
-                        'BV4mO8nfQyKCvd4CrPQbRg']
+exp_cairo = ['Xi6dgnAmQb2qZxdskQDAzA',
+            'oLzbZOwoSkqC7MeiMoonMw',
+            'G8xtQ2J6QJ6gWN1P9GVABw',
+            'SPAOdpK4SK6fPcdVOovqdA',
+            'vh0WyPI1T76EpagRgVXHBw',
+            '3Mjxqg4gQ7aBl6yWBwxLkA',
+            'IK2q97wfQmmSKq6x42TE4w',
+            '2KQPSXB2TRSY474BOYe7lQ',
+            'ZcaTGkwgT86AeR50sw5a4Q',
+            'EFaTgvRTR8CpyO2Uzln0qQ',
+            '6eLdmV5URv2wbVuefYDVRg',
+            'qqHDRQA1SNmt9CdpEPOIqw',
+            'jBEU54hoRVyvRbf1VWKwyw',
+            'YV4XgWTXR9GFaGrFLoW9ZQ',
+            '5XI3Bxl4SaWv0LGa25qSWw']
 
+exp_kyoto7 = ['IXCqwUqESE249fJ0opVLwg',
+            'y8W0VZXUQe2dlBb7mujIYw',
+            'Nurj1tKcQ7OjOqKFlLXhww',
+            'SD7XtDW7Tpm1a97fgupl4w',
+            'nBbx0tzUQCGGG9eJVnET3g',
+            'f0frgYM4S9C9oSAko4GYEg',
+            'XUlDHEM2TbuaumrZd2ELfQ',
+            'JW3fvkeIRb2Z5A2HA0qzKQ',
+            'sMznKNaYSmy1rWF8jBrzPw',
+            'MPhkyZCBS3CxOAn7nZBB6A',
+            'ioSOYpYpQU6BuLpsDAs3kw',
+            'FGjkNCW7Rkaj6NtwNwplUw',
+            'YyQ3ppZ1TpOEqSj921xm1w',
+            '7I07gG18QcqY8ZOO39u7pw',
+            'qWPuLv9JT3m8To1c1TYrNQ']
 
-# lam = [0.1, 0.2, 0.3, 0.4, 0.5]
-lam=['0.1', '0.01', '0.001', '0.0001', '0.00001']
-df_attn = get_exp_results(exp_id_attn, lam)
-df_attn_l = get_exp_results(exp_id_attn_l, lam)
-df_basic = get_exp_results(exp_id_basic, lam)
-df_attn_drop = get_exp_results(exp_id_attn_drop, lam)
+exp_kyoto8 = ['S0IOhB39TQC2PvU4TMoizQ',
+            '7jEUzPRKRaqHEt9iPENIxA',
+            'vBd1GU0OQcKjfjxvePKjMA',
+            'hjjhOIP2TbyYzaoVxjnFxg',
+            '6rQ6IWb1QLuJmq8Br5ewWg',
+            'kzopDXrJRXWrMKkA1OlMEA',
+            '09gWTLqqRveet8LtbQhYAQ',
+            'EqLW82IqQDyMVHrBpHVvPw',
+            'JLYG8vyaQ6GpDQvAdr7Qyw',
+            'eXjXGj0LTXOG94vngJQdfQ',
+            'C5ceKTksRh6xUzU5gL2MLQ',
+            'qPSvbdOLQuyKVfpqK1Q3Lw',
+            'lNXh1p05TYOc5oP2lhzEwQ',
+            'qtbBJ8JQRUeqBnVplBgt9g',
+            '3EatbTRBToG2NMuYbY5FkQ']
 
-df_basic_other = get_exp_results(exp_id_basic_other, lam)
-df_attn_other = get_exp_results(exp_id_attn_other, lam)
-df_attn_tr_points = get_exp_results(exp_id_attn_tr_points, lam)
-# df_attn_cls_token_1 = get_exp_results(exp_id_attn_cls_token_1, lam)
-df_attn_cls_token_2 = get_exp_results(exp_id_attn_cls_token_2, lam)
-df_cnn = get_exp_results(exp_id_cnn, lam)
+exp_kyoto11 =['nIwiQOa2QEWOZJso9nxSEA',
+            'MLHMPRMeQFOwzhgCaK9Qag',
+            'ud7v4S7jT3uXFyCQOm8Rlg',
+            'LDaLcPnhQt25tA3ZQlcqKQ',
+            'oQAsqhg5RnGvmV4BMORZ4g',
+            '1OFnikSNSaW8vs7ZuW6uGw',
+            'BXM4s4E4QAKl0YmlBH7vTQ',
+            'yrS58BF3RSq7RRmmlyrWag',
+            'vMyWuQapSpWmK5pt46wlhw',
+            '1RpYmXzkSv6yJs6BAZEO3w',
+            'bQNdD8SOT6OOa4R89BlpcA',
+            'f79SGMTOTNODsNUvOnrZbQ',
+            '2xCDDpI1RrqXUYENnGWrbw',
+            'gJ3WyQlaSbqeELxtXQJ1RA',
+            '1PoVVBZlQTmh7FoE8Rvy9A']
 
-exp_num = ['31_1', '31_2', '31_3',
-            '64_1', '64_2', '64_3',
-            '128_1', '128_2', '128_3',]
-df_attn_tuning = get_exp_results(exp_id_attn_tuning, exp_num)
-
-df_basic_halting = get_exp_results(exp_id_basic_halting, lam)
-
-exp_num = ['none_0', 'none_1', 'none_2', 'none_3',
-            'basic_0', 'basic_1', 'basic_2','basic_3', 
-            'Attn_0', 'Attn_1', 'Attn_2', 'Attn_3']
-df_noise_ratio = get_exp_results(exp_id_noise_ratio, exp_num)
-
-exp_num = ['cnn_0.1_0', 'cnn_0.1_1', 'cnn_0.1_2', 'cnn_0.1_3',
-           'cnn_0.01_0', 'cnn_0.01_1', 'cnn_0.01_2', 'cnn_0.01_3']
-df_noise_ratio_cnn = get_exp_results(exp_id_noise_ratio_cnn, exp_num)
-
-exp_num = list(range(10))
-df_excl_other = get_exp_results(exp_id_excl_other, exp_num)
 
 from itertools import product
-noise_high=['4', '6', '8', '10', '12', '14', '16', '18']
+methods=['basic', 'cnn', 'attn']
 lam=['0.1', '0.01', '0.001', '0.0001', '0.00001']
 exp_num = []
-for i in product(noise_high, lam):
+for i in product(methods, lam):
     exp_num.append('_'.join(i))
-df_noise_relation = get_exp_results(exp_id_noise_relation, exp_num)
+df_milan = get_exp_results(exp_milan, exp_num)
+df_cairo = get_exp_results(exp_cairo, exp_num)
+df_kyoto7 = get_exp_results(exp_kyoto7, exp_num)
+df_kyoto8 = get_exp_results(exp_kyoto8, exp_num)
+df_kyoto11 = get_exp_results(exp_kyoto11, exp_num)
+
+save_results(exp_num, 'milan', df_milan)
+save_results(exp_num, 'cairo', df_cairo)
+save_results(exp_num, 'kyoto7', df_kyoto7)
+save_results(exp_num, 'kyoto8', df_kyoto8)
+save_results(exp_num, 'kyoto11', df_kyoto11)
+
+pd.options.display.float_format = '{:.5f}'.format
+id = 'basic_0.1'
+df_milan[(df_milan['lambda'] == id) & (df_milan['metrics'] == 'whole_accuracy')]
+df_milan[(df_milan['lambda'] == id) & (df_milan['metrics'] == 'whole_earliness')]
+df_milan[(df_milan['lambda'] == id) & (df_milan['metrics'] == 'whole_harmonic_mean')]
 
 
-
-# df_attn[(df_attn['lambda'] == 0.0001) & (df_attn['metrics'] == 'whole_accuracy')]
-# df_attn[(df_attn['lambda'] == 0.0001) & (df_attn['metrics'] == 'whole_earliness')]
-# df_attn[(df_attn['lambda'] == 0.0001) & (df_attn['metrics'] == 'whole_harmonic_mean')]
-
-df_attn_l[(df_attn_l['lambda'] == '0.01') & (df_attn_l['metrics'] == 'whole_accuracy')]
-df_attn_l[(df_attn_l['lambda'] == '0.01') & (df_attn_l['metrics'] == 'whole_earliness')]
-df_attn_l[(df_attn_l['lambda'] == '0.001') & (df_attn_l['metrics'] == 'whole_harmonic_mean')]
-
-df_basic[(df_basic['lambda'] == 0.01) & (df_basic['metrics'] == 'whole_accuracy')]
-df_basic[(df_basic['lambda'] == 0.1) & (df_basic['metrics'] == 'whole_earliness')]
-df_basic[(df_basic['lambda'] == 0.00001) & (df_basic['metrics'] == 'whole_harmonic_mean')]
-
-df_attn_drop[(df_attn_drop['lambda'] == 0.01) & (df_attn_drop['metrics'] == 'whole_accuracy')]
-df_attn_drop[(df_attn_drop['lambda'] == 0.01) & (df_attn_drop['metrics'] == 'whole_earliness')]
-df_attn_drop[(df_attn_drop['lambda'] == 0.01) & (df_attn_drop['metrics'] == 'whole_harmonic_mean')]
-
-# df_basic_other[(df_basic_other['lambda'] == 0.00001) & (df_basic_other['metrics'] == 'whole_accuracy')]
-# df_basic_other[(df_basic_other['lambda'] == 0.0001) & (df_basic_other['metrics'] == 'whole_earliness')]
-# df_basic_other[(df_basic_other['lambda'] == 0.0001) & (df_basic_other['metrics'] == 'whole_harmonic_mean')]
-
-# df_attn_other[(df_attn_other['lambda'] == 0.00001) & (df_attn_other['metrics'] == 'whole_accuracy')]
-# df_attn_other[(df_attn_other['lambda'] == 0.00001) & (df_attn_other['metrics'] == 'whole_earliness')]
-# df_attn_other[(df_attn_other['lambda'] == 0.00001) & (df_attn_other['metrics'] == 'whole_harmonic_mean')]
-
-# df_attn_tuning[(df_attn_tuning['lambda'] == '64_1') & (df_attn_tuning['metrics'] == 'whole_accuracy')]
-# df_attn_tuning[(df_attn_tuning['lambda'] == '64_1') & (df_attn_tuning['metrics'] == 'whole_earliness')]
-# df_attn_tuning[(df_attn_tuning['lambda'] == '64_1') & (df_attn_tuning['metrics'] == 'whole_harmonic_mean')]
-
-df_basic_halting[(df_basic_halting['lambda'] == 0.1) & (df_basic_halting['metrics'] == 'whole_accuracy')]
-df_basic_halting[(df_basic_halting['lambda'] == 0.0001) & (df_basic_halting['metrics'] == 'whole_earliness')]
-df_basic_halting[(df_basic_halting['lambda'] == 0.01) & (df_basic_halting['metrics'] == 'whole_harmonic_mean')]
-
-id = 'none_3'
-df_noise_ratio[(df_noise_ratio['lambda'] == id) & (df_noise_ratio['metrics'] == 'whole_accuracy')]
-df_noise_ratio[(df_noise_ratio['lambda'] == id) & (df_noise_ratio['metrics'] == 'whole_earliness')]
-df_noise_ratio[(df_noise_ratio['lambda'] == id) & (df_noise_ratio['metrics'] == 'whole_location_mean')]
-df_noise_ratio[(df_noise_ratio['lambda'] == id) & (df_noise_ratio['metrics'] == 'whole_harmonic_mean')]
-
-id = 'cnn_0.01_3'
-df_noise_ratio_cnn[(df_noise_ratio_cnn['lambda'] == id) & (df_noise_ratio_cnn['metrics'] == 'whole_accuracy')]
-df_noise_ratio_cnn[(df_noise_ratio_cnn['lambda'] == id) & (df_noise_ratio_cnn['metrics'] == 'whole_earliness')]
-df_noise_ratio_cnn[(df_noise_ratio_cnn['lambda'] == id) & (df_noise_ratio_cnn['metrics'] == 'whole_location_mean')]
-df_noise_ratio_cnn[(df_noise_ratio_cnn['lambda'] == id) & (df_noise_ratio_cnn['metrics'] == 'whole_harmonic_mean')]
-
-id = 7
-df_excl_other[(df_excl_other['lambda'] == id) & (df_excl_other['metrics'] == 'whole_accuracy')]
-df_excl_other[(df_excl_other['lambda'] == id) & (df_excl_other['metrics'] == 'whole_earliness')]
-df_excl_other[(df_excl_other['lambda'] == id) & (df_excl_other['metrics'] == 'whole_harmonic_mean')]
+id = 'attn_0.01'
+df_cairo[(df_cairo['lambda'] == id) & (df_cairo['metrics'] == 'whole_accuracy')]
+df_cairo[(df_cairo['lambda'] == id) & (df_cairo['metrics'] == 'whole_earliness')]
+df_cairo[(df_cairo['lambda'] == id) & (df_cairo['metrics'] == 'whole_harmonic_mean')]
 
 
-id = 0.1
-df_attn_tr_points[(df_attn_tr_points['lambda'] == id) & (df_attn_tr_points['metrics'] == 'whole_accuracy')]
-df_attn_tr_points[(df_attn_tr_points['lambda'] == id) & (df_attn_tr_points['metrics'] == 'whole_earliness')]
-df_attn_tr_points[(df_attn_tr_points['lambda'] == id) & (df_attn_tr_points['metrics'] == 'whole_harmonic_mean')]
+id = 'attn_0.01'
+df_kyoto7[(df_kyoto7['lambda'] == id) & (df_kyoto7['metrics'] == 'whole_accuracy')]
+df_kyoto7[(df_kyoto7['lambda'] == id) & (df_kyoto7['metrics'] == 'whole_earliness')]
+df_kyoto7[(df_kyoto7['lambda'] == id) & (df_kyoto7['metrics'] == 'whole_harmonic_mean')]
 
-id = 0.01
-df_attn_cls_token_1[(df_attn_cls_token_1['lambda'] == id) & (df_attn_cls_token_1['metrics'] == 'whole_accuracy')]
-df_attn_cls_token_1[(df_attn_cls_token_1['lambda'] == id) & (df_attn_cls_token_1['metrics'] == 'whole_earliness')]
-df_attn_cls_token_1[(df_attn_cls_token_1['lambda'] == id) & (df_attn_cls_token_1['metrics'] == 'whole_harmonic_mean')]
+id = 'cnn_0.001'
+df_kyoto8[(df_kyoto8['lambda'] == id) & (df_kyoto8['metrics'] == 'whole_accuracy')]
+df_kyoto8[(df_kyoto8['lambda'] == id) & (df_kyoto8['metrics'] == 'whole_earliness')]
+df_kyoto8[(df_kyoto8['lambda'] == id) & (df_kyoto8['metrics'] == 'whole_harmonic_mean')]
 
-id = 0.01
-df_attn_cls_token_2[(df_attn_cls_token_2['lambda'] == id) & (df_attn_cls_token_2['metrics'] == 'whole_accuracy')]
-df_attn_cls_token_2[(df_attn_cls_token_2['lambda'] == id) & (df_attn_cls_token_2['metrics'] == 'whole_earliness')]
-df_attn_cls_token_2[(df_attn_cls_token_2['lambda'] == id) & (df_attn_cls_token_2['metrics'] == 'whole_harmonic_mean')]
-
-id = 0.01
-df_cnn[(df_cnn['lambda'] == id) & (df_cnn['metrics'] == 'whole_accuracy')]
-df_cnn[(df_cnn['lambda'] == id) & (df_cnn['metrics'] == 'whole_earliness')]
-df_cnn[(df_cnn['lambda'] == id) & (df_cnn['metrics'] == 'whole_harmonic_mean')]
-
-pd.options.display.float_format = '{:.4f}'.format
-id = '4_0.00001'
-df_noise_relation[(df_noise_relation['lambda'] == id) & (df_noise_relation['metrics'] == 'whole_accuracy')]
-df_noise_relation[(df_noise_relation['lambda'] == id) & (df_noise_relation['metrics'] == 'whole_earliness')]
-df_noise_relation[(df_noise_relation['lambda'] == id) & (df_noise_relation['metrics'] == 'whole_harmonic_mean')]
+id = 'basic_0.1'
+df_kyoto11[(df_kyoto11['lambda'] == id) & (df_kyoto11['metrics'] == 'whole_accuracy')]
+df_kyoto11[(df_kyoto11['lambda'] == id) & (df_kyoto11['metrics'] == 'whole_earliness')]
+df_kyoto11[(df_kyoto11['lambda'] == id) & (df_kyoto11['metrics'] == 'whole_location_mean')]
+df_kyoto11[(df_kyoto11['lambda'] == id) & (df_kyoto11['metrics'] == 'whole_harmonic_mean')]
 
 
 
@@ -1875,3 +1745,79 @@ np.mean(within_before_tr)
 np.mean(within_after_tr)
 np.mean(between_1)
 np.mean(between_2)
+
+
+# missegmented data 분석 -------------------------------------------------------------------------------------------
+
+args.dataset = "milan"
+args.random_noise=True
+data_natural = CASAS_RAW_NATURAL(args)
+
+logdir = '220926-154933'
+all_idx = []
+all_true_y, all_pred_y = [], []
+all_locations, all_lengths = [], []
+dict_analysis.keys()
+for i in range(1, 4):
+    path = os.path.join('./output/log/', logdir)
+    with open(os.path.join(path, f'fold_{i}', 'dict_analysis.pickle'), 'rb') as f:
+        dict_analysis = pickle.load(f)
+    all_idx.append(dict_analysis['idx'])
+    all_true_y.append(dict_analysis['true_y'])
+
+    if args.dataset == 'milan':
+        a = np.where(dict_analysis['all_yhat'] == -1, 0, 1)
+        a = np.argmin(a, axis=1)
+        halt_pnt = np.where(a == 0, dict_analysis['all_yhat'].shape[1], a) - 1
+        halt_pnt = halt_pnt.reshape((-1, 1))
+        pred_y = np.take_along_axis(dict_analysis['all_yhat'], halt_pnt, axis=1).flatten().astype(int)
+        
+        all_pred_y.append(pred_y)
+        all_locations.append(halt_pnt + 1)
+        all_lengths.append(data_natural.lengths[dict_analysis['idx']])
+    else:
+        all_pred_y.append(dict_analysis['pred_y'])
+        all_locations.append(dict_analysis['locations'])
+        all_lengths.append(dict_analysis['lengths'])
+
+concat_idx = np.concatenate(all_idx)
+concat_true_y = np.concatenate(all_true_y)
+concat_pred_y = np.concatenate(all_pred_y)
+concat_locations = np.concatenate(all_locations)
+concat_lengths = np.concatenate(all_lengths)
+
+prev_Y = data_natural.prev_Y[concat_idx]
+np.unique(prev_Y, return_counts=True)
+idx_other = np.where(prev_Y == 'Other')[0]
+idx_non_other = np.where(prev_Y != 'Other')[0]
+
+acc_other = np.where(concat_true_y[idx_other] == concat_pred_y[idx_other], 1, 0).mean()
+acc_non_other = np.where(concat_true_y[idx_non_other] == concat_pred_y[idx_non_other], 1, 0).mean()
+ear_other = (concat_locations[idx_other] / concat_lengths[idx_other]).mean()
+ear_non_other = (concat_locations[idx_non_other] / concat_lengths[idx_non_other]).mean()
+hm_other = (2 * (1 - ear_other) * acc_other) / ((1 - ear_other) + acc_other)
+hm_non_other = (2 * (1 - ear_non_other) * acc_non_other) / ((1 - ear_non_other) + acc_non_other)
+
+print(idx_other.shape)
+print(idx_non_other.shape)
+print(f'{acc_other: .3f}\t{ear_other: .3f}\t{hm_other: .3f} \n{acc_non_other: .3f}\t{ear_non_other: .3f}\t{hm_non_other: .3f}')
+
+
+# the number of activated sensors in sensor states ----------------------------------------
+args.random_noise = False
+args.noise_ratio = 50
+args.dataset = "kyoto11"
+data_natural = CASAS_RAW_NATURAL(args)
+
+idx = np.where(data_natural.lengths >= 20)[0]
+X = data_natural.X[idx]
+X = X[:, :20, :]
+
+before_x = X[:, :10, :]
+after_x = X[:, 10:, :]
+
+before_x.sum(axis=2).mean(axis=0)
+after_x.sum(axis=2).mean(axis=0)
+
+before_x.sum(axis=2).mean(axis=0).mean()
+after_x.sum(axis=2).mean(axis=0).mean()

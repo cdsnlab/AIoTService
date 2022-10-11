@@ -85,6 +85,8 @@ class EARLIEST(tf.keras.Model):
             self.attn_encoder = TransformerEncoder(self.args)
         if self.args.model == 'CNN':
             self.cnn = CNNLayer(self.args)
+        if self.args.model == 'ANN':
+            self.ann = ANNLayer(self.args)
         if self.args.model == 'PROPOSED':
             self.Controller = Controller_Proposed(self.args)
             if self.args.filter_name == 'attn':
@@ -123,6 +125,11 @@ class EARLIEST(tf.keras.Model):
         elif self.args.model == 'CNN':
             cnn_hidden, self.filter_logits = self.cnn(X[:, :self.args.offset , :], is_train)
             hidden = [cnn_hidden, tf.identity(self.initial_states[:B, :])]
+            start_point = self.args.offset
+            self.attention_weights = []
+        elif self.args.model == 'ANN':
+            ann_hidden, self.filter_logits = self.ann(X[:, :self.args.offset , :], is_train)
+            hidden = [ann_hidden, tf.identity(self.initial_states[:B, :])]
             start_point = self.args.offset
             self.attention_weights = []
         elif self.args.model =='NONE':
@@ -277,7 +284,7 @@ class EARLIEST(tf.keras.Model):
         for b in range(B):
             if self.args.model in ["EARLIEST"]:
                 self.grad_mask[b, :(1 + int(halt_points[b, 0]))] = 1
-            elif self.args.model in ["ATTENTION", "CNN", "NONE"]:
+            elif self.args.model in ["ATTENTION", "CNN", "ANN", "NONE"]:
                 self.grad_mask[b, :(1 + int(halt_points[b, 0]) - self.args.offset)] = 1
             elif self.args.model in ["PROPOSED"]:
                 halt_points = tf.where(halt_points < filter_points, halt_points, filter_points)
@@ -465,8 +472,71 @@ class CNNLayer(tf.keras.layers.Layer):
             outputs = None
         return hidden_states, outputs
 
+class ANNLayer(tf.keras.layers.Layer):
+    def __init__(self, args):
+        super(ANNLayer, self).__init__()
+        self.args = args
+        
+    def build(self, input_shape):
+        self.flat = tf.keras.layers.Flatten()
+        self.fc1 = layers.Dense(self.args.nhid, activation='relu')
+        self.dropout1 = tf.keras.layers.Dropout(self.args.dropout_rate)
+        self.fc2 = layers.Dense(self.args.nhid, activation='tanh')
+        self.dropout2 = tf.keras.layers.Dropout(self.args.dropout_rate)
 
+    def call(self, x, is_train=True):
+        x = self.flat(x)
+        x = self.fc1(x)
+        x = self.dropout1(x, training=is_train)
+        x = self.fc2(x)
+        x = self.dropout2(x, training=is_train)
+        return x, None
 
+# data_natural = CASAS_RAW_NATURAL(args)
+# args.nclasses = 9
+# args.device='2'
+# args.model='CNN'
+# args.N_FEATURES = data_natural.N_FEATURES
+# model = EARLIEST(args)
+
+# temp = np.array([[3]])
+# model(np.reshape(data_natural.X[0], (1, -1, data_natural.N_FEATURES)), temp, length=temp, is_train=False)
+# model.summary()
+
+# cnn = tf.keras.Sequential([   # conv - bn - activation - dropout - pooling
+#                     # tf.keras.layers.Conv1D(filters=self.args.filters, kernel_size=self.args.kernel_size, activation="relu", input_shape=(self.args.batch_size, self.args.offset, self.args.N_FEATURES)),
+#                     tf.keras.layers.Conv1D(filters=args.filters, kernel_size=args.kernel_size, activation="relu"),
+#                     tf.keras.layers.Dropout(args.dropout_rate),
+#                     tf.keras.layers.MaxPool1D(pool_size=args.kernel_size, strides=1, padding='valid'),
+#                     tf.keras.layers.Conv1D(filters=args.filters, kernel_size=args.kernel_size, activation="relu"),
+#                     tf.keras.layers.Dropout(args.dropout_rate),
+#                     tf.keras.layers.MaxPool1D(pool_size=args.kernel_size, strides=1, padding='valid'),
+#                     tf.keras.layers.Flatten(),
+#                     tf.keras.layers.Dense(args.nhid, activation='tanh')
+#                     ])
+
+# ann = tf.keras.Sequential([  
+#                     tf.keras.layers.Flatten(),
+#                     tf.keras.layers.Dense(args.nhid, activation='relu'),
+#                     tf.keras.layers.Dropout(args.dropout_rate),
+#                     tf.keras.layers.Dense(args.nhid, activation='tanh'),
+#                     tf.keras.layers.Dropout(args.dropout_rate),
+#                     ])
+
+# input = data_natural.X[:4, :args.offset, :]
+# input.shape
+# cnn(input)
+# out = ann(input)
+# out.shape
+
+# a = []
+# for i in ann.trainable_variables:
+#     a.append(np.array(i.shape))
+# a
+# 2*31*8 + 8 + 2*8*8 + 8 +128*64 + 64
+# 31 * 64 + 64 + 64 * 64 + 64
+# 31 * 128 + 128 + 128 * 64 + 64
+# 620 * 64 + 64 + 64*64 + 64
 # input = data.X[:4, :args.offset, :15]
 # input_shape = input.shape
 

@@ -4,10 +4,11 @@
 # lambda_list="0.1"
 random_noise="True"
 lambda_list="0.1 0.01 0.001 0.0001 0.00001"
-model="CNN"
+# lambda_list="0.1 0.01 0.001 0.0001"
+model="ANN"
 
-file_name="x_kyoto7_lambda_1004"
-device="1"
+file_name="x_kyoto7_lambda_ann"
+device="2"
 dataset="kyoto7"
 
 
@@ -24,6 +25,6 @@ do
                         --device $device \
                         --random_noise $random_noise \
                         --model $j \
-                        --dataset $dataset
+                        --dataset $dataset 
     done
 done

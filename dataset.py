@@ -52,7 +52,6 @@ class Dataloader(Sequence):
             np.random.shuffle(self.indices)
 
 
-
 class AmbientData(metaclass=ABCMeta):
     def __init__(self, args):
         # self.seq_len = args.seq_len
