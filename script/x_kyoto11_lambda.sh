@@ -2,12 +2,12 @@
 
 # lambda_list="0.5 0.1 0.05 0.01 0.005 0.001 0.0005 0.0001 0.00005 0.00001"
 # lambda_list="0.1"
-random_noise="True"
+random_noise="False"
 lambda_list="0.1 0.01 0.001 0.0001 0.00001"
 # lambda_list="0.1 0.01 0.001 0.0001"
-model="ANN"
+model="EARLIEST"
 
-file_name="x_kyoto11_lambda_ann"
+file_name="x_kyoto11_lambda_clearcut_basic"
 device="3"
 dataset="kyoto11"
 

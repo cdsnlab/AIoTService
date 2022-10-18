@@ -51,8 +51,13 @@ def loss_EARLIEST(model, x, true_y, length, tr_points):  # shape of true_y is (B
     loss = loss_r + loss_b + loss_c + args.lam*(wait_penalty)
     if args.train_filter:
         CE_filter = tf.keras.losses.SparseCategoricalCrossentropy()
-        loss_filter = CE_filter(y_true=true_y, y_pred=model.filter_logits) # Classification loss
+        tr_points = np.reshape(tr_points, (model.filter_logits.shape[0], -1))
+        # true_tr = np.zeros((model.filter_logits.shape[0], args.offset))
+        # for b in range(model.filter_logits.shape[0]):
+        #     true_tr[b, tr_points[b][0]:] = 1
+        loss_filter = CE_filter(y_true=tr_points, y_pred=model.filter_logits) # Classification loss
         loss += loss_filter*(model._epsilon)
+        # loss += loss_filter*(model._epsilon)
     # if args.model == "PROPOSED":
     #     loss += model.loss_r_filter
     return loss, pred_logit, model.locations

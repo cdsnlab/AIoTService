@@ -292,15 +292,20 @@ class EARLIEST(tf.keras.Model):
         return logits
 
 class TokenAndPositionEmbedding(tf.keras.layers.Layer):
-    def __init__(self, max_len, embedding_dim):
+    def __init__(self, max_len, embedding_dim, num_heads):
         super(TokenAndPositionEmbedding, self).__init__()
+        self.num_heads = num_heads
         self.max_len = max_len
         # self.token_emb = tf.keras.layers.Embedding(vocab_size, embedding_dim)
         self.pos_emb = tf.keras.layers.Embedding(max_len, embedding_dim)
+        if num_heads != 1:
+            self.sensor_emb = tf.keras.layers.Dense(embedding_dim, activation="sigmoid")
 
     def call(self, x):
         positions = tf.range(start=0, limit=self.max_len, delta=1)
         positions = self.pos_emb(positions)
+        if self.num_heads != 1:
+            x = self.sensor_emb(x)
         # x = self.token_emb(x)
         return x + positions
 
@@ -384,15 +389,19 @@ class TransformerEncoder(tf.keras.layers.Layer):
     def __init__(self, args):
         super(TransformerEncoder, self).__init__()
         self.args = args
-        if self.args.hidden_as_input:
+        if self.args.hidden_as_input or self.args.num_heads != 1:
             self.embedding_dim = self.args.nhid  
         else:
             self.embedding_dim = self.args.N_FEATURES  
-        self.num_heads = 1 
+        self.num_heads = self.args.num_heads 
         self.dff = self.args.dff
         self.num_encoder = self.args.num_encoder
         self.max_len = self.args.offset + 1
-        self.embedding_layer = TokenAndPositionEmbedding(self.max_len, self.embedding_dim)
+        if self.args.train_filter:
+            self.max_len += 1
+            self.out = layers.Dense(self.args.offset, activation='softmax')
+            # self.dropout2 = tf.keras.layers.Dropout(self.args.dropout_rate)
+        self.embedding_layer = TokenAndPositionEmbedding(self.max_len, self.embedding_dim, self.num_heads)
         self.transformer_blocks = tf.keras.Sequential()
         for _ in range(self.num_encoder):
             self.transformer_blocks.add(TransformerBlock(self.args, self.embedding_dim, self.num_heads, self.dff))
@@ -401,12 +410,18 @@ class TransformerEncoder(tf.keras.layers.Layer):
         # for i in range(self.num_encoder):
         #     self.transformer_block[i] = TransformerBlock(self.args, self.embedding_dim, self.num_heads, self.dff)
         self.hidden = layers.Dense(self.args.nhid, activation='tanh')
-        self.out = layers.Dense(self.args.nclasses, activation='softmax')
         self.dropout1 = tf.keras.layers.Dropout(self.args.dropout_rate)
         
+            
+        
     def call(self, X, is_train):
-        class_token = np.zeros((X.shape[0], 1, self.embedding_dim))
-        X = np.concatenate((class_token, X), axis=1)
+        class_token = np.zeros((X.shape[0], 1, self.args.N_FEATURES))
+        if self.args.train_filter:
+            train_token = np.zeros((X.shape[0], 1, self.args.N_FEATURES))
+            X = np.concatenate((class_token, train_token, X), axis=1)
+        else:
+            X = np.concatenate((class_token, X), axis=1)
+            
         for i in range(self.num_encoder):
             self.transformer_blocks.layers[i].training = is_train
         X = self.embedding_layer(X)
@@ -414,14 +429,15 @@ class TransformerEncoder(tf.keras.layers.Layer):
         self.attention_weights = self.transformer_blocks.layers[-1].attention_weights
         # for _ in range(self.num_encoder):
         #     X, self.attention_weights = self.transformer_block[i](X, is_train)
-        # X, self.attention_weights = self.transformer_block(X, is_train)
-        if self.args.train_filter:
-            hidden_states = self.hidden(X[:,0,:])
-            outputs = self.out(X[:,0,:])
-        else:
-            # hidden_states = self.hidden(X[:,-1,:])
-            hidden_states = self.hidden(X[:,0,:])
-            outputs = None
+        # X, self.attention_weights = self.transformer_block(X, is_train)        
+        # if self.args.train_filter:
+        #     hidden_states = self.hidden(X[:,0,:])
+        #     outputs = self.out(self.dropout2(hidden_states, training=is_train))
+        #     # outputs = self.out(X[:,1:,:])
+        # else:
+        #     # hidden_states = self.hidden(X[:,-1,:])
+        #     hidden_states = self.hidden(X[:,0,:])
+        #     outputs = None
             # if self.args.utilize_tr:
             #     tr_points = np.reshape(tr_points, (-1, 1, 1)) #dtype=tf.int32
             #     tr_points = tf.convert_to_tensor(tr_points, dtype=tf.int32)
@@ -431,7 +447,12 @@ class TransformerEncoder(tf.keras.layers.Layer):
             #     outputs = None
             # else:
         # if self.args.drop_context:
+        hidden_states = self.hidden(X[:,0,:])
         hidden_states = self.dropout1(hidden_states, training=is_train)
+        if self.args.train_filter:
+            outputs = self.out(X[:,1,:])
+        else:
+            outputs = None
         return hidden_states, outputs
 
 class CNNLayer(tf.keras.layers.Layer):
@@ -479,15 +500,15 @@ class ANNLayer(tf.keras.layers.Layer):
         
     def build(self, input_shape):
         self.flat = tf.keras.layers.Flatten()
-        self.fc1 = layers.Dense(self.args.nhid, activation='relu')
-        self.dropout1 = tf.keras.layers.Dropout(self.args.dropout_rate)
+        # self.fc1 = layers.Dense(self.args.nhid, activation='relu')
+        # self.dropout1 = tf.keras.layers.Dropout(self.args.dropout_rate)
         self.fc2 = layers.Dense(self.args.nhid, activation='tanh')
         self.dropout2 = tf.keras.layers.Dropout(self.args.dropout_rate)
 
     def call(self, x, is_train=True):
         x = self.flat(x)
-        x = self.fc1(x)
-        x = self.dropout1(x, training=is_train)
+        # x = self.fc1(x)
+        # x = self.dropout1(x, training=is_train)
         x = self.fc2(x)
         x = self.dropout2(x, training=is_train)
         return x, None
@@ -536,6 +557,7 @@ class ANNLayer(tf.keras.layers.Layer):
 # 2*31*8 + 8 + 2*8*8 + 8 +128*64 + 64
 # 31 * 64 + 64 + 64 * 64 + 64
 # 31 * 128 + 128 + 128 * 64 + 64
+# 620 * 64 + 64 + 64*64 + 64
 # 620 * 64 + 64 + 64*64 + 64
 # input = data.X[:4, :args.offset, :15]
 # input_shape = input.shape

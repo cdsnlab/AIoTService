@@ -1754,7 +1754,7 @@ args.random_noise=True
 data_natural = CASAS_RAW_NATURAL(args)
 
 logdir = '220926-154933'
-all_idx = []
+all_idx, all_noise_amount = [], []
 all_true_y, all_pred_y = [], []
 all_locations, all_lengths = [], []
 dict_analysis.keys()
@@ -1764,6 +1764,7 @@ for i in range(1, 4):
         dict_analysis = pickle.load(f)
     all_idx.append(dict_analysis['idx'])
     all_true_y.append(dict_analysis['true_y'])
+    all_noise_amount.append(dict_analysis['noise_amount'])
 
     if args.dataset == 'milan':
         a = np.where(dict_analysis['all_yhat'] == -1, 0, 1)
@@ -1781,6 +1782,7 @@ for i in range(1, 4):
         all_lengths.append(dict_analysis['lengths'])
 
 concat_idx = np.concatenate(all_idx)
+concat_noise_amount = np.concatenate(all_noise_amount)
 concat_true_y = np.concatenate(all_true_y)
 concat_pred_y = np.concatenate(all_pred_y)
 concat_locations = np.concatenate(all_locations)
@@ -1803,6 +1805,43 @@ print(idx_non_other.shape)
 print(f'{acc_other: .3f}\t{ear_other: .3f}\t{hm_other: .3f} \n{acc_non_other: .3f}\t{ear_non_other: .3f}\t{hm_non_other: .3f}')
 
 
+
+for prev, true, pred in zip(prev_Y[idx_non_other], concat_true_y[idx_non_other], concat_pred_y[idx_non_other]):
+    if true != pred:
+        print(prev, data_natural.idx2label[pred])
+
+
+non_prev_y = prev_Y[idx_non_other]
+non_true_y =  concat_true_y[idx_non_other]
+non_pred_y = concat_pred_y[idx_non_other]
+non_noise_amount = concat_noise_amount[idx_non_other]
+non_true_y = np.array([data_natural.idx2label[i] for i in non_true_y])
+non_pred_y = np.array([data_natural.idx2label[i] for i in non_pred_y])
+
+idx_wrong = np.where(non_true_y != non_pred_y)[0]
+
+predicted_prev = np.where(non_prev_y == non_pred_y)[0]
+predicted_prev_x = np.where(non_prev_y != non_pred_y)[0]
+
+
+idx_predicted_prev = np.array(list(set(idx_wrong) & set(predicted_prev)))
+idx_predicted_prev_x = np.array(list(set(idx_wrong) & set(predicted_prev_x)))
+
+
+idx_predicted_prev.shape
+idx_predicted_prev_x.shape
+non_noise_amount[idx_predicted_prev].mean()
+non_noise_amount[idx_predicted_prev_x].mean()
+for prev, true, pred in zip(non_prev_y[idx_predicted_prev_x], non_true_y[idx_predicted_prev_x], non_pred_y[idx_predicted_prev_x]):
+    if true != pred:
+        print(prev, true, pred) 
+
+concat_noise_amount.mean()
+idx_cor = np.where(concat_pred_y == concat_true_y)[0]
+idx_wro = np.where(concat_pred_y != concat_true_y)[0]
+concat_noise_amount[idx_cor].mean()
+concat_noise_amount[idx_wro].mean()
+
 # the number of activated sensors in sensor states ----------------------------------------
 args.random_noise = False
 args.noise_ratio = 50
@@ -1821,3 +1860,113 @@ after_x.sum(axis=2).mean(axis=0)
 
 before_x.sum(axis=2).mean(axis=0).mean()
 after_x.sum(axis=2).mean(axis=0).mean()
+
+
+
+# attention score 20:80, 50:50, 80:20 --------------------------------------------------
+args.dataset = "milan"
+args.random_noise=True
+data_natural = CASAS_RAW_NATURAL(args)
+import pickle
+import numpy as np
+import matplotlib.pyplot as plt
+
+#'220927-142646','220927-152951','220927-160021'
+# 4, 10, 16
+# 20, 50, 80
+noise_amt = 4
+ratio = 20
+
+dir = '221014-133931'
+all_idx, all_noise_amount, all_attn_scores = [], [], []
+data.keys()
+for i in range(1, 4):
+    with open(f'./output/log/{dir}/fold_{i}/dict_analysis.pickle', 'rb') as f:
+        data = pickle.load(f)
+    all_idx.append(data['idx'])
+    all_noise_amount.append(data['noise_amount'])
+    all_attn_scores.append(data['attn_scores'])
+
+all_idx = np.concatenate(all_idx)
+all_noise_amount = np.concatenate(all_noise_amount)
+all_attn_scores = np.concatenate(all_attn_scores)
+prev_Y = data_natural.prev_Y[all_idx]
+true_Y = data_natural.Y[all_idx]
+true_Y = np.array([data_natural.idx2label[i] for i in true_Y])
+
+
+idx_other = np.where(prev_Y == 'Other')[0]
+idx_non_other = np.where(prev_Y != 'Other')[0]
+idx_noise_4 = np.where(all_noise_amount == noise_amt)[0]
+
+
+# all
+attention_4 = all_attn_scores[idx_noise_4]
+attention_4.shape
+y = attention_4[:, 0, 1:].mean(axis=0) * 100
+
+x = range(1, data_natural.args.offset+1)
+plt.plot(x, y, color = 'b', linestyle = 'solid', marker = 'o')
+
+plt.xticks(np.arange(0, args.offset+1, 5))
+plt.xlabel('timesteps')
+# plt.xticks(rotation = 25)
+plt.ylabel('Attention scores')
+plt.title(f'Attention scores for all ({ratio}:{100-ratio})')
+plt.legend()
+plt.show()
+plt.savefig(f'./analysis/attn_scores_all_{ratio}_.png')
+plt.clf()
+
+# prev_y == other
+idx = np.array(list(set(idx_other) & set(idx_noise_4)))
+attention = all_attn_scores[idx]
+attention.shape
+y = attention[:, 0, 1:].mean(axis=0) * 100
+
+plt.plot(x, y, color = 'b', linestyle = 'solid', marker = 'o')
+
+plt.xticks(np.arange(0, args.offset, 5))
+plt.xlabel('timesteps')
+# plt.xticks(rotation = 25)
+plt.ylabel('Attention scores')
+plt.title(f'Attention scores for null ({ratio}:{100-ratio})')
+plt.legend()
+plt.show()
+plt.savefig(f'./analysis/attn_scores_null_{ratio}_.png')
+plt.clf()
+
+
+# prev_y != other
+idx = np.array(list(set(idx_non_other) & set(idx_noise_4)))
+attention = all_attn_scores[idx]
+attention.shape
+y = attention[:, 0, 1:].mean(axis=0) * 100
+
+plt.plot(x, y, color = 'b', linestyle = 'solid', marker = 'o')
+
+plt.xticks(np.arange(0, args.offset, 5))
+plt.xlabel('timesteps')
+# plt.xticks(rotation = 25)
+plt.ylabel('Attention scores')
+plt.title(f'Attention scores for normal ({ratio}:{100-ratio})')
+plt.legend()
+plt.show()
+plt.savefig(f'./analysis/attn_scores_normal_{ratio}_.png')
+plt.clf()
+
+
+
+from datetime import datetime
+
+args.dataset = "kyoto8"
+data_natural = CASAS_RAW_NATURAL(args)
+data_natural.N_FEATURES
+data_natural.state_matrix.shape[0] / (60 * 60 * 24)
+
+s1 = '2009-08-2400:00:00.000009'
+s2 = '2010-05-0122:59:44.039689'
+
+datetime.strptime(s2, "%Y-%m-%d%H:%M:%S.%f") - datetime.strptime(s1, "%Y-%m-%d%H:%M:%S.%f")
+
+
