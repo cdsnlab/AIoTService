@@ -2,17 +2,15 @@
 
 # lambda_list="0.5 0.1 0.05 0.01 0.005 0.001 0.0005 0.0001 0.00005 0.00001"
 # lambda_list="0.1"
-random_noise="True"
-# lambda_list="0.1 0.01 0.001 0.0001 0.00001"
-lambda_list="0.01"
-model="ATTENTION"
+random_noise="False"
+lambda_list="0.1 0.01 0.001 0.0001 0.00001"
+# lambda_list="0.1 0.01 0.001 0.0001"
+model="EARLIEST"
 
-file_name="x_milan_attn_trpoint"
+file_name="x_milan_lambda_clearcut_basic"
 device="0"
 dataset="milan"
-train_filter="True"
-num_heads="1"
-num_encoder="1"
+
 
 for i in $lambda_list
 do
@@ -27,10 +25,7 @@ do
                         --device $device \
                         --random_noise $random_noise \
                         --model $j \
-                        --dataset $dataset \
-                        --train_filter $train_filter \
-                        --num_heads $num_heads \
-                        --num_encoder $num_encoder 
-
+                        --dataset $dataset 
     done
 done
+

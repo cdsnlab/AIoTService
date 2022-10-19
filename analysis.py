@@ -1251,6 +1251,12 @@ exp_milan = ['v3jev14qS3CXdSlHXegPJg',
             'yBdbD6XdQIKrGKSBe4DxQw',
             'jZoU1SdBTQOq78da4BHkVQ']
 
+exp_milan_clear = ['0bP9lcJaQ2C4mvFzkF4Agg',
+                'Cgo6eSdORj6O1VxEeQCPWg',
+                'b9sk8YnbRlW1pCpWhYU5Hw',
+                'VJP6DEvlTBSDdUd7tzXcgg',
+                'R0dh1I2XQ629kyBlDqOkRg']
+
 exp_cairo = ['Xi6dgnAmQb2qZxdskQDAzA',
             'oLzbZOwoSkqC7MeiMoonMw',
             'G8xtQ2J6QJ6gWN1P9GVABw',
@@ -1318,11 +1324,13 @@ exp_kyoto11 =['nIwiQOa2QEWOZJso9nxSEA',
 
 from itertools import product
 methods=['basic', 'cnn', 'attn']
+methods=['basic']
 lam=['0.1', '0.01', '0.001', '0.0001', '0.00001']
 exp_num = []
 for i in product(methods, lam):
     exp_num.append('_'.join(i))
 df_milan = get_exp_results(exp_milan, exp_num)
+# df_milan = get_exp_results(exp_milan_clear, exp_num)
 df_cairo = get_exp_results(exp_cairo, exp_num)
 df_kyoto7 = get_exp_results(exp_kyoto7, exp_num)
 df_kyoto8 = get_exp_results(exp_kyoto8, exp_num)
@@ -1747,6 +1755,21 @@ np.mean(between_1)
 np.mean(between_2)
 
 
+all_attn_scores_.shape
+
+before_tr_mean, after_tr_mean = [], []
+all_attn_scores_ = all_attn_scores[:, 0, 1:]
+for amount, weight in zip(all_noise_amount, all_attn_scores_):
+    if amount != 0 :
+        before_tr = weight[:amount].mean(axis=0)
+        after_tr = weight[amount:].mean(axis=0)
+        
+        before_tr_mean.append(before_tr)
+        after_tr_mean.append(after_tr)
+
+np.mean(before_tr_mean)
+np.mean(after_tr_mean)
+
 # missegmented data 분석 -------------------------------------------------------------------------------------------
 
 args.dataset = "milan"
@@ -1864,12 +1887,16 @@ after_x.sum(axis=2).mean(axis=0).mean()
 
 
 # attention score 20:80, 50:50, 80:20 --------------------------------------------------
-args.dataset = "milan"
-args.random_noise=True
-data_natural = CASAS_RAW_NATURAL(args)
 import pickle
 import numpy as np
 import matplotlib.pyplot as plt
+import utils
+from dataset import CASAS_ADLMR, CASAS_RAW_NATURAL, CASAS_RAW_SEGMENTED, Dataloader
+args = utils.create_parser()
+args.dataset = "milan"
+args.random_noise=True
+data_natural = CASAS_RAW_NATURAL(args)
+
 
 #'220927-142646','220927-152951','220927-160021'
 # 4, 10, 16
@@ -1877,7 +1904,7 @@ import matplotlib.pyplot as plt
 noise_amt = 4
 ratio = 20
 
-dir = '221014-133931'
+dir = '220926-154933'
 all_idx, all_noise_amount, all_attn_scores = [], [], []
 data.keys()
 for i in range(1, 4):
@@ -1903,20 +1930,27 @@ idx_noise_4 = np.where(all_noise_amount == noise_amt)[0]
 # all
 attention_4 = all_attn_scores[idx_noise_4]
 attention_4.shape
-y = attention_4[:, 0, 1:].mean(axis=0) * 100
+y = attention_4[:, 0, 1:].mean(axis=0)
 
 x = range(1, data_natural.args.offset+1)
-plt.plot(x, y, color = 'b', linestyle = 'solid', marker = 'o')
+
+plt.figure(figsize=(6,6))
+plt.plot(x, y, color = 'g', linestyle = 'solid', marker = '.', label='Attention scores')
 
 plt.xticks(np.arange(0, args.offset+1, 5))
-plt.xlabel('timesteps')
+plt.axvline(noise_amt+0.5, 0, 1, color='red', linestyle='--', linewidth=2, label='Transition')
+plt.xlabel('Timesteps')
 # plt.xticks(rotation = 25)
 plt.ylabel('Attention scores')
-plt.title(f'Attention scores for all ({ratio}:{100-ratio})')
+# plt.title(f'Attention scores for all ({ratio}:{100-ratio})')
 plt.legend()
 plt.show()
-plt.savefig(f'./analysis/attn_scores_all_{ratio}_.png')
+plt.savefig(f'./analysis/attn_scores_all_{ratio}_new.png')
 plt.clf()
+
+
+
+
 
 # prev_y == other
 idx = np.array(list(set(idx_other) & set(idx_noise_4)))
