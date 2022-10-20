@@ -1537,7 +1537,6 @@ cnn_tuning = ['220928-222633',
             '220929-022925',
             '220929-025621',
             '220929-032248']
-cnn_amount = ['220928-235539']
 
 220928-223058
 220928-225928
@@ -1549,12 +1548,13 @@ for corr in list_correct:
     corr.mean()
 
 
+cnn_amount = ['220929-154926']
 list_acc, list_earliness = [], []
 list_noise_amount, list_attn_scores = [], []
 list_correct, list_acc_by_amount = [], []
 for logdir in cnn_amount:
     logdir = os.path.join('./output/log/', logdir)
-    acc, earliness, noise_amount, attn_scores, correct, acc_by_amount = group_results(logdir, 'basic')
+    acc, earliness, noise_amount, attn_scores, correct, acc_by_amount = group_results(logdir, 'attn')
     list_acc.append(acc)
     list_earliness.append(earliness)
     list_noise_amount.append(noise_amount)

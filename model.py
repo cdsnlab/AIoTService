@@ -124,6 +124,7 @@ class EARLIEST(tf.keras.Model):
             self.attention_weights = self.attn_encoder.attention_weights
         elif self.args.model == 'CNN':
             cnn_hidden, self.filter_logits = self.cnn(X[:, :self.args.offset , :], is_train)
+            # self.feature_map = self.cnn.feature_map
             hidden = [cnn_hidden, tf.identity(self.initial_states[:B, :])]
             start_point = self.args.offset
             self.attention_weights = []

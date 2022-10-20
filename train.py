@@ -1,4 +1,5 @@
 import os
+import time
 import random
 import pickle
 import argparse
@@ -77,7 +78,11 @@ def train_step(model, x, true_y, length, tr_points):
 
 def test_step(model, x, true_y, length, num_event, tr_points):
     # if args.model == "EARLIEST":
+    prev_ts = time.time()
     pred_logit = model(x, true_y, is_train=False, length=length, tr_points=tr_points)
+    if args.test:
+        duration = time.time() - prev_ts
+        list_duration.append(duration)
     test_accuracy(np.reshape(true_y, [-1,1]), pred_logit)
     test_earliness(model.locations.flatten()/length)
     true_labels.append(true_y)
@@ -97,7 +102,8 @@ def test_step(model, x, true_y, length, num_event, tr_points):
     list_yhat.append(model.pred_y)
     list_distribution.append(model.distribution)
     list_attn.append(model.attention_weights)
-    # if args.model == 'ATTENTION':
+    # if args.model == 'CNN':
+    #     list_cnn_feature.append(model.feature_map)
     #     list_attn.append(model.attn_encoder.attention_weights)
     # else:
     #     list_attn.append([])
@@ -152,6 +158,8 @@ def write_test_summary(true_y, pred_y):
     dict_analysis = {"idx":test_loader.indices, "raw_probs": raw_probs, "all_yhat": all_yhat, "true_y": true_y, 
                      "all_dist": all_dist, "noise_amount": data.noise_amount[test_loader.indices], "attn_scores": all_attn,
                      'pred_y': pred_y, 'locations': locations, 'lengths': lengths, 'event_count': event_count, "filter_flags": filter_flags}
+    if args.test:
+        dict_analysis['duration'] = list_duration
     with open(logdir + '/dict_analysis.pickle', 'wb') as f:
         pickle.dump(dict_analysis, f, pickle.HIGHEST_PROTOCOL)
 
@@ -213,6 +221,7 @@ if __name__ == "__main__":
                 if (epoch + 1) % 10 == 0:
                     true_labels, pred_labels, list_locations, list_lengths, list_event_count = [], [], [], [], []
                     list_probs, list_yhat, list_distribution, list_attn, list_filter_flags = [], [], [], [], []
+                    # list_cnn_feature = []
                     for x, true_y, length, num_event, tr_points in test_loader: 
                         test_step(model, x, true_y, length, num_event, tr_points)
                     # Write summary
@@ -238,32 +247,38 @@ if __name__ == "__main__":
         epoch = 0
         model = EARLIEST(args)
         model._epsilon = 0
+        list_avg_duration = []
         temp = np.array([[3]])
         model(np.reshape(data.X[0], (1, -1, data.N_FEATURES)), temp, length=temp, is_train=False)
         for k in range(args.nsplits):
             model.load_weights(os.path.join(args.model_dir, f'fold_{k+1}', 'model'))
             with open(os.path.join(args.model_dir, f'fold_{k+1}/dict_analysis.pickle'), 'rb') as f:
                 dict_analysis = pickle.load(f)
-            test_loader = Dataloader(dict_analysis["idx"], data.X, data.Y, data.lengths, data.event_counts, args.batch_size, shuffle=args.shuffle)
+            test_loader = Dataloader(dict_analysis["idx"], data.X, data.Y, data.lengths, data.event_counts, args.batch_size, shuffle=args.shuffle, tr_points=data.noise_amount)
             true_labels, pred_labels, list_locations, list_lengths, list_event_count = [], [], [], [], []
-            list_probs, list_yhat, list_distribution, list_attn = [], [], [], []
+            list_probs, list_yhat, list_distribution, list_attn, list_filter_flags = [], [], [], [], []
+            list_duration = []
             
             logdir = "./output/log/" + curr_time + f'/fold_{k+1}'
             print(f'tensor board dir: {logdir}')
             test_summary_writer = tf.summary.create_file_writer(logdir + '/test')
             cls_summary_writer = {i:tf.summary.create_file_writer(logdir + f'/cls_{data.idx2label[i]}') for i in range(args.nclasses)}
-            
-            for x, true_y, length, num_event in test_loader: 
-                test_step(model, x, true_y, length, num_event)
+            for x, true_y, length, num_event, tr_points in test_loader: 
+                test_step(model, x, true_y, length, num_event, tr_points)
+            # for x, true_y, length, num_event in test_loader: 
+            #     test_step(model, x, true_y, length, num_event)
             # Write summary
             write_test_summary(np.concatenate(true_labels), np.concatenate(pred_labels))
             print("Validation Accuracy: {:.3}".format(test_accuracy.result()))
             print("Mean proportion used: {:.3}".format(test_earliness.result()))
             print("Harmonic Mean: {:.3}".format((2 * (1 - test_earliness.result()) * test_accuracy.result()) / ((1 - test_earliness.result()) + test_accuracy.result())))
+            avg_duration = np.mean(np.array(list_duration) / np.array(list_locations))
+            list_avg_duration.append(avg_duration)
+            print(f"Duration: {avg_duration}")
             test_accuracy.reset_states()
             test_earliness.reset_states()
             if not args.n_fold_cv:
                 break
         f = open(f"./exp_info/{args.exp_info_file}.txt", 'a')
-        f.write(f"{args.model_dir}\t{args.noise_ratio}\t./output/log/{curr_time}\n")
+        f.write(f"{args.dataset}\t{args.model}\t{np.mean(list_avg_duration)}\t{args.model_dir}\t./output/log/{curr_time}\n")
         f.close()
