@@ -200,6 +200,20 @@ if __name__ == "__main__":
             train_loader = Dataloader(train_idx, data.X, data.Y, data.lengths, data.event_counts, args.batch_size, shuffle=args.shuffle, tr_points=data.noise_amount)
             test_loader = Dataloader(test_idx, data.X, data.Y, data.lengths, data.event_counts, args.batch_size, shuffle=args.shuffle, tr_points=data.noise_amount)
             # if args.model in ["EARLIEST", "ATTENTION"]:
+            if args.model == 'DETECTOR':
+                temp_model = args.model
+                args.model = "ATTENTION"
+                args.test_idx = test_idx
+                detector = EARLIEST(args)
+                detector._epsilon = 0
+                list_avg_duration = []
+                temp = np.array([[3]])
+                detector(np.reshape(data.X[0], (1, -1, data.N_FEATURES)), temp, length=temp, is_train=False)
+                detector.load_weights(os.path.join(args.model_dir, f'fold_{k+1}', 'model'))
+                detector.attn_encoder(data.X[args.test_idx, :args.offset, :], is_train=False)
+                args.detector = detector.attn_encoder
+                args.model = temp_model
+                del detector
             model = EARLIEST(args)
                 
             # Define summary writer

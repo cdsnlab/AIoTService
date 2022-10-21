@@ -95,6 +95,19 @@ class EARLIEST(tf.keras.Model):
                 self.filter = CNNLayer(self.args)
         else:
             self.Controller = Controller(self.args)
+        if self.args.model == 'DETECTOR':
+            self.attn_encoder = args.detector          
+# model.attn_encoder(data.X[:, :args.offset, :], is_train=False)
+# np.take_along_axis(np.array(model.attn_encoder.attention_weights[:, 0, 1:]), np.reshape(data.noise_amount, (-1, 1)), axis=1).mean()  #0.15921913
+            threshold_list = [th/100. for th in range(1, 21, 1)]
+            mse_list = []
+            for thr in threshold_list:
+                over_threshold = tf.where(self.attn_encoder.attention_weights[:, 0, 1:] > thr, 1, 0)
+                estimated_tr = np.argmax(over_threshold, axis=1)
+                mse_list.append(np.square(np.subtract(estimated_tr, self.args.noise_amount[self.args.test_idx])).mean())
+            min_idx = np.argmin(mse_list)
+            self.detector_threshold = threshold_list[min_idx]
+            
         self.BaselineNetwork = BaselineNetwork(self.args)
         self.LSTM = layers.LSTMCell(self.args.nhid)
         self.initial_states = tf.zeros([self.args.batch_size, self.args.nhid])
@@ -137,8 +150,18 @@ class EARLIEST(tf.keras.Model):
             hidden = [tf.identity(self.initial_states[:B, :]), tf.identity(self.initial_states[:B, :])]
             start_point = self.args.offset
             self.attention_weights = []
+        elif self.args.model == 'DETECTOR':
+            self.filter_logits = None
+            hidden = [tf.identity(self.initial_states[:B, :]), tf.identity(self.initial_states[:B, :])]
+            self.init_hidden = [tf.identity(self.initial_states[:B, :]), tf.identity(self.initial_states[:B, :])]
+            start_point = 0
+            # diff = model.attn_encoder.attention_weights[:, 0, 2:] - model.attn_encoder.attention_weights[:, 0, 1:-1]
+            # tf.argmax(diff, axis=1) + 1
+            self.attn_encoder(X[:, :self.args.offset, :], is_train=False)
+            over_threshold = np.where(self.attn_encoder.attention_weights[:, 0, 1:] > self.detector_threshold, 1, 0)
+            estimated_tr = np.argmax(over_threshold, axis=1).reshape((-1,1))
+            self.attention_weights = self.attn_encoder.attention_weights
 
-            
         halt_points = -tf.ones([B,1])
         filter_points = tf.ones([B,1]) * self.args.seq_len
         predictions = tf.zeros([B, self.args.nclasses])
@@ -170,39 +193,44 @@ class EARLIEST(tf.keras.Model):
         #     return logits
         
         for t in range(start_point, T):
-            if t == self.args.offset and self.args.model == "PROPOSED":
-                if self.args.hidden_as_input:
-                    tr_window_hidden = tf.concat(tr_window_hidden, axis=1)
-                    filter_hidden, self.filter_logits = self.filter(tr_window_hidden, is_train)
-                else:
-                    filter_hidden, self.filter_logits = self.filter(X[:, :self.args.offset , :], is_train)
-                if self.args.filter_name == 'attn':
-                    self.attention_weights = self.filter.attention_weights
-                else:
-                    self.attention_weights = []
-                filter_flags = tf.where((filter_flags == 1) & (length <= self.args.offset), 0, filter_flags)
-                hidden = tf.where(filter_flags == 1, filter_hidden, hidden)
+            # if t == self.args.offset and self.args.model == "PROPOSED":
+            #     if self.args.hidden_as_input:
+            #         tr_window_hidden = tf.concat(tr_window_hidden, axis=1)
+            #         filter_hidden, self.filter_logits = self.filter(tr_window_hidden, is_train)
+            #     else:
+            #         filter_hidden, self.filter_logits = self.filter(X[:, :self.args.offset , :], is_train)
+            #     if self.args.filter_name == 'attn':
+            #         self.attention_weights = self.filter.attention_weights
+            #     else:
+            #         self.attention_weights = []
+            #     filter_flags = tf.where((filter_flags == 1) & (length <= self.args.offset), 0, filter_flags)
+            #     hidden = tf.where(filter_flags == 1, filter_hidden, hidden)
                 
-                baselines_tw = tf.concat(baselines, axis=1)
-                pred_y_tw = tf.concat(pred_y, axis=1)
-                y_true_tw = tf.reshape(y_true, (B, -1))
+            #     baselines_tw = tf.concat(baselines, axis=1)
+            #     pred_y_tw = tf.concat(pred_y, axis=1)
+            #     y_true_tw = tf.reshape(y_true, (B, -1))
                 
-                log_pi_tw = tf.concat(log_pi, axis=1)
-                filter_points_tw = tf.where(filter_points == self.args.seq_len, 0, filter_points).numpy()
-                log_pi_tw = tf.experimental.numpy.take_along_axis(log_pi_tw, filter_points_tw.astype(np.int32), axis=1)
-                log_pi_tw = tf.where(filter_points == self.args.seq_len, 0, log_pi_tw)
+            #     log_pi_tw = tf.concat(log_pi, axis=1)
+            #     filter_points_tw = tf.where(filter_points == self.args.seq_len, 0, filter_points).numpy()
+            #     log_pi_tw = tf.experimental.numpy.take_along_axis(log_pi_tw, filter_points_tw.astype(np.int32), axis=1)
+            #     log_pi_tw = tf.where(filter_points == self.args.seq_len, 0, log_pi_tw)
             
-                grad_mask_tw = np.zeros((B, self.args.offset))
-                for b in range(B):
-                    grad_mask_tw[b, (1 + int(filter_points[b, 0])):] = 1
+            #     grad_mask_tw = np.zeros((B, self.args.offset))
+            #     for b in range(B):
+            #         grad_mask_tw[b, (1 + int(filter_points[b, 0])):] = 1
                 
-                r = tf.stop_gradient(tf.where((pred_y_tw == y_true_tw), -1.0, 1.0))
-                R = r * grad_mask_tw
-                b = baselines_tw * grad_mask_tw
-                adjusted_reward_tw = R - tf.stop_gradient(b)
-                self.loss_r_filter = tf.reduce_sum(-log_pi_tw*adjusted_reward_tw) / self.args.offset # RL loss  # 이것도 위와 마찬가지. 근데 어찌 되었든 배치의 평균을 구하기는 했음.
+            #     r = tf.stop_gradient(tf.where((pred_y_tw == y_true_tw), -1.0, 1.0))
+            #     R = r * grad_mask_tw
+            #     b = baselines_tw * grad_mask_tw
+            #     adjusted_reward_tw = R - tf.stop_gradient(b)
+            #     self.loss_r_filter = tf.reduce_sum(-log_pi_tw*adjusted_reward_tw) / self.args.offset # RL loss  # 이것도 위와 마찬가지. 근데 어찌 되었든 배치의 평균을 구하기는 했음.
             x = X[:,t,:]
             output, hidden = self.LSTM(x, states=hidden)
+            
+            if self.args.model == "DETECTOR":
+                hidden1 = tf.where(estimated_tr > t , self.init_hidden[0], hidden[0])
+                hidden2 = tf.where(estimated_tr > t , self.init_hidden[1], hidden[1])
+                hidden = [hidden1, hidden2]
             
             # predict logits for all elements in the batch
             logits = self.out(output)     
@@ -213,11 +241,11 @@ class EARLIEST(tf.keras.Model):
             if self.args.test_t:
                 t = self.t
             time = tf.ones([B,1]) * t
-            if self.args.entropy_halting:
-                ent = -np.sum(logits*np.log(logits), axis=1).reshape(B, -1)
-                c_in = tf.stop_gradient(tf.concat([logits, ent, time], axis=1))
-            else:
-                c_in = tf.stop_gradient(tf.concat([output, time], axis=1))
+            # if self.args.entropy_halting:
+            #     ent = -np.sum(logits*np.log(logits), axis=1).reshape(B, -1)
+            #     c_in = tf.stop_gradient(tf.concat([logits, ent, time], axis=1))
+            # else:
+            c_in = tf.stop_gradient(tf.concat([output, time], axis=1))
             a_t, p_t, w_t, probs_t = self.Controller(c_in)
             b_t = self.BaselineNetwork(c_in)
             # if self.args.delay_halt and not is_train:
@@ -230,26 +258,29 @@ class EARLIEST(tf.keras.Model):
             # if t < self.args.offset and self.args.read_all_tw:
             #     a_t = a_t * 0
             
-            if t < self.args.offset and self.args.model == "PROPOSED":
-                filter_points = tf.where((a_t == 2) & (filter_flags == 0), t, filter_points)
-                filter_flags = tf.where((a_t == 2) & (halt_points == -1), 1, filter_flags)
-                predictions = tf.where((length-1 <= t) & (predictions == 0), logits, predictions)
-                predictions = tf.where((a_t == 1) & (predictions == 0) & (filter_flags == 0), logits, predictions)
-                probs_t = tf.where(halt_points == -1, probs_t, -1)
-                yhat_t = tf.where(halt_points == -1, yhat_t, -1)
-                # If a_t == 1 and this class hasn't been halted, save the time
-                halt_points = tf.where((halt_points == -1) & (length-1 <= t), length-1, halt_points)
-                halt_points = tf.where((halt_points == -1) & (a_t == 1) & (filter_flags == 0), t, halt_points)
-                tr_window_hidden.append(tf.reshape(output, [B, 1, -1]))
-            else:
-                # If a_t == 1 and this class hasn't been halted, save its logits
-                predictions = tf.where((length-1 <= t) & (predictions == 0), logits, predictions)
-                predictions = tf.where((a_t == 1) & (predictions == 0), logits, predictions)
-                probs_t = tf.where(halt_points == -1, probs_t, -1)
-                yhat_t = tf.where(halt_points == -1, yhat_t, -1)
-                # If a_t == 1 and this class hasn't been halted, save the time
-                halt_points = tf.where((halt_points == -1) & (length-1 <= t), length-1, halt_points)
-                halt_points = tf.where((halt_points == -1) & (a_t == 1), t, halt_points)
+            # if t < self.args.offset and self.args.model == "PROPOSED":
+            #     filter_points = tf.where((a_t == 2) & (filter_flags == 0), t, filter_points)
+            #     filter_flags = tf.where((a_t == 2) & (halt_points == -1), 1, filter_flags)
+            #     predictions = tf.where((length-1 <= t) & (predictions == 0), logits, predictions)
+            #     predictions = tf.where((a_t == 1) & (predictions == 0) & (filter_flags == 0), logits, predictions)
+            #     probs_t = tf.where(halt_points == -1, probs_t, -1)
+            #     yhat_t = tf.where(halt_points == -1, yhat_t, -1)
+            #     # If a_t == 1 and this class hasn't been halted, save the time
+            #     halt_points = tf.where((halt_points == -1) & (length-1 <= t), length-1, halt_points)
+            #     halt_points = tf.where((halt_points == -1) & (a_t == 1) & (filter_flags == 0), t, halt_points)
+            #     tr_window_hidden.append(tf.reshape(output, [B, 1, -1]))
+            # else:
+            # If a_t == 1 and this class hasn't been halted, save its logits
+            if self.args.model == "DETECTOR":
+                a_t = tf.where(estimated_tr > t , 0, a_t)
+            
+            predictions = tf.where((length-1 <= t) & (predictions == 0), logits, predictions)
+            predictions = tf.where((a_t == 1) & (predictions == 0), logits, predictions)
+            probs_t = tf.where(halt_points == -1, probs_t, -1)
+            yhat_t = tf.where(halt_points == -1, yhat_t, -1)
+            # If a_t == 1 and this class hasn't been halted, save the time
+            halt_points = tf.where((halt_points == -1) & (length-1 <= t), length-1, halt_points)
+            halt_points = tf.where((halt_points == -1) & (a_t == 1), t, halt_points)
             
             actions.append(a_t)
             log_pi.append(p_t)
