@@ -100,12 +100,12 @@ class EARLIEST(tf.keras.Model):
 # model.attn_encoder(data.X[:, :args.offset, :], is_train=False)
 # np.take_along_axis(np.array(model.attn_encoder.attention_weights[:, 0, 1:]), np.reshape(data.noise_amount, (-1, 1)), axis=1).mean()  #0.15921913
             threshold_list = [th/100. for th in range(1, 21, 1)]
-            mse_list = []
+            self.mse_list = []
             for thr in threshold_list:
                 over_threshold = tf.where(self.attn_encoder.attention_weights[:, 0, 1:] > thr, 1, 0)
                 estimated_tr = np.argmax(over_threshold, axis=1)
-                mse_list.append(np.square(np.subtract(estimated_tr, self.args.noise_amount[self.args.test_idx])).mean())
-            min_idx = np.argmin(mse_list)
+                self.mse_list.append(np.square(np.subtract(estimated_tr, self.args.noise_amount[self.args.test_idx])).mean())
+            min_idx = np.argmin(self.mse_list)
             self.detector_threshold = threshold_list[min_idx]
             
         self.BaselineNetwork = BaselineNetwork(self.args)
@@ -119,7 +119,8 @@ class EARLIEST(tf.keras.Model):
         
     def call(self, X, y_true, is_train=True, pred_at=-1, length=None, noise_amount=0, tr_points=None):
         # attn_hidden, self.attn_logits = self.attn_encoder(X[:, :self.args.offset , :], is_train)
-                
+        if length is not None:
+            length = length.reshape((-1, 1))   
         if is_train: # Model chooses for itself during testing
             self.Controller._epsilon = self._epsilon # set explore/exploit trade-off
         else:
@@ -159,15 +160,14 @@ class EARLIEST(tf.keras.Model):
             # tf.argmax(diff, axis=1) + 1
             self.attn_encoder(X[:, :self.args.offset, :], is_train=False)
             over_threshold = np.where(self.attn_encoder.attention_weights[:, 0, 1:] > self.detector_threshold, 1, 0)
-            estimated_tr = np.argmax(over_threshold, axis=1).reshape((-1,1))
+            self.estimated_tr = np.argmax(over_threshold, axis=1).reshape((-1,1))
+            self.estimated_tr = np.where(self.estimated_tr < length, self.estimated_tr, 0)
             self.attention_weights = self.attn_encoder.attention_weights
 
         halt_points = -tf.ones([B,1])
         filter_points = tf.ones([B,1]) * self.args.seq_len
         predictions = tf.zeros([B, self.args.nclasses])
         filter_flags = tf.zeros([B, 1])
-        if length is not None:
-            length = length.reshape((-1, 1))
         
         actions = [] # Which classes to halt at each step
         log_pi = [] # Log probability of chosen actions
@@ -228,8 +228,8 @@ class EARLIEST(tf.keras.Model):
             output, hidden = self.LSTM(x, states=hidden)
             
             if self.args.model == "DETECTOR":
-                hidden1 = tf.where(estimated_tr > t , self.init_hidden[0], hidden[0])
-                hidden2 = tf.where(estimated_tr > t , self.init_hidden[1], hidden[1])
+                hidden1 = tf.where(self.estimated_tr > t , self.init_hidden[0], hidden[0])
+                hidden2 = tf.where(self.estimated_tr > t , self.init_hidden[1], hidden[1])
                 hidden = [hidden1, hidden2]
             
             # predict logits for all elements in the batch
@@ -272,7 +272,7 @@ class EARLIEST(tf.keras.Model):
             # else:
             # If a_t == 1 and this class hasn't been halted, save its logits
             if self.args.model == "DETECTOR":
-                a_t = tf.where(estimated_tr > t , 0, a_t)
+                a_t = tf.where(self.estimated_tr > t , 0, a_t)
             
             predictions = tf.where((length-1 <= t) & (predictions == 0), logits, predictions)
             predictions = tf.where((a_t == 1) & (predictions == 0), logits, predictions)
@@ -321,6 +321,12 @@ class EARLIEST(tf.keras.Model):
             elif self.args.model in ["PROPOSED"]:
                 halt_points = tf.where(halt_points < filter_points, halt_points, filter_points)
                 self.grad_mask[b, :(1 + int(halt_points[b, 0]))] = 1
+            elif self.args.model in ["DETECTOR"]:
+                self.grad_mask[b, :(1 + int(halt_points[b, 0]))] = 1
+                self.grad_mask[b, :int(self.estimated_tr[b, 0])] = 0
+        if self.args.model in ["DETECTOR"]:
+            halt_points = halt_points - self.estimated_tr
+            self.locations = self.locations - self.estimated_tr
         return logits
 
 class TokenAndPositionEmbedding(tf.keras.layers.Layer):

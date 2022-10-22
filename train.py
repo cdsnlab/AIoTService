@@ -2,6 +2,7 @@ import os
 import time
 import random
 import pickle
+import logging
 import argparse
 from math import sqrt
 from datetime import datetime
@@ -48,6 +49,8 @@ def loss_EARLIEST(model, x, true_y, length, tr_points):  # shape of true_y is (B
     loss_b = MSE(b, R) # Baseline should approximate mean reward  # 엄밀히 따지면 인스턴스간 길이가 다르기 때문에 인스턴스별 평균을 구하고 배치의 평균을 구해야되는 것 같음 
     loss_r = tf.reduce_sum(-model.log_pi*adjusted_reward) / model.log_pi.shape[1] # RL loss  # 이것도 위와 마찬가지. 근데 어찌 되었든 배치의 평균을 구하기는 했음.
     loss_c = CE(y_true=true_y, y_pred=pred_logit) # Classification loss
+    if args.model == "DETECTOR":
+        model.halt_probs = model.halt_probs * model.grad_mask
     wait_penalty = tf.reduce_mean(tf.reduce_sum(model.halt_probs, 1))
     loss = loss_r + loss_b + loss_c + args.lam*(wait_penalty)
     if args.train_filter:
@@ -102,6 +105,8 @@ def test_step(model, x, true_y, length, num_event, tr_points):
     list_yhat.append(model.pred_y)
     list_distribution.append(model.distribution)
     list_attn.append(model.attention_weights)
+    if args.model == "DETECTOR":
+        list_estimated_tr.append(model.estimated_tr.flatten())
     # if args.model == 'CNN':
     #     list_cnn_feature.append(model.feature_map)
     #     list_attn.append(model.attn_encoder.attention_weights)
@@ -158,12 +163,20 @@ def write_test_summary(true_y, pred_y):
     dict_analysis = {"idx":test_loader.indices, "raw_probs": raw_probs, "all_yhat": all_yhat, "true_y": true_y, 
                      "all_dist": all_dist, "noise_amount": data.noise_amount[test_loader.indices], "attn_scores": all_attn,
                      'pred_y': pred_y, 'locations': locations, 'lengths': lengths, 'event_count': event_count, "filter_flags": filter_flags}
+    if args.model == "DETECTOR":
+        dict_analysis['threshold_mse_list'] = model.mse_list
+        dict_analysis['threshold'] = model.detector_threshold
+        dict_analysis['estimated_tr'] = np.concatenate(list_estimated_tr)
+        
     if args.test:
         dict_analysis['duration'] = list_duration
     with open(logdir + '/dict_analysis.pickle', 'wb') as f:
         pickle.dump(dict_analysis, f, pickle.HIGHEST_PROTOCOL)
 
 if __name__ == "__main__":
+    if args.model == "DETECTOR":
+        logger = tf.get_logger()
+        logger.setLevel(logging.ERROR)
     tf.autograph.set_verbosity(0)
     os.environ["CUDA_DEVICE_ORDER"]="PCI_BUS_ID"   
     os.environ["CUDA_VISIBLE_DEVICES"]= args.device
@@ -235,6 +248,7 @@ if __name__ == "__main__":
                 if (epoch + 1) % 10 == 0:
                     true_labels, pred_labels, list_locations, list_lengths, list_event_count = [], [], [], [], []
                     list_probs, list_yhat, list_distribution, list_attn, list_filter_flags = [], [], [], [], []
+                    list_estimated_tr = []
                     # list_cnn_feature = []
                     for x, true_y, length, num_event, tr_points in test_loader: 
                         test_step(model, x, true_y, length, num_event, tr_points)

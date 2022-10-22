@@ -1321,14 +1321,18 @@ exp_kyoto11 =['nIwiQOa2QEWOZJso9nxSEA',
             'gJ3WyQlaSbqeELxtXQJ1RA',
             '1PoVVBZlQTmh7FoE8Rvy9A']
 
+exp_detector = ['IkcGCZaeS26fGMCoyLkZZA',
+                'xGkTyESNS3GTpztmsAx6Ig']
 
 from itertools import product
 methods=['basic', 'cnn', 'attn']
-methods=['basic']
+methods=['detector_milan', 'detector_kyoto11']
+lam=['0.001']
 lam=['0.1', '0.01', '0.001', '0.0001', '0.00001']
 exp_num = []
 for i in product(methods, lam):
     exp_num.append('_'.join(i))
+df_detector = get_exp_results(exp_detector, exp_num)
 df_milan = get_exp_results(exp_milan, exp_num)
 # df_milan = get_exp_results(exp_milan_clear, exp_num)
 df_cairo = get_exp_results(exp_cairo, exp_num)
@@ -1336,6 +1340,7 @@ df_kyoto7 = get_exp_results(exp_kyoto7, exp_num)
 df_kyoto8 = get_exp_results(exp_kyoto8, exp_num)
 df_kyoto11 = get_exp_results(exp_kyoto11, exp_num)
 
+save_results(exp_num, 'detector', df_detector)
 save_results(exp_num, 'milan', df_milan)
 save_results(exp_num, 'cairo', df_cairo)
 save_results(exp_num, 'kyoto7', df_kyoto7)
@@ -1990,17 +1995,31 @@ plt.savefig(f'./analysis/attn_scores_normal_{ratio}_.png')
 plt.clf()
 
 
+import pickle
 
-from datetime import datetime
+dir = '221021-161244'
+all_idx, all_noise_amount, all_attn_scores = [], [], []
+data.keys()
+for i in range(1, 4):
+    with open(f'./output/log/{dir}/fold_{i}/dict_analysis.pickle', 'rb') as f:
+        data = pickle.load(f)
+    break
+        
+data.keys()
+x = [th/100. for th in range(1, 21, 1)]
+y = data['threshold_mse_list']
 
-args.dataset = "kyoto8"
-data_natural = CASAS_RAW_NATURAL(args)
-data_natural.N_FEATURES
-data_natural.state_matrix.shape[0] / (60 * 60 * 24)
 
-s1 = '2009-08-2400:00:00.000009'
-s2 = '2010-05-0122:59:44.039689'
+plt.plot(x, y, color = 'b', linestyle = 'solid', marker = 'o')
 
-datetime.strptime(s2, "%Y-%m-%d%H:%M:%S.%f") - datetime.strptime(s1, "%Y-%m-%d%H:%M:%S.%f")
+plt.xticks(np.arange(0, args.offset, 5))
+plt.xlabel('Threshold')
+# plt.xticks(rotation = 25)
+plt.ylabel('MSE')
+plt.legend()
+plt.show()
+plt.savefig(f'./analysis/attn_scores_threshold.png')
+plt.clf()
 
-
+data['noise_amount'][:30]
+data['estimated_tr'][:30]

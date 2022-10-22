@@ -9,7 +9,7 @@ lambda_list="0.001"
 model="DETECTOR"
 
 file_name="x_milan_lambda_detector"
-device="0"
+device="1"
 dataset="milan"
 model_dir="./output/log/220926-154933"
 
