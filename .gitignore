@@ -170,3 +170,5 @@ analysis/
 dataset/
 output/
 exp_info/
+results/
+backup/
