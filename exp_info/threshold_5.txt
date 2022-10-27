@@ -1,4 +1,0 @@
-0.1	./output/log/220817-144143/fold_1
-0.1	./output/log/220817-144907/fold_1
-0.1	./output/log/220817-145828/fold_1
-0.1	./output/log/220817-151343/fold_1
