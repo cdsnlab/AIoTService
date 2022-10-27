@@ -2023,3 +2023,36 @@ plt.clf()
 
 data['noise_amount'][:30]
 data['estimated_tr'][:30]
+
+
+
+dir = '221004-223621'
+all_locations = []
+data.keys()
+for i in range(1, 4):
+    with open(f'./output/log/{dir}/fold_{i}/dict_analysis.pickle', 'rb') as f:
+        data = pickle.load(f)
+    all_locations.append(np.mean(data['locations']))
+
+np.mean(all_locations)
+
+
+# milan: 18.33, 21.23
+np.mean([18.27, 18.94, 17.78])
+np.mean([21.8, 20.86, 21.02])
+
+# kyoto8: 20.19, 21.43
+np.mean([17.27, 21.57, 21.73])
+np.mean([20.94, 21.35, 22.01])
+
+# kyoto11: 19.013786, 20.781021
+np.mean([19.47, 18.56, 19.01])
+np.mean([20.67, 20.93, 20.75])
+
+a = 21.23 - 18.33
+b = 21.43 - 20.19
+c = 20.781021 - 19.013786
+a
+b
+c
+np.mean([a,b,c])
