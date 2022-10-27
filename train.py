@@ -62,7 +62,7 @@ def loss_EARLIEST(model, x, true_y, length, tr_points):  # shape of true_y is (B
         loss_filter = CE_filter(y_true=tr_points, y_pred=model.filter_logits) # Classification loss
         loss += loss_filter*(model._epsilon)
         # loss += loss_filter*(model._epsilon)
-    # if args.model == "PROPOSED":
+    # if args.model == "ADAPTIVE":
     #     loss += model.loss_r_filter
     return loss, pred_logit, model.locations
 
