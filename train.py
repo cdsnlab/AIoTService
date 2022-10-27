@@ -310,3 +310,4 @@ if __name__ == "__main__":
         f = open(f"./exp_info/{args.exp_info_file}.txt", 'a')
         f.write(f"{args.dataset}\t{args.model}\t{np.mean(list_avg_duration)}\t{args.model_dir}\t./output/log/{curr_time}\n")
         f.close()
+#..
