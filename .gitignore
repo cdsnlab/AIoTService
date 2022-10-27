@@ -216,4 +216,9 @@ analysis/
 dataset/
 output/
 exp_info/
+<<<<<<< HEAD
 >>>>>>> online_HAR/master
+=======
+results/
+backup/
+>>>>>>> 460a8192d152d15e13a2958676e63d46df11d3f4
