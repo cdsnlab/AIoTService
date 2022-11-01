@@ -1994,12 +1994,13 @@ plt.show()
 plt.savefig(f'./analysis/attn_scores_normal_{ratio}_.png')
 plt.clf()
 
+# --------------------------------------------------------------
+# estimated transition point and mean squred error
 
 import pickle
 
-dir = '221021-161244'
+dir = '221021-164850'
 all_idx, all_noise_amount, all_attn_scores = [], [], []
-data.keys()
 for i in range(1, 4):
     with open(f'./output/log/{dir}/fold_{i}/dict_analysis.pickle', 'rb') as f:
         data = pickle.load(f)
@@ -2009,10 +2010,13 @@ data.keys()
 x = [th/100. for th in range(1, 21, 1)]
 y = data['threshold_mse_list']
 
+# data['estimated_tr']
+np.sqrt(np.min(data['threshold_mse_list']))
+
 
 plt.plot(x, y, color = 'b', linestyle = 'solid', marker = 'o')
 
-plt.xticks(np.arange(0, args.offset, 5))
+# plt.xticks(np.arange(0, args.offset, 5))
 plt.xlabel('Threshold')
 # plt.xticks(rotation = 25)
 plt.ylabel('MSE')
@@ -2021,10 +2025,12 @@ plt.show()
 plt.savefig(f'./analysis/attn_scores_threshold.png')
 plt.clf()
 
-data['noise_amount'][:30]
-data['estimated_tr'][:30]
+# data['noise_amount'][:30]
+# data['estimated_tr'][:30]
 
 
+# -------------------------------------------------------------------------- 
+# 얼마나 delay가 생겼는지, 에피소드의 평균 길이는 몇분인지
 
 dir = '221004-223621'
 all_locations = []
@@ -2056,3 +2062,18 @@ a
 b
 c
 np.mean([a,b,c])
+
+
+import utils
+from dataset import CASAS_ADLMR, CASAS_RAW_NATURAL, CASAS_RAW_SEGMENTED, Dataloader
+args = utils.create_parser()
+args.dataset = "kyoto11"
+args.random_noise=False
+data_natural = CASAS_RAW_NATURAL(args)
+
+
+data_natural.org_lengths.mean()/60
+# Milan: 23.00900153609831
+# kyoto8: 40.01735042735042
+# kyoto11: 28.774137154185816
+

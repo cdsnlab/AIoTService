@@ -98,14 +98,14 @@ class EARLIEST(tf.keras.Model):
 # model.attn_encoder(data.X[:, :args.offset, :], is_train=False)
 # np.take_along_axis(np.array(model.attn_encoder.attention_weights[:, 0, 1:]), np.reshape(data.noise_amount, (-1, 1)), axis=1).mean()  #0.15921913
             threshold_list = [th/100. for th in range(1, 21, 1)]
-            self.mse_list = []
+            self.mse_list, self.mae_list = [], []
             for thr in threshold_list:
                 over_threshold = tf.where(self.attn_encoder.attention_weights[:, 0, 1:] > thr, 1, 0)
                 estimated_tr = np.argmax(over_threshold, axis=1)
                 self.mse_list.append(np.square(np.subtract(estimated_tr, self.args.noise_amount[self.args.test_idx])).mean())
+                self.mae_list.append(np.abs(np.subtract(estimated_tr, self.args.noise_amount[self.args.test_idx])).mean())
             min_idx = np.argmin(self.mse_list)
             self.detector_threshold = threshold_list[min_idx]
-            
         self.BaselineNetwork = BaselineNetwork(self.args)
         self.LSTM = layers.LSTMCell(self.args.nhid)
         self.initial_states = tf.zeros([self.args.batch_size, self.args.nhid])
@@ -323,7 +323,10 @@ class EARLIEST(tf.keras.Model):
                 self.grad_mask[b, :(1 + int(halt_points[b, 0]))] = 1
                 self.grad_mask[b, :int(self.estimated_tr[b, 0])] = 0
         if self.args.model in ["DETECTOR"]:
-            halt_points = halt_points - self.estimated_tr
+            # halt_points = halt_points - self.estimated_tr
+            self.locations_det = tf.where(self.locations < self.args.offset, self.args.offset, self.locations)
+            self.locations_det = tf.where(self.locations_det < length, length, self.locations_det)          
+            self.locations_det = self.locations_det.numpy()
             self.locations = self.locations - self.estimated_tr
         return logits
 

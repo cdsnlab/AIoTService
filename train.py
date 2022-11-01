@@ -107,6 +107,7 @@ def test_step(model, x, true_y, length, num_event, tr_points):
     list_attn.append(model.attention_weights)
     if args.model == "DETECTOR":
         list_estimated_tr.append(model.estimated_tr.flatten())
+        list_locations_det.append(model.locations_det.flatten())
     # if args.model == 'CNN':
     #     list_cnn_feature.append(model.feature_map)
     #     list_attn.append(model.attn_encoder.attention_weights)
@@ -125,6 +126,10 @@ def write_test_summary(true_y, pred_y):
     all_yhat = np.concatenate(list_yhat)
     all_dist = np.concatenate(list_distribution)
     all_attn = np.concatenate(list_attn)
+    if args.model == "DETECTOR":
+        estimated_tr = np.concatenate(list_estimated_tr)
+        locations_det = np.concatenate(list_locations_det)
+        
     
     # Calculate representative metric of whole data
     with test_summary_writer.as_default():
@@ -141,6 +146,8 @@ def write_test_summary(true_y, pred_y):
         tf.summary.scalar('whole_earliness2', locations.mean() / lengths.mean(), step=epoch)
         hm = (2 * (1 - test_earliness.result()) * test_accuracy.result()) / ((1 - test_earliness.result()) + test_accuracy.result())
         tf.summary.scalar('whole_harmonic_mean', hm, step=epoch)
+        if args.model == "DETECTOR":
+            tf.summary.scalar('whole_earliness_det', (locations_det.flatten() / lengths.flatten()).mean, step=epoch)
         
     # Calculate metrics by classes
     for i, summary_writer in cls_summary_writer.items():
@@ -165,8 +172,9 @@ def write_test_summary(true_y, pred_y):
                      'pred_y': pred_y, 'locations': locations, 'lengths': lengths, 'event_count': event_count, "filter_flags": filter_flags}
     if args.model == "DETECTOR":
         dict_analysis['threshold_mse_list'] = model.mse_list
+        dict_analysis['threshold_mae_list'] = model.mae_list
         dict_analysis['threshold'] = model.detector_threshold
-        dict_analysis['estimated_tr'] = np.concatenate(list_estimated_tr)
+        dict_analysis['estimated_tr'] = estimated_tr
         
     if args.test:
         dict_analysis['duration'] = list_duration
@@ -248,7 +256,7 @@ if __name__ == "__main__":
                 if (epoch + 1) % 10 == 0:
                     true_labels, pred_labels, list_locations, list_lengths, list_event_count = [], [], [], [], []
                     list_probs, list_yhat, list_distribution, list_attn, list_filter_flags = [], [], [], [], []
-                    list_estimated_tr = []
+                    list_estimated_tr, list_locations_det = [], []
                     # list_cnn_feature = []
                     for x, true_y, length, num_event, tr_points in test_loader: 
                         test_step(model, x, true_y, length, num_event, tr_points)
@@ -286,6 +294,7 @@ if __name__ == "__main__":
             true_labels, pred_labels, list_locations, list_lengths, list_event_count = [], [], [], [], []
             list_probs, list_yhat, list_distribution, list_attn, list_filter_flags = [], [], [], [], []
             list_duration = []
+            list_estimated_tr, list_locations_det = [], []
             
             logdir = "./output/log/" + curr_time + f'/fold_{k+1}'
             print(f'tensor board dir: {logdir}')
