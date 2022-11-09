@@ -711,8 +711,8 @@ args.expiration_period = -1
 data1 = Lapras(args)
 data2 = Lapras(args)
 
-data_casas = CASAS_RAW_NATURAL(args)
-data_casas.X
+data_casas1 = CASAS_RAW_NATURAL(args)
+data_casas1.X
 
 np.sum(data1.X != data2.X)
 
