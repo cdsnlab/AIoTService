@@ -147,7 +147,7 @@ def write_test_summary(true_y, pred_y):
         hm = (2 * (1 - test_earliness.result()) * test_accuracy.result()) / ((1 - test_earliness.result()) + test_accuracy.result())
         tf.summary.scalar('whole_harmonic_mean', hm, step=epoch)
         if args.model == "DETECTOR":
-            tf.summary.scalar('whole_earliness_det', (locations_det.flatten() / lengths.flatten()).mean, step=epoch)
+            tf.summary.scalar('whole_earliness_det', np.mean(locations_det.flatten() / lengths.flatten()), step=epoch)
         
     # Calculate metrics by classes
     for i, summary_writer in cls_summary_writer.items():

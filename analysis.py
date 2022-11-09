@@ -1257,6 +1257,12 @@ exp_milan_clear = ['0bP9lcJaQ2C4mvFzkF4Agg',
                 'VJP6DEvlTBSDdUd7tzXcgg',
                 'R0dh1I2XQ629kyBlDqOkRg']
 
+exp_kyoto11_clear = ['5Js5HmqfR7CDar4E1u6rcA',
+                    'GT2Hry4LQ9CK0e1aIj69Aw',
+                    'KH5JXjQjRXy2G9KzPCOvaw',
+                    'PilLgk8VRfGJH5eU2rBOhg',
+                    'mtQAUqxARjmikElVmadETg']
+
 exp_cairo = ['Xi6dgnAmQb2qZxdskQDAzA',
             'oLzbZOwoSkqC7MeiMoonMw',
             'G8xtQ2J6QJ6gWN1P9GVABw',
@@ -1321,26 +1327,49 @@ exp_kyoto11 =['nIwiQOa2QEWOZJso9nxSEA',
             'gJ3WyQlaSbqeELxtXQJ1RA',
             '1PoVVBZlQTmh7FoE8Rvy9A']
 
-exp_detector = ['IkcGCZaeS26fGMCoyLkZZA',
-                'xGkTyESNS3GTpztmsAx6Ig']
+exp_detector = ['kIAO1WjJS0mFA46J551tBw',
+                'xnptpyWHQYWN8DzGjFDKLw',
+                '1XjKsr6NSRmOkEiGoGZCPA',
+                '2lreNx3lS9eoaxoQA8pzRw',
+                'pZB0KlgPQwaqeCdgxB3OyQ',
+                'CkYNRbe8QK2SD15vGDdp9Q',
+                '3k1FRS4YSOCP2wpLi9HpaA',
+                'VKc32RCKSPq2raowJnpjTw',
+                'MXa5FaAARsWSJvrpqadm7A',
+                'yytNeS3AQjCkIeVMm4MLVA']
+
+exp_none = ['xo4o7LA6TqqvIocYPx10ew',
+            'nI4VRPtwQlS3wcdcdirJhw',
+            '4uZlQ1z8QPSOJIl9unb77g',
+            'ZjmEPJ7PROqor5m2YQCPmQ',
+            'Jq3zCAJ1RjONKJM5qF9PWg',
+            'rjgmfBZSQvmxc0cvLi7L6w',
+            'F932ACpaSAeaS38eMQDPHA',
+            'havQY6BqQS2S9YFQdYnBOg',
+            'gzkY6OsQQY2W6LKTyJi41w',
+            'UWQz3lADQXe24WotO7NxzA']
+
 
 from itertools import product
 methods=['basic', 'cnn', 'attn']
-methods=['detector_milan', 'detector_kyoto11']
+methods=['none_milan', 'none_kyoto11']
 lam=['0.001']
 lam=['0.1', '0.01', '0.001', '0.0001', '0.00001']
 exp_num = []
 for i in product(methods, lam):
     exp_num.append('_'.join(i))
 df_detector = get_exp_results(exp_detector, exp_num)
+# df_none = get_exp_results(exp_none, exp_num)
 df_milan = get_exp_results(exp_milan, exp_num)
 # df_milan = get_exp_results(exp_milan_clear, exp_num)
+# df_kyoto11 = get_exp_results(exp_kyoto11_clear, exp_num)
 df_cairo = get_exp_results(exp_cairo, exp_num)
 df_kyoto7 = get_exp_results(exp_kyoto7, exp_num)
 df_kyoto8 = get_exp_results(exp_kyoto8, exp_num)
 df_kyoto11 = get_exp_results(exp_kyoto11, exp_num)
-
+np.mean([8564, 8686, 8907])
 save_results(exp_num, 'detector', df_detector)
+save_results(exp_num, 'none', df_none)
 save_results(exp_num, 'milan', df_milan)
 save_results(exp_num, 'cairo', df_cairo)
 save_results(exp_num, 'kyoto7', df_kyoto7)
@@ -2025,8 +2054,123 @@ plt.show()
 plt.savefig(f'./analysis/attn_scores_threshold.png')
 plt.clf()
 
-# data['noise_amount'][:30]
-# data['estimated_tr'][:30]
+
+
+# -------------------------------------------------------------------------- 
+# mean absolute error
+import pickle
+import numpy as np
+
+dir = '221101-185507'
+all_mae = []
+for i in range(1, 4):
+    with open(f'./output/log/{dir}/fold_{i}/dict_analysis.pickle', 'rb') as f:
+        data = pickle.load(f)
+        idx = np.argmin(data['threshold_mse_list'])
+        all_mae.append(data['threshold_mae_list'][idx])
+data.keys()
+np.mean(all_mae)
+
+data['noise_amount'][20:40]
+data['estimated_tr'][20:40]
+data['lengths'][20:40]
+
+idx = 39
+data['noise_amount'][idx]
+data['estimated_tr'][idx]
+data['attn_scores'][idx][0][1:]*100
+data['threshold']
+
+
+
+x = range(1, args.offset+1)
+y = data['attn_scores'][idx][0][1:]
+
+plt.figure(figsize=(6,6))
+plt.plot(x, y, color = 'g', linestyle = 'solid', marker = '.', label='Attention scores')
+
+plt.xticks(np.arange(0, args.offset+1, 5))
+plt.axvline(data['noise_amount'][idx]+0.5, 0, 1, color='blue', linestyle='--', linewidth=2, label='Transition')
+plt.axvline(data['estimated_tr'][idx]+0.5, 0, 1, color='red', linestyle='--', linewidth=2, label='Estimated')
+plt.xlabel('Timesteps')
+# plt.xticks(rotation = 25)
+plt.ylabel('Attention scores')
+# plt.title(f'Attention scores for all ({ratio}:{100-ratio})')
+plt.legend()
+plt.show()
+plt.savefig(f'./analysis/attn_scores.png')
+plt.clf()
+
+
+
+
+
+dir = '221101-185505'
+all_gap = []
+for i in range(1, 4):
+    with open(f'./output/log/{dir}/fold_{i}/dict_analysis.pickle', 'rb') as f:
+        data = pickle.load(f)
+        all_gap.append(data['estimated_tr'] - data['noise_amount'])
+data.keys()
+
+np.where(all_gap[0] < 0, 1, 0).sum()
+np.where(all_gap[0] > 0, 1, 0).sum()
+
+idx_neg = np.where(all_gap[0] < 0)
+idx_pos = np.where(all_gap[0] > 0)
+
+all_gap[0][idx_neg].mean()
+all_gap[0][idx_pos].mean()
+
+# --------------------------------------------------------------------------
+# estimated와 actual간의 gap 분포 및 정확도
+dir = '221101-185505'
+all_noise_amount, all_estimated_tr, all_pred_y, all_true_y = [], [], [], []
+for i in range(1, 4):
+    with open(f'./output/log/{dir}/fold_{i}/dict_analysis.pickle', 'rb') as f:
+        data = pickle.load(f)
+    all_noise_amount.append(data['noise_amount'])
+    all_estimated_tr.append(data['estimated_tr'])
+    all_pred_y.append(data['pred_y'])
+    all_true_y.append(data['true_y'])
+noise_amount = np.concatenate(all_noise_amount)
+estimated_tr = np.concatenate(all_estimated_tr)
+pred_y = np.concatenate(all_pred_y)
+true_y = np.concatenate(all_true_y)
+
+diff = estimated_tr - noise_amount
+x, y = np.unique(diff, return_counts=True)
+
+plt.figure(figsize=(8,6))
+plt.bar(x, y)
+# plt.xticks(x, years)
+plt.xlabel('Gap between estimated and actual transition point')
+plt.ylabel('Counts')
+plt.show()
+plt.savefig(f'./analysis/threshold_gap.png')
+plt.clf()
+
+acc_neg, acc_pos = [], []
+x = range(1, args.offset + 1)
+for i in x:
+    idx_neg = np.where((diff <= 0) & (diff > -i))[0]
+    idx_pos = np.where((diff >= 0) & (diff < i))[0]
+    acc_neg.append(np.where(pred_y[idx_neg] == true_y[idx_neg], 1, 0).mean())
+    acc_pos.append(np.where(pred_y[idx_pos] == true_y[idx_pos], 1, 0).mean())
+
+
+
+plt.figure(figsize=(8,6))
+plt.plot(x, acc_neg, color = 'm', linestyle = 'solid', marker = 'o', label='Estimated before actual')
+plt.plot(x, acc_pos, color = 'g', linestyle = 'solid', marker = 'o', label='Estimated after actual')
+plt.xlabel('Absolute Gap')
+plt.ylabel('Accuracy')
+plt.legend()
+plt.show()
+plt.savefig(f'./analysis/threshold_acc_by_gap.png')
+plt.clf()
+
+
 
 
 # -------------------------------------------------------------------------- 
@@ -2067,8 +2211,8 @@ np.mean([a,b,c])
 import utils
 from dataset import CASAS_ADLMR, CASAS_RAW_NATURAL, CASAS_RAW_SEGMENTED, Dataloader
 args = utils.create_parser()
-args.dataset = "kyoto11"
-args.random_noise=False
+args.dataset = "milan"
+args.random_noise=True
 data_natural = CASAS_RAW_NATURAL(args)
 
 
@@ -2076,4 +2220,49 @@ data_natural.org_lengths.mean()/60
 # Milan: 23.00900153609831
 # kyoto8: 40.01735042735042
 # kyoto11: 28.774137154185816
+
+# ---------------------------------------------------------------------------------------------
+# None(Skipped TW)
+# earliness 계산
+
+milan_dir = ['221019-194009',
+            '221019-200632',
+            '221019-204541',
+            '221019-215407',
+            '221020-021007']
+
+kyoto11_dir = ['221019-194117',
+                '221019-202935',
+                '221019-214613',
+                '221020-002423',
+                '221020-051013']
+list_acc, list_earl1, list_earl2, list_HM1, list_HM2 = [], [], [], [], []
+for dir in kyoto11_dir:
+    # dir = '221019-194009'
+    acc, earl1, earl2, HM1, HM2 = [], [], [], [], []
+    data.keys()
+    for i in range(1, 4):
+        with open(f'./output/log/{dir}/fold_{i}/dict_analysis.pickle', 'rb') as f:
+            data = pickle.load(f)
+        idx = np.where(data['lengths'] > 20)[0]
+        accuracy = np.where(data['pred_y'][idx] == data['true_y'][idx], 1, 0).mean()
+        earliness1 = np.mean(data['locations'][idx] / data['lengths'][idx])
+        earliness2 = np.mean((data['locations'][idx] - 20) / data['lengths'][idx])
+        acc.append(accuracy)
+        earl1.append(earliness1)
+        earl2.append(earliness2)
+        HM1.append((2 * (1 - earliness1) * accuracy) / ((1 - earliness1) + accuracy))
+        HM2.append((2 * (1 - earliness2) * accuracy) / ((1 - earliness2) + accuracy))
+    list_acc.append(np.mean(acc))
+    list_earl1.append(np.mean(earl1))
+    list_earl2.append(np.mean(earl2))
+    list_HM1.append(np.mean(HM1))
+    list_HM2.append(np.mean(HM2))
+print(list_acc)
+print(list_earl1)
+print(list_earl2)
+print(list_HM1)
+print(list_HM2)
+
+
 

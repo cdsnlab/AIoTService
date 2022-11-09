@@ -124,6 +124,7 @@ def create_parser():
     parser.add_argument("--seq_len", type=int, default=2000, help="The number of timesteps")
     parser.add_argument("--shuffle", type=str2bool, default=True, help="Shuffle training dataset or not.")
     parser.add_argument("--offset", type=int, default=20, help="The offset of the detected segmented windows")
+    parser.add_argument("--expiration_period", type=int, default=40, help="The expiration period of the sensor activation")
     parser.add_argument("--noise_ratio", type=int, default=0, help="The ratio of the noise in the detected segmented windows")
     parser.add_argument("--random_noise", type=str2bool, default=False, help="Add noise to the beginning randomly.")
     parser.add_argument("--nsplits", type=int, default=3, help="The number of splits for validation")

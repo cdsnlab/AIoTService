@@ -325,7 +325,7 @@ class EARLIEST(tf.keras.Model):
         if self.args.model in ["DETECTOR"]:
             # halt_points = halt_points - self.estimated_tr
             self.locations_det = tf.where(self.locations < self.args.offset, self.args.offset, self.locations)
-            self.locations_det = tf.where(self.locations_det < length, length, self.locations_det)          
+            self.locations_det = tf.where(self.locations_det > length, length, self.locations_det)          
             self.locations_det = self.locations_det.numpy()
             self.locations = self.locations - self.estimated_tr
         return logits

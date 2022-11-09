@@ -1,6 +1,7 @@
 from numpy import dtype
 import re
 import time
+import glob
 import pickle
 import math
 import datetime
@@ -65,7 +66,7 @@ class AmbientData(metaclass=ABCMeta):
 
     def change_state(self, activated, s, v):
         vector = activated.copy()
-        if v == "ON":
+        if v.lower() in ["on", "true"]:
             vector[self.sensor2index[s]] = 1
         else:
             vector[self.sensor2index[s]] = 0
@@ -114,7 +115,10 @@ class AmbientData(metaclass=ABCMeta):
             # if self.args.rnd_prefix:
             #     idx = np.random.choice(len(self.suffix), 1)[0]
             #     converted[0] = np.concatenate((self.suffix[idx], converted[0]), axis=0)
-            X.append(converted[0])
+            if self.args.expiration_period != -1:
+                X.append(self.activation_expire(converted[0]))
+            else:
+                X.append(converted[0])
             Y.append(converted[1])
             lengths.append(converted[2])
             event_counts.append(converted[3])
@@ -128,6 +132,24 @@ class AmbientData(metaclass=ABCMeta):
         event_counts = np.array(event_counts)
         self.start_time = np.array(start_time)
         return X, Y, lengths, event_counts
+    
+    def activation_expire(self, state_matrix):
+        count = np.zeros((self.N_FEATURES))
+        flag = np.zeros((self.N_FEATURES))
+        temp_state_matrix = []
+        for state in state_matrix:
+            new_ON_idx = np.where((state==1) & (flag == 0))[0]
+            new_OFF_idx = np.where(((state==0) & (flag == 1)) | (count>=self.args.expiration_period))[0]
+            
+            flag[new_ON_idx] = 1
+            flag[new_OFF_idx] = 0
+            count[new_OFF_idx] = 0
+            
+            activated_idx = np.where(flag==1)[0]
+            count[activated_idx] += 1
+            temp_state_matrix.append(flag.copy())
+        state_matrix = np.concatenate(temp_state_matrix).reshape((-1, self.N_FEATURES))
+        return state_matrix
 
 
 class CASAS_ADLMR(AmbientData):
@@ -347,24 +369,6 @@ class CASAS_RAW_SEGMENTED(AmbientData):
         df.sort_values(by=['timestamps'], inplace=True)
         return df['sensors'].tolist(), df['values'].tolist(), df['timestamps'].tolist(), df['activities'].tolist()
     
-    def limit_duration(self):
-        count = np.zeros((self.N_FEATURES))
-        flag = np.zeros((self.N_FEATURES))
-        temp_state_matrix = []
-        for state in self.state_matrix:
-            new_ON_idx = np.where((state==1) & (flag == 0))[0]
-            new_OFF_idx = np.where(((state==0) & (flag == 1)) | (count>=10))[0]
-            
-            flag[new_ON_idx] = 1
-            flag[new_OFF_idx] = 0
-            count[new_OFF_idx] = 0
-            
-            activated_idx = np.where(flag==1)[0]
-            count[activated_idx] += 1
-            temp_state_matrix.append(flag.copy())
-        self.state_matrix = np.concatenate(temp_state_matrix).reshape((-1, self.N_FEATURES))
-        print("limit the duration of the sensor activation")
-    
     def exclude_other_events(self, sensors, values, timestamps, activities):
         temp_sensors, temp_values, temp_timestamps, temp_activities = [], [], [], []
         other_t = []
@@ -392,11 +396,29 @@ class CASAS_RAW_NATURAL(CASAS_RAW_SEGMENTED):
         self.main()
         self.nseries, _, _ = self.X.shape
         self.N_CLASSES = len(np.unique(self.Y))
-
+    
+    def activation_expire(self):
+        count = np.zeros((self.N_FEATURES))
+        flag = np.zeros((self.N_FEATURES))
+        temp_state_matrix = []
+        for state in self.state_matrix:
+            new_ON_idx = np.where((state==1) & (flag == 0))[0]
+            new_OFF_idx = np.where(((state==0) & (flag == 1)) | (count>=10))[0]
+            
+            flag[new_ON_idx] = 1
+            flag[new_OFF_idx] = 0
+            count[new_OFF_idx] = 0
+            
+            activated_idx = np.where(flag==1)[0]
+            count[activated_idx] += 1
+            temp_state_matrix.append(flag.copy())
+        self.state_matrix = np.concatenate(temp_state_matrix).reshape((-1, self.N_FEATURES))
+        print("limit the duration of the sensor activation")
+    
     def create_episodes(self, sensors, values, timestamps, activities):
         self.state_matrix, self.labels, prev_counts = self.event2matrix(sensors, values, timestamps, activities)
         if self.args.except_all_other_events:
-            self.limit_duration()
+            self.activation_expire()
         prev_count = 0
         prev_label = None
         x, counts = [], []
@@ -561,6 +583,53 @@ class CASAS_RAW_NATURAL(CASAS_RAW_SEGMENTED):
         self.prev_Y = self.prev_Y[idx]
         self.noise_amount = self.noise_amount[idx]
         print(f'The number of the instances: {len(self.Y)}')
+
+
+
+class Lapras(CASAS_RAW_SEGMENTED):
+    def __init__(self, args):
+        self.args = args
+        self.main()
+        self.X, self.Y, self.lengths, self.event_counts = self.generateDataset()
+        self.N_CLASSES = len(np.unique(self.Y))
+        
+    def main(self):
+        self.filename = "../AIoTService/segmentation/dataset/testbed/npy/lapras/motion"
+        self.episodes, sensors = self.preprocessing()
+        self.sensors = sorted(sensors)
+        self.N_FEATURES = len(self.sensors)
+        self.sensor2index = {sensor: i for i, sensor in enumerate(self.sensors)}
+
+    def preprocessing(self):
+        data_path = "../AIoTService/segmentation/dataset/testbed/npy/lapras/motion"
+        episodes = []
+        for wd in glob.glob(f"{data_path}/*"):
+            activity = wd.split("/")[-1]
+            # print(activity)
+            filelist = glob.glob(f"{wd}/*.npy")
+            episodes.append(np.array([np.concatenate((np.load(file), np.broadcast_to(np.array([activity]), (len(np.load(file)),1))), axis=1) for file in filelist]))            
+        episodes = np.concatenate(episodes)
+        
+        sensors = set()
+        for ep in episodes:
+            sensors |= set(ep[:, 0])
+        return episodes, sensors
+
+args.expiration_period = 40
+
+data1 = Lapras(args)
+data2 = Lapras(args)
+
+np.sum(data1.X != data2.X)
+
+# aa = episodes['Presentation'] + episodes['Discussion'] + episodes['GroupStudy'] + episodes['Chatting']
+# lengths = []
+# for a in aa:
+#     lengths.append(int(a[-1][-1]) - int(a[0][-1]))
+# np.mean(lengths)
+
+# np.percentile(lengths, [0, 25, 50, 75, 90], interpolation='nearest')
+
 
 
     # def transition_boundary(self, offset=21):
