@@ -302,7 +302,8 @@ class CASAS_RAW_SEGMENTED:
         self.N_FEATURES = len(self.sensors)
         self.sensor2index = {sensor: i for i, sensor in enumerate(self.sensors)}
         self.episodes = self.create_episodes(sensors, values, timestamps, activities)
-        self.X, self.Y, self.lengths, self.event_counts = self.generateDataset()
+        if self.episodes is not None:
+            self.X, self.Y, self.lengths, self.event_counts = self.generateDataset()
         self.nseries, _, _ = self.X.shape
         self.N_CLASSES = len(np.unique(self.Y))
     
@@ -483,8 +484,8 @@ class CASAS_RAW_NATURAL(CASAS_RAW_SEGMENTED):
     def __init__(self, args):
         self.args = args
         self.main()
-        self.nseries, _, _ = self.X.shape
-        self.N_CLASSES = len(np.unique(self.Y))
+        # self.nseries, _, _ = self.X.shape
+        # self.N_CLASSES = len(np.unique(self.Y))
     
     def activation_expire(self):
         count = np.zeros((self.N_FEATURES))
@@ -709,6 +710,9 @@ args.expiration_period = -1
 
 data1 = Lapras(args)
 data2 = Lapras(args)
+
+data_casas = CASAS_RAW_NATURAL(args)
+data_casas.X
 
 np.sum(data1.X != data2.X)
 
