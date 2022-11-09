@@ -53,123 +53,123 @@ class Dataloader(Sequence):
             np.random.shuffle(self.indices)
 
 
-class AmbientData(metaclass=ABCMeta):
-    def __init__(self, args):
-        # self.seq_len = args.seq_len
-        self.idx2label = {}
-        self.label2idx = {}
-        self.N_FEATURES = len(self.sensors)
-        self.sensor2index = {sensor: i for i, sensor in enumerate(self.sensors)}
-        self.X, self.Y, self.lengths, self.event_counts = self.generateDataset()
-        self.nseries, _, _ = self.X.shape
-        self.N_CLASSES = len(np.unique(self.Y))
+# class AmbientData(metaclass=ABCMeta):
+#     def __init__(self, args):
+#         # self.seq_len = args.seq_len
+#         self.idx2label = {}
+#         self.label2idx = {}
+#         self.N_FEATURES = len(self.sensors)
+#         self.sensor2index = {sensor: i for i, sensor in enumerate(self.sensors)}
+#         self.X, self.Y, self.lengths, self.event_counts = self.generateDataset()
+#         self.nseries, _, _ = self.X.shape
+#         self.N_CLASSES = len(np.unique(self.Y))
 
-    def change_state(self, activated, s, v):
-        vector = activated.copy()
-        if v.lower() in ["on", "true"]:
-            vector[self.sensor2index[s]] = 1
-        else:
-            vector[self.sensor2index[s]] = 0
-        return vector
+#     def change_state(self, activated, s, v):
+#         vector = activated.copy()
+#         if v.lower() in ["on", "true"]:
+#             vector[self.sensor2index[s]] = 1
+#         else:
+#             vector[self.sensor2index[s]] = 0
+#         return vector
 
-    def event2matrix(self, episode):
-        activated = np.zeros(self.N_FEATURES)
-        start_time = int(float(episode[0][2]))
-        episode[:,2] = list(map(lambda x: int(float(x) - start_time), episode[:,2]))
-        duration = int(episode[-1][2])
-        if duration < 1:
-            return None
-        # state_matrix = np.zeros((int(episode[-1][2]) + 1, self.N_FEATURES))
-        state_matrix = np.zeros((self.args.seq_len, self.N_FEATURES))
-        prev_t = 0
-        count = 0
-        count_seq = np.zeros((self.args.seq_len))
-        for s, v, t, l in episode:
-            t = int(t)
-            if t >= self.args.seq_len:  # Only for the episode whose sequence length exceeds the predefined seq_len
-                t = self.args.seq_len - 1
-                state_matrix[prev_t:t] = activated
-                count_seq[prev_t:t] = count
-                activated = self.change_state(activated, s, v)
-                break
-            if t != prev_t:
-                state_matrix[prev_t:t] = activated
-                count_seq[prev_t:t] = count
-                prev_t = t
-            activated = self.change_state(activated, s, v)
-            count += 1
-        state_matrix[t] = activated
-        count_seq[t] = count
-        return [np.array(state_matrix), l, duration+1, count_seq, t, start_time]
+#     def event2matrix(self, episode):
+#         activated = np.zeros(self.N_FEATURES)
+#         start_time = int(float(episode[0][2]))
+#         episode[:,2] = list(map(lambda x: int(float(x) - start_time), episode[:,2]))
+#         duration = int(episode[-1][2])
+#         if duration < 1:
+#             return None
+#         # state_matrix = np.zeros((int(episode[-1][2]) + 1, self.N_FEATURES))
+#         state_matrix = np.zeros((self.args.seq_len, self.N_FEATURES))
+#         prev_t = 0
+#         count = 0
+#         count_seq = np.zeros((self.args.seq_len))
+#         for s, v, t, l in episode:
+#             t = int(t)
+#             if t >= self.args.seq_len:  # Only for the episode whose sequence length exceeds the predefined seq_len
+#                 t = self.args.seq_len - 1
+#                 state_matrix[prev_t:t] = activated
+#                 count_seq[prev_t:t] = count
+#                 activated = self.change_state(activated, s, v)
+#                 break
+#             if t != prev_t:
+#                 state_matrix[prev_t:t] = activated
+#                 count_seq[prev_t:t] = count
+#                 prev_t = t
+#             activated = self.change_state(activated, s, v)
+#             count += 1
+#         state_matrix[t] = activated
+#         count_seq[t] = count
+#         return [np.array(state_matrix), l, duration+1, count_seq, t, start_time]
 
-    def generateDataset(self):
-        # if self.args.rnd_prefix:
-        #     self.sample_suffix()
-        X, Y, lengths, event_counts, start_time = [], [], [], [], []
-        for episode in self.episodes:
-            # if self.args.remove_prefix:
-            #     episode = episode[self.args.prefix_len:, :] if len(episode) > self.args.prefix_len else episode
-            converted = self.event2matrix(episode)
-            if converted is None:
-                continue
-            # if self.args.rnd_prefix:
-            #     idx = np.random.choice(len(self.suffix), 1)[0]
-            #     converted[0] = np.concatenate((self.suffix[idx], converted[0]), axis=0)
-            if self.args.expiration_period != -1:
-                X.append(self.activation_expire(converted[0]))
-            else:
-                X.append(converted[0])
-            Y.append(converted[1])
-            lengths.append(converted[2])
-            event_counts.append(converted[3])
-            start_time.append(converted[5])
-        X = pad_sequences(X, padding='post', truncating='post', dtype='float32', maxlen=self.args.seq_len)  # B * T * V
-        self.idx2label = {i:label for i, label in enumerate(sorted(set(Y)))}
-        self.label2idx = {label:i for i, label in self.idx2label.items()}
-        Y = [self.label2idx[l] for l in Y]
-        Y = np.array(Y)
-        lengths = np.array(lengths)
-        event_counts = np.array(event_counts)
-        self.start_time = np.array(start_time)
-        return X, Y, lengths, event_counts
+#     def generateDataset(self):
+#         # if self.args.rnd_prefix:
+#         #     self.sample_suffix()
+#         X, Y, lengths, event_counts, start_time = [], [], [], [], []
+#         for episode in self.episodes:
+#             # if self.args.remove_prefix:
+#             #     episode = episode[self.args.prefix_len:, :] if len(episode) > self.args.prefix_len else episode
+#             converted = self.event2matrix(episode)
+#             if converted is None:
+#                 continue
+#             # if self.args.rnd_prefix:
+#             #     idx = np.random.choice(len(self.suffix), 1)[0]
+#             #     converted[0] = np.concatenate((self.suffix[idx], converted[0]), axis=0)
+#             if self.args.expiration_period != -1:
+#                 X.append(self.activation_expire(converted[0]))
+#             else:
+#                 X.append(converted[0])
+#             Y.append(converted[1])
+#             lengths.append(converted[2])
+#             event_counts.append(converted[3])
+#             start_time.append(converted[5])
+#         X = pad_sequences(X, padding='post', truncating='post', dtype='float32', maxlen=self.args.seq_len)  # B * T * V
+#         self.idx2label = {i:label for i, label in enumerate(sorted(set(Y)))}
+#         self.label2idx = {label:i for i, label in self.idx2label.items()}
+#         Y = [self.label2idx[l] for l in Y]
+#         Y = np.array(Y)
+#         lengths = np.array(lengths)
+#         event_counts = np.array(event_counts)
+#         self.start_time = np.array(start_time)
+#         return X, Y, lengths, event_counts
     
-    def activation_expire(self, state_matrix):
-        count = np.zeros((self.N_FEATURES))
-        flag = np.zeros((self.N_FEATURES))
-        temp_state_matrix = []
-        for state in state_matrix:
-            new_ON_idx = np.where((state==1) & (flag == 0))[0]
-            new_OFF_idx = np.where(((state==0) & (flag == 1)) | (count>=self.args.expiration_period))[0]
+#     def activation_expire(self, state_matrix):
+#         count = np.zeros((self.N_FEATURES))
+#         flag = np.zeros((self.N_FEATURES))
+#         temp_state_matrix = []
+#         for state in state_matrix:
+#             new_ON_idx = np.where((state==1) & (flag == 0))[0]
+#             new_OFF_idx = np.where(((state==0) & (flag == 1)) | (count>=self.args.expiration_period))[0]
             
-            flag[new_ON_idx] = 1
-            flag[new_OFF_idx] = 0
-            count[new_OFF_idx] = 0
+#             flag[new_ON_idx] = 1
+#             flag[new_OFF_idx] = 0
+#             count[new_OFF_idx] = 0
             
-            activated_idx = np.where(flag==1)[0]
-            count[activated_idx] += 1
-            temp_state_matrix.append(flag.copy())
-        state_matrix = np.concatenate(temp_state_matrix).reshape((-1, self.N_FEATURES))
-        return state_matrix
+#             activated_idx = np.where(flag==1)[0]
+#             count[activated_idx] += 1
+#             temp_state_matrix.append(flag.copy())
+#         state_matrix = np.concatenate(temp_state_matrix).reshape((-1, self.N_FEATURES))
+#         return state_matrix
 
 
-class CASAS_ADLMR(AmbientData):
-    def __init__(self, args):
-        self.args = args
-        self.main()
-        super().__init__(args)
+# class CASAS_ADLMR(AmbientData):
+#     def __init__(self, args):
+#         self.args = args
+#         self.main()
+#         super().__init__(args)
     
-    def main(self):
-        self.filename = './dataset/adlmr_collaborative'
-        with open(self.filename, 'rb') as f:
-            self.adlmr = pickle.load(f)
-        self.episodes = self.adlmr['episodes']
-        self.sensors = self.adlmr['sensors']
+#     def main(self):
+#         self.filename = './dataset/adlmr_collaborative'
+#         with open(self.filename, 'rb') as f:
+#             self.adlmr = pickle.load(f)
+#         self.episodes = self.adlmr['episodes']
+#         self.sensors = self.adlmr['sensors']
         
-        col = [0, 1, 2, 4]
-        episodes = []
-        for episode in self.episodes:
-            episodes.append(episode[:, col])
-        self.episodes = episodes
+#         col = [0, 1, 2, 4]
+#         episodes = []
+#         for episode in self.episodes:
+#             episodes.append(episode[:, col])
+#         self.episodes = episodes
   
 
 # args.with_other=False
@@ -204,12 +204,11 @@ class CASAS_ADLMR(AmbientData):
     
 
 
-class CASAS_RAW_SEGMENTED(AmbientData):
+class CASAS_RAW_SEGMENTED:
     def __init__(self, args):
         self.args = args
         self.main()
-        super().__init__(args)
-    
+        
     def main(self):
         self.mappingActivities = {
                     "cairo": {"": "Other",
@@ -303,23 +302,10 @@ class CASAS_RAW_SEGMENTED(AmbientData):
         self.N_FEATURES = len(self.sensors)
         self.sensor2index = {sensor: i for i, sensor in enumerate(self.sensors)}
         self.episodes = self.create_episodes(sensors, values, timestamps, activities)
+        self.X, self.Y, self.lengths, self.event_counts = self.generateDataset()
+        self.nseries, _, _ = self.X.shape
+        self.N_CLASSES = len(np.unique(self.Y))
     
-    def create_episodes(self, sensors, values, timestamps, activities):
-        X, x = [], []
-        # Y = []
-        prev_label = None
-        for s, v, t, l in zip(sensors, values, timestamps, activities):
-            if prev_label == l or prev_label is None:
-                x.append([s, v, t, self.mappingActivities[self.args.dataset][l]])
-            else:
-                X.append(np.array(x))
-                # Y.append(mappingActivities[prev_label])
-                x = [[s, v, t, self.mappingActivities[self.args.dataset][l]]]
-            prev_label = l
-        X.append(np.array(x))
-        # Y.append(mappingActivities[prev_label])
-        return X
-
     def preprocessing(self):
         activity = ''  # empty
         sensors, values, timestamps, activities = [], [], [], []
@@ -362,6 +348,109 @@ class CASAS_RAW_SEGMENTED(AmbientData):
         features.close()
         # sensors, values, timestamps, activities = self.sort_by_time(sensors, values, timestamps, activities)
         return sensors, values, timestamps, activities
+    
+    def create_episodes(self, sensors, values, timestamps, activities):
+        X, x = [], []
+        # Y = []
+        prev_label = None
+        for s, v, t, l in zip(sensors, values, timestamps, activities):
+            if prev_label == l or prev_label is None:
+                x.append([s, v, t, self.mappingActivities[self.args.dataset][l]])
+            else:
+                X.append(np.array(x))
+                # Y.append(mappingActivities[prev_label])
+                x = [[s, v, t, self.mappingActivities[self.args.dataset][l]]]
+            prev_label = l
+        X.append(np.array(x))
+        # Y.append(mappingActivities[prev_label])
+        return X
+
+    def change_state(self, activated, s, v):
+        vector = activated.copy()
+        if v.lower() in ["on", "true"]:
+            vector[self.sensor2index[s]] = 1
+        else:
+            vector[self.sensor2index[s]] = 0
+        return vector
+
+    def event2matrix(self, episode):
+        activated = np.zeros(self.N_FEATURES)
+        start_time = int(float(episode[0][2]))
+        episode[:,2] = list(map(lambda x: int(float(x) - start_time), episode[:,2]))
+        duration = int(episode[-1][2])
+        if duration < 1:
+            return None
+        # state_matrix = np.zeros((int(episode[-1][2]) + 1, self.N_FEATURES))
+        state_matrix = np.zeros((self.args.seq_len, self.N_FEATURES))
+        prev_t = 0
+        count = 0
+        count_seq = np.zeros((self.args.seq_len))
+        for s, v, t, l in episode:
+            t = int(t)
+            if t >= self.args.seq_len:  # Only for the episode whose sequence length exceeds the predefined seq_len
+                t = self.args.seq_len - 1
+                state_matrix[prev_t:t] = activated
+                count_seq[prev_t:t] = count
+                activated = self.change_state(activated, s, v)
+                break
+            if t != prev_t:
+                state_matrix[prev_t:t] = activated
+                count_seq[prev_t:t] = count
+                prev_t = t
+            activated = self.change_state(activated, s, v)
+            count += 1
+        state_matrix[t] = activated
+        count_seq[t] = count
+        return [np.array(state_matrix), l, duration+1, count_seq, t, start_time]
+
+    def generateDataset(self):
+        # if self.args.rnd_prefix:
+        #     self.sample_suffix()
+        X, Y, lengths, event_counts, start_time = [], [], [], [], []
+        for episode in self.episodes:
+            # if self.args.remove_prefix:
+            #     episode = episode[self.args.prefix_len:, :] if len(episode) > self.args.prefix_len else episode
+            converted = self.event2matrix(episode)
+            if converted is None:
+                continue
+            # if self.args.rnd_prefix:
+            #     idx = np.random.choice(len(self.suffix), 1)[0]
+            #     converted[0] = np.concatenate((self.suffix[idx], converted[0]), axis=0)
+            if self.args.expiration_period != -1:
+                X.append(self.activation_expire(converted[0]))
+            else:
+                X.append(converted[0])
+            Y.append(converted[1])
+            lengths.append(converted[2])
+            event_counts.append(converted[3])
+            start_time.append(converted[5])
+        X = pad_sequences(X, padding='post', truncating='post', dtype='float32', maxlen=self.args.seq_len)  # B * T * V
+        self.idx2label = {i:label for i, label in enumerate(sorted(set(Y)))}
+        self.label2idx = {label:i for i, label in self.idx2label.items()}
+        Y = [self.label2idx[l] for l in Y]
+        Y = np.array(Y)
+        lengths = np.array(lengths)
+        event_counts = np.array(event_counts)
+        self.start_time = np.array(start_time)
+        return X, Y, lengths, event_counts
+    
+    def activation_expire(self, state_matrix):
+        count = np.zeros((self.N_FEATURES))
+        flag = np.zeros((self.N_FEATURES))
+        temp_state_matrix = []
+        for state in state_matrix:
+            new_ON_idx = np.where((state==1) & (flag == 0))[0]
+            new_OFF_idx = np.where(((state==0) & (flag == 1)) | (count>=self.args.expiration_period))[0]
+            
+            flag[new_ON_idx] = 1
+            flag[new_OFF_idx] = 0
+            count[new_OFF_idx] = 0
+            
+            activated_idx = np.where(flag==1)[0]
+            count[activated_idx] += 1
+            temp_state_matrix.append(flag.copy())
+        state_matrix = np.concatenate(temp_state_matrix).reshape((-1, self.N_FEATURES))
+        return state_matrix
     
     def sort_by_time(self, sensors, values, timestamps, activities):
         df = pd.DataFrame({'sensors': sensors, 'values': values,
@@ -585,13 +674,10 @@ class CASAS_RAW_NATURAL(CASAS_RAW_SEGMENTED):
         print(f'The number of the instances: {len(self.Y)}')
 
 
-
 class Lapras(CASAS_RAW_SEGMENTED):
     def __init__(self, args):
         self.args = args
         self.main()
-        self.X, self.Y, self.lengths, self.event_counts = self.generateDataset()
-        self.N_CLASSES = len(np.unique(self.Y))
         
     def main(self):
         self.filename = "../AIoTService/segmentation/dataset/testbed/npy/lapras/motion"
@@ -599,6 +685,9 @@ class Lapras(CASAS_RAW_SEGMENTED):
         self.sensors = sorted(sensors)
         self.N_FEATURES = len(self.sensors)
         self.sensor2index = {sensor: i for i, sensor in enumerate(self.sensors)}
+        self.X, self.Y, self.lengths, self.event_counts = self.generateDataset()
+        self.nseries, _, _ = self.X.shape
+        self.N_CLASSES = len(np.unique(self.Y))
 
     def preprocessing(self):
         data_path = "../AIoTService/segmentation/dataset/testbed/npy/lapras/motion"
@@ -615,7 +704,9 @@ class Lapras(CASAS_RAW_SEGMENTED):
             sensors |= set(ep[:, 0])
         return episodes, sensors
 
-args.expiration_period = 40
+
+
+args.expiration_period = -1
 
 data1 = Lapras(args)
 data2 = Lapras(args)
