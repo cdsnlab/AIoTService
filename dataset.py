@@ -705,7 +705,6 @@ class Lapras(CASAS_RAW_SEGMENTED):
         return episodes, sensors
 
 
-
 args.expiration_period = -1
 
 data1 = Lapras(args)
