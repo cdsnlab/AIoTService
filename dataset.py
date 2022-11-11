@@ -681,19 +681,28 @@ class Lapras(CASAS_RAW_SEGMENTED):
         self.main()
         
     def main(self):
-        self.filename = "../AIoTService/segmentation/dataset/testbed/npy/lapras/motion"
+        self.data_path = "../AIoTService/segmentation/dataset/testbed/npy/lapras/motion"
         self.episodes, sensors = self.preprocessing()
         self.sensors = sorted(sensors)
         self.N_FEATURES = len(self.sensors)
         self.sensor2index = {sensor: i for i, sensor in enumerate(self.sensors)}
-        self.X, self.Y, self.lengths, self.event_counts = self.generateDataset()
+        self.args.seq_len = int(self.args.seq_len * self.args.window_size)
+        self.X, self.Y, self.org_lengths, self.event_counts = self.generateDataset()
+        self.args.seq_len = int(self.args.seq_len / self.args.window_size)
+        self.X = np.reshape(self.X, (self.X.shape[0], self.args.seq_len, self.args.window_size, self.N_FEATURES))
+        self.X = np.mean(self.X, axis=2)
+
+        self.lengths = np.ceil(self.org_lengths / self.args.window_size).astype(np.int64)
+        self.lengths = np.where(self.lengths > self.args.seq_len, self.args.seq_len, self.lengths)
         self.nseries, _, _ = self.X.shape
         self.N_CLASSES = len(np.unique(self.Y))
+        
+        noise_amount = int(self.args.noise_ratio / 100 * self.args.offset)
+        self.noise_amount = np.ones(len(self.X), dtype=int) * noise_amount
 
     def preprocessing(self):
-        data_path = "../AIoTService/segmentation/dataset/testbed/npy/lapras/motion"
         episodes = []
-        for wd in glob.glob(f"{data_path}/*"):
+        for wd in glob.glob(f"{self.data_path}/*"):
             activity = wd.split("/")[-1]
             # print(activity)
             filelist = glob.glob(f"{wd}/*.npy")
@@ -705,16 +714,12 @@ class Lapras(CASAS_RAW_SEGMENTED):
             sensors |= set(ep[:, 0])
         return episodes, sensors
 
+# data2 = Lapras(args)
 
-args.expiration_period = -1
+# data_casas1 = CASAS_RAW_NATURAL(args)
+# data_casas1.X
 
-data1 = Lapras(args)
-data2 = Lapras(args)
-
-data_casas1 = CASAS_RAW_NATURAL(args)
-data_casas1.X
-
-np.sum(data1.X != data2.X)
+# np.sum(data1.X != data2.X)
 
 # aa = episodes['Presentation'] + episodes['Discussion'] + episodes['GroupStudy'] + episodes['Chatting']
 # lengths = []

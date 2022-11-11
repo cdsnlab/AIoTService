@@ -18,7 +18,7 @@ from sklearn.metrics import precision_recall_fscore_support as f_score
 
 import utils
 from model import EARLIEST
-from dataset import CASAS_ADLMR, CASAS_RAW_NATURAL, CASAS_RAW_SEGMENTED, Dataloader
+from dataset import Lapras, CASAS_RAW_NATURAL, CASAS_RAW_SEGMENTED, Dataloader
 
 
 args = utils.create_parser()
@@ -198,10 +198,13 @@ if __name__ == "__main__":
     optimizer = tf.keras.optimizers.Adam(learning_rate=args.learning_rate)
 
     # Load dataset
-    if args.segmented == True:
-        data = CASAS_RAW_SEGMENTED(args)
-    elif args.segmented == False:
-        data = CASAS_RAW_NATURAL(args)
+    if args.dataset in ['lapras', 'doore']:
+        data = Lapras(args)
+    else:
+        if args.segmented == True:
+            data = CASAS_RAW_SEGMENTED(args)
+        elif args.segmented == False:
+            data = CASAS_RAW_NATURAL(args)
     # elif args.dataset == "adlmr":
     #     data = CASAS_ADLMR(args)
     args.nclasses = data.N_CLASSES
