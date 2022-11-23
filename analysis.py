@@ -1203,12 +1203,12 @@ import pandas as pd
 import tensorboard as tb
 
 
-def get_exp_results(exp_ids, lam):
+def get_exp_results(exp_ids, lam, query='test'):
     df_list = []
     for i, experiment_id in enumerate(exp_ids):
         experiment = tb.data.experimental.ExperimentFromDev(experiment_id)
         df = experiment.get_scalars()
-        df = df.loc[df['run'].str.contains(r"test")]
+        df = df.loc[df['run'].str.contains(r"%s" % query)]
         df["step"] += 1
         df["group"] = df["tag"] + "_" + df["step"].astype('str')
         df_grouped = df.groupby("group").mean()
@@ -1219,6 +1219,7 @@ def get_exp_results(exp_ids, lam):
         df_list.append(df_grouped)
     df_concat = pd.concat(df_list)
     return df_concat
+
 def save_results(exp_num, data_name, df):
     acc_100, ear_100, hm_100 = [], [], []
     for id in exp_num:
@@ -1230,6 +1231,16 @@ def save_results(exp_num, data_name, df):
         ear_100.append(ear[ear['step'] == 100]['value'].values[0])
         hm_100.append(hm[hm['step'] == 100]['value'].values[0])
     df_result = pd.DataFrame({'exp_id': exp_num, 'accuracy': acc_100, 'earliness': ear_100, 'hm': hm_100})
+    df_result.to_csv(f'./results/{data_name}_1.csv')
+    # print(f'{acc_100: .4f} {ear_100: .4f} {hm_100: .4f}')
+    
+def save_results_train(exp_num, data_name, df):
+    acc_100 = []
+    for id in exp_num:
+        # id = 'basic_0.01'
+        acc = df[(df['lambda'] == id) & (df['metrics'] == 'whole_accuracy')]
+        acc_100.append(acc[acc['step'] == 50]['value'].values[0])
+    df_result = pd.DataFrame({'exp_id': exp_num, 'accuracy': acc_100})
     df_result.to_csv(f'./results/{data_name}_1.csv')
     # print(f'{acc_100: .4f} {ear_100: .4f} {hm_100: .4f}')
 
@@ -1348,13 +1359,22 @@ exp_none = ['xo4o7LA6TqqvIocYPx10ew',
             'havQY6BqQS2S9YFQdYnBOg',
             'gzkY6OsQQY2W6LKTyJi41w',
             'UWQz3lADQXe24WotO7NxzA']
+exp_lapras_aug = ['VrRiNFXxQn63RsXNqLhVOA',
+                'qtowxW2SRuyEMBXuokdpnQ',
+                '9abKVkUdRb2mUN5XXQdbzw',
+                'cmcNRQCPRR20l37CzGcgUA',
+                'ubjFJSeYRFGYoXENUNaRhQ']
+
 
 
 from itertools import product
 methods=['basic', 'cnn', 'attn']
 methods=['none_milan', 'none_kyoto11']
+# methods=['lapras']
 lam=['0.001']
 lam=['0.1', '0.01', '0.001', '0.0001', '0.00001']
+lam=['0.1', '0.2', '0.3', '0.4', '0.5']
+# lam=['0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '10']
 exp_num = []
 for i in product(methods, lam):
     exp_num.append('_'.join(i))
@@ -1367,6 +1387,7 @@ df_cairo = get_exp_results(exp_cairo, exp_num)
 df_kyoto7 = get_exp_results(exp_kyoto7, exp_num)
 df_kyoto8 = get_exp_results(exp_kyoto8, exp_num)
 df_kyoto11 = get_exp_results(exp_kyoto11, exp_num)
+df_lapras = get_exp_results(exp_lapras_aug, exp_num, 'train')
 np.mean([8564, 8686, 8907])
 save_results(exp_num, 'detector', df_detector)
 save_results(exp_num, 'none', df_none)
@@ -1375,6 +1396,8 @@ save_results(exp_num, 'cairo', df_cairo)
 save_results(exp_num, 'kyoto7', df_kyoto7)
 save_results(exp_num, 'kyoto8', df_kyoto8)
 save_results(exp_num, 'kyoto11', df_kyoto11)
+save_results(exp_num, 'lapras', df_lapras)
+save_results_train(exp_num, 'lapras_train', df_lapras)
 
 pd.options.display.float_format = '{:.5f}'.format
 id = 'basic_0.1'
@@ -2266,3 +2289,247 @@ print(list_HM2)
 
 
 
+# ---------------------------------------------------------------------------------------------
+# Filter model
+# earliness 계산
+args = utils.create_parser()
+args.dataset = "milan"
+args.random_noise=True
+data_natural = CASAS_RAW_NATURAL(args)
+
+
+milan_dir = ['220926-154933']
+
+locations = np.where(data_natural.lengths[data['idx']] <= 20, data_natural.lengths[data['idx']], data['locations']) 
+
+list_acc, list_earl1, list_earl2, list_HM1, list_HM2 = [], [], [], [], []
+for dir in milan_dir:
+    # dir = '221019-194009'
+    acc, earl1, earl2, HM1, HM2 = [], [], [], [], []
+    # data.keys()
+    for i in range(1, 4):
+        data = pd.read_csv(f'./output/log/{dir}/fold_{i}/test_results.csv')
+        
+        
+        locations = np.where(data['lengths'].to_numpy() <= 20, 1, data['locations'].to_numpy() - 20)        
+        accuracy = np.where(data['pred_y'].to_numpy() == data['true_y'].to_numpy(), 1, 0).mean()
+        earliness1 = np.mean(locations / data['lengths'].to_numpy())
+        earliness2 = np.mean(data['locations'].to_numpy() / data['lengths'].to_numpy())
+        acc.append(accuracy)
+        earl1.append(earliness1)
+        earl2.append(earliness2)
+        HM1.append((2 * (1 - earliness1) * accuracy) / ((1 - earliness1) + accuracy))
+        HM2.append((2 * (1 - earliness2) * accuracy) / ((1 - earliness2) + accuracy))
+    list_acc.append(np.mean(acc))
+    list_earl1.append(np.mean(earl1))
+    list_earl2.append(np.mean(earl2))
+    list_HM1.append(np.mean(HM1))
+    list_HM2.append(np.mean(HM2))
+print(list_acc)
+print(list_earl1)
+print(list_earl2)
+print(list_HM1)
+print(list_HM2)
+
+0.936 / 0.948
+
+
+kyoto11_dir = ['221004-223621']
+list_acc, list_earl1, list_earl2, list_HM1, list_HM2 = [], [], [], [], []
+for dir in kyoto11_dir:
+    # dir = '221019-194009'
+    acc, earl1, earl2, HM1, HM2 = [], [], [], [], []
+    # data.keys()
+    for i in range(1, 4):
+        with open(f'./output/log/{dir}/fold_{i}/dict_analysis.pickle', 'rb') as f:
+            data = pickle.load(f)
+        
+        locations = np.where(data['lengths'] <= 20, 1, data['locations'] - 20)        
+        accuracy = np.where(data['pred_y'] == data['true_y'], 1, 0).mean()
+        earliness1 = np.mean(locations / data['lengths'])
+        earliness2 = np.mean(data['locations'] / data['lengths'])
+        acc.append(accuracy)
+        earl1.append(earliness1)
+        earl2.append(earliness2)
+        HM1.append((2 * (1 - earliness1) * accuracy) / ((1 - earliness1) + accuracy))
+        HM2.append((2 * (1 - earliness2) * accuracy) / ((1 - earliness2) + accuracy))
+    list_acc.append(np.mean(acc))
+    list_earl1.append(np.mean(earl1))
+    list_earl2.append(np.mean(earl2))
+    list_HM1.append(np.mean(HM1))
+    list_HM2.append(np.mean(HM2))
+print(list_acc)
+print(list_earl1)
+print(list_earl2)
+print(list_HM1)
+print(list_HM2)
+0.885/0.894
+
+# acc = [0.8564, 0.8686, 0.8907]
+# ear1 = [0.09182, 0.09609, 0.0929]
+# ear2 = [0.1915, 0.1958, 0.1969]
+acc = [0.7997, 0.781, 0.8102]
+ear1 = [0.1146, 0.1005, 0.1042]
+ear2 = [0.2121, 0.2123, 0.2072]
+
+HM1, HM2 = [], []
+for a, e1, e2 in zip(acc, ear1, ear2):
+    HM1.append((2 * (1 - e1) * a) / ((1 - e1) + a))
+    HM2.append((2 * (1 - e2) * a) / ((1 - e2) + a))
+    
+np.mean(HM1)
+np.mean(HM2)
+np.mean(ear2)
+
+# ---------------------------------------------------------------------------------------------
+# Window Warping
+a = np.where(np.sum(data_natural.X, axis=2) == 0, 1, 0)
+leng = 2000 - np.argmin(np.flip(a, axis=1), axis=1)
+
+
+args = utils.create_parser()
+args.dataset = "lapras"
+args.random_noise=False
+args.window_size = 5
+data_natural = Lapras(args)
+data_natural.X.shape
+data_natural.org_lengths
+data_natural.lengths
+
+
+X, Y, lengths, event_counts, noise_amount = [], [], [], [], []
+X.append(data_natural.X)
+Y += list(data_natural.Y)
+lengths += list(data_natural.lengths)
+event_counts += list(data_natural.event_counts)
+noise_amount += list(data_natural.noise_amount)
+for x, y, l, e, n in zip(data_natural.X, data_natural.Y, data_natural.lengths, data_natural.event_counts, data_natural.noise_amount):
+    X.append(window_warp(x, l, multiple=multiple))
+    Y += [y] * multiple
+    lengths += [l] * multiple
+    event_counts += [e] * multiple
+    noise_amount += [n] * multiple
+X = np.concatenate(X)
+Y = np.array(Y)
+lenghts = np.array(lengths)
+event_counts = np.array(event_counts)
+noise_amount = np.array(noise_amount)
+
+X[0].shape
+data_natural.X[0]
+x2 = window_warp(x, l, multiple=multiple)
+x.shape
+
+
+
+
+
+def window_warp(x, length, window_ratio=0.1, scales=[0.5, 2.], multiple=3):
+    # https://halshs.archives-ouvertes.fr/halshs-01357973/document
+    warp_scales = np.random.choice(scales, multiple)
+    warp_size = np.ceil(window_ratio*length).astype(int)
+    window_steps = np.arange(warp_size)
+        
+    window_starts = np.random.randint(low=1, high=length-warp_size-1, size=multiple).astype(int)
+    window_ends = (window_starts + warp_size).astype(int)
+    
+    time_steps, channel = x.shape        
+    ret = np.zeros([multiple, time_steps, channel])
+    for i in range(multiple):
+        for dim in range(channel):
+            start_seg = x[:window_starts[i],dim]
+            window_seg = np.interp(np.linspace(0, warp_size-1, num=int(warp_size*warp_scales[i])), window_steps, x[window_starts[i]:window_ends[i],dim])
+            end_seg = x[window_ends[i]:length,dim]
+            padding_seg = x[length:,dim]
+            warped = np.concatenate((start_seg, window_seg, end_seg))                
+            warped = np.interp(np.arange(length), np.linspace(0, length-1., num=warped.size), warped).T
+            ret[i,:,dim] = np.concatenate((warped, padding_seg))
+    return ret
+
+
+
+
+x[window_starts[i]:window_ends[i],dim].shape
+window_starts[i] = 606
+window_ends[i] = 675
+
+start_seg.shape
+window_seg.shape
+end_seg.shape
+padding_seg.shape
+warped.shape
+np.concatenate((warped, padding_seg)).shape
+length
+
+ret.shape
+
+
+
+def window_warp(x, window_ratio=0.1, scales=[0.5, 2.]):
+    # https://halshs.archives-ouvertes.fr/halshs-01357973/document
+    warp_scales = np.random.choice(scales, x.shape[0])
+    warp_size = np.ceil(window_ratio*x.shape[1]).astype(int)
+    window_steps = np.arange(warp_size)
+        
+    window_starts = np.random.randint(low=1, high=x.shape[1]-warp_size-1, size=(x.shape[0])).astype(int)
+    window_ends = (window_starts + warp_size).astype(int)
+            
+    ret = np.zeros_like(x)
+    for i, pat in enumerate(x):
+        for dim in range(x.shape[2]):
+            start_seg = pat[:window_starts[i],dim]
+            window_seg = np.interp(np.linspace(0, warp_size-1, num=int(warp_size*warp_scales[i])), window_steps, pat[window_starts[i]:window_ends[i],dim])
+            end_seg = pat[window_ends[i]:,dim]
+            warped = np.concatenate((start_seg, window_seg, end_seg))                
+            ret[i,:,dim] = np.interp(np.arange(x.shape[1]), np.linspace(0, x.shape[1]-1., num=warped.size), warped).T
+    return ret
+
+
+# -------------------------------------------------------------------------------------------
+data_path = "../AIoTService/segmentation/dataset/testbed/npy/lapras/csv"
+
+episodes = []
+for wd in glob.glob(f"{data_path}/*"):
+    activity = wd.split("/")[-1]
+    # print(activity)
+    filelist = sorted(glob.glob(f"{wd}/*.csv"))
+    for file in filelist:
+        df = pd.read_csv(file, header=None)
+        # df = df.loc[df[0].str.contains(r"Mtest")]
+        # df = df.loc[df[0].str.contains(r"seat") | df[0].str.contains(r"Mtest")]
+        df[2] = df[2].apply(lambda x: str(x)[:-3])
+        epi = df.to_numpy()
+        episodes.append(np.concatenate([epi, np.broadcast_to(np.array([activity]), (len(epi), 1))], axis=1))
+    # episodes.append(np.array([np.concatenate((pd.read_csv(file, header=None).to_numpy(), np.broadcast_to(np.array([activity]), (len(pd.read_csv(file, header=None).to_numpy()),1))), axis=1) for file in filelist]))            
+episodes = np.array(episodes)
+
+sensors = set()
+for ep in episodes:
+    sensors |= set(ep[:, 0])
+sorted(sensors)
+
+import re
+
+data_path = "../AIoTService/segmentation/dataset/testbed/RevisionData"
+filelist = sorted(glob.glob(f"{data_path}/*.csv"))
+episodes = []
+for file in filelist:
+    file_name = file.split('/')[-1][:-4]
+    activity = re.sub(r"[0-9]", "", file_name)
+    
+    df = pd.read_csv(file, header=None)
+    # df = df.loc[df[0].str.contains(r"Mtest")]
+    # df = df.loc[df[0].str.contains(r"seat") | df[0].str.contains(r"Mtest")]
+    df[2] = df[2].apply(lambda x: str(x)[:-3])
+    epi = df.to_numpy()
+    episodes.append(np.concatenate([epi, np.broadcast_to(np.array([activity]), (len(epi), 1))], axis=1))
+# episodes.append(np.array([np.concatenate((pd.read_csv(file, header=None).to_numpy(), np.broadcast_to(np.array([activity]), (len(pd.read_csv(file, header=None).to_numpy()),1))), axis=1) for file in filelist]))            
+episodes = np.array(episodes)
+
+
+sensors = set()
+for ep in episodes:
+    sensors |= set(ep[:, 0])
+sorted(sensors)
+
+episodes[0]

@@ -52,7 +52,11 @@ def loss_EARLIEST(model, x, true_y, length, tr_points):  # shape of true_y is (B
     if args.model == "DETECTOR":
         model.halt_probs = model.halt_probs * model.grad_mask
     wait_penalty = tf.reduce_mean(tf.reduce_sum(model.halt_probs, 1))
-    loss = loss_r + loss_b + loss_c + args.lam*(wait_penalty)
+    if args.full_seq:
+        loss = loss_c
+    else:
+        loss = loss_r + loss_b + loss_c + args.lam*(wait_penalty)
+        
     if args.train_filter:
         CE_filter = tf.keras.losses.SparseCategoricalCrossentropy()
         tr_points = np.reshape(tr_points, (model.filter_logits.shape[0], -1))
@@ -182,7 +186,7 @@ def write_test_summary(true_y, pred_y):
         pickle.dump(dict_analysis, f, pickle.HIGHEST_PROTOCOL)
 
 if __name__ == "__main__":
-    if args.model == "DETECTOR":
+    if (args.model == "DETECTOR") or args.full_seq:
         logger = tf.get_logger()
         logger.setLevel(logging.ERROR)
     tf.autograph.set_verbosity(0)
@@ -221,8 +225,8 @@ if __name__ == "__main__":
     if args.train:
         for k, (train_idx, test_idx) in enumerate(kfold.split(data.X, data.Y)):
             # Define data loaders and model
-            train_loader = Dataloader(train_idx, data.X, data.Y, data.lengths, data.event_counts, args.batch_size, shuffle=args.shuffle, tr_points=data.noise_amount)
-            test_loader = Dataloader(test_idx, data.X, data.Y, data.lengths, data.event_counts, args.batch_size, shuffle=args.shuffle, tr_points=data.noise_amount)
+            train_loader = Dataloader(train_idx, data.X, data.Y, data.lengths, data.event_counts, args.batch_size, shuffle=args.shuffle, tr_points=data.noise_amount, window_ratio=args.window_ratio, aug_multiple=args.aug_multiple)
+            test_loader = Dataloader(test_idx, data.X, data.Y, data.lengths, data.event_counts, args.batch_size, shuffle=args.shuffle, tr_points=data.noise_amount, aug_multiple=0)
             # if args.model in ["EARLIEST", "ATTENTION"]:
             if args.model == 'DETECTOR':
                 temp_model = args.model
@@ -279,7 +283,7 @@ if __name__ == "__main__":
                 break
         print(f'tensor board dir: {logdir}')
         f = open(f"./exp_info/{args.exp_info_file}.txt", 'a')
-        f.write(f"{args.dataset}\t{args.lam}\t{args.model}\t{logdir}\n")
+        f.write(f"{args.dataset}\t{args.lam}\t{args.window_ratio}\t{args.aug_multiple}\t{args.model}\t{logdir}\n")
         f.close()
             
     if args.test:

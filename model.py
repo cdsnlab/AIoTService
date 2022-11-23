@@ -271,6 +271,8 @@ class EARLIEST(tf.keras.Model):
             # If a_t == 1 and this class hasn't been halted, save its logits
             if self.args.model == "DETECTOR":
                 a_t = tf.where(self.estimated_tr > t , 0, a_t)
+            if self.args.full_seq:
+                a_t *= 0
             
             predictions = tf.where((length-1 <= t) & (predictions == 0), logits, predictions)
             predictions = tf.where((a_t == 1) & (predictions == 0), logits, predictions)

@@ -16,12 +16,16 @@ from tensorflow.keras.preprocessing.sequence import pad_sequences
 
 
 class Dataloader(Sequence):
-    def __init__(self, indices, x_set, y_set, len_set, count_set, batch_size, shuffle=False, tr_points=None, tr_boundary=None):
+    def __init__(self, indices, x_set, y_set, len_set, count_set, batch_size, shuffle=False, tr_points=None, tr_boundary=None, window_ratio=0.1, aug_multiple=0):
     # def __init__(self, indices, x_set, y_set, len_set, count_set, batch_size, prev_y_set, shuffle=False, tr_points=None, tr_boundary=None):
         self.indices = indices
         self.x, self.y, self.len, self.count = x_set, y_set, len_set, count_set
         # self.prev_y = prev_y_set
         self.tr_points, self.tr_boundary = tr_points, tr_boundary
+        if aug_multiple > 0:
+            self.x, self.y, self.len, self.count = self.x[indices], self.y[indices], self.len[indices], self.count[indices]
+            self.augmentation(window_ratio, aug_multiple)
+            self.indices = np.array(range(self.x.shape[0]))
         self.batch_size = batch_size
         self.shuffle = shuffle
         self.on_epoch_end()
@@ -46,6 +50,47 @@ class Dataloader(Sequence):
         #     batch_tr_boundary = None
         return batch_x, batch_y, batch_len, batch_count, batch_tr_point
         # return batch_x, batch_y, batch_len, batch_count, batch_prev_y
+        
+    def augmentation(self, window_ratio, multiple):
+        X, Y, lengths, event_counts, noise_amount = [], [], [], [], []
+        X.append(self.x)
+        Y += list(self.y)
+        lengths += list(self.len)
+        event_counts += list(self.count)
+        noise_amount += list(self.tr_points)
+        for x, y, l, e, n in zip(self.x, self.y, self.len, self.count, self.tr_points):
+            X.append(self.window_warp(x, l, window_ratio=window_ratio, multiple=multiple))
+            Y += [y] * multiple
+            lengths += [l] * multiple
+            event_counts += [e] * multiple
+            noise_amount += [n] * multiple
+        self.x = np.concatenate(X)
+        self.y = np.array(Y)
+        self.len = np.array(lengths)
+        self.count = np.array(event_counts)
+        self.tr_points = np.array(noise_amount)
+    
+    def window_warp(self, x, length, window_ratio=0.1, scales=[0.5, 2.], multiple=3):
+        # https://halshs.archives-ouvertes.fr/halshs-01357973/document
+        warp_scales = np.random.choice(scales, multiple)
+        warp_size = np.ceil(window_ratio*length).astype(int)
+        window_steps = np.arange(warp_size)
+        
+        window_starts = np.random.randint(low=1, high=length-warp_size-1, size=multiple).astype(int)
+        window_ends = (window_starts + warp_size).astype(int)
+        
+        time_steps, channel = x.shape        
+        ret = np.zeros([multiple, time_steps, channel])
+        for i in range(multiple):
+            for dim in range(channel):
+                start_seg = x[:window_starts[i],dim]
+                window_seg = np.interp(np.linspace(0, warp_size-1, num=int(warp_size*warp_scales[i])), window_steps, x[window_starts[i]:window_ends[i],dim])
+                end_seg = x[window_ends[i]:length,dim]
+                padding_seg = x[length:,dim]
+                warped = np.concatenate((start_seg, window_seg, end_seg))                
+                warped = np.interp(np.arange(length), np.linspace(0, length-1., num=warped.size), warped).T
+                ret[i,:,dim] = np.concatenate((warped, padding_seg))
+        return ret
 
     def on_epoch_end(self):
         # self.indices = np.arange(len(self.x))
@@ -383,6 +428,8 @@ class CASAS_RAW_SEGMENTED:
             return None
         # state_matrix = np.zeros((int(episode[-1][2]) + 1, self.N_FEATURES))
         state_matrix = np.zeros((self.args.seq_len, self.N_FEATURES))
+        # if self.args.dataset == 'lapras':
+        #     state_matrix -= 1
         prev_t = 0
         count = 0
         count_seq = np.zeros((self.args.seq_len))
@@ -440,6 +487,9 @@ class CASAS_RAW_SEGMENTED:
         flag = np.zeros((self.N_FEATURES))
         temp_state_matrix = []
         for state in state_matrix:
+            # if self.args.dataset == 'lapras' and np.sum(state) == -self.N_FEATURES:
+            #     temp_state_matrix.append(padding.copy())
+            #     continue
             new_ON_idx = np.where((state==1) & (flag == 0))[0]
             new_OFF_idx = np.where(((state==0) & (flag == 1)) | (count>=self.args.expiration_period))[0]
             
@@ -681,11 +731,13 @@ class Lapras(CASAS_RAW_SEGMENTED):
         self.main()
         
     def main(self):
-        self.data_path = "../AIoTService/segmentation/dataset/testbed/npy/lapras/motion"
+        # self.data_path = "../AIoTService/segmentation/dataset/testbed/npy/lapras/motion"
+        self.data_path = "../AIoTService/segmentation/dataset/testbed/npy/lapras/csv"
         self.episodes, sensors = self.preprocessing()
         self.sensors = sorted(sensors)
         self.N_FEATURES = len(self.sensors)
         self.sensor2index = {sensor: i for i, sensor in enumerate(self.sensors)}
+        
         self.args.seq_len = int(self.args.seq_len * self.args.window_size)
         self.X, self.Y, self.org_lengths, self.event_counts = self.generateDataset()
         self.args.seq_len = int(self.args.seq_len / self.args.window_size)
@@ -699,20 +751,43 @@ class Lapras(CASAS_RAW_SEGMENTED):
         
         noise_amount = int(self.args.noise_ratio / 100 * self.args.offset)
         self.noise_amount = np.ones(len(self.X), dtype=int) * noise_amount
-
+        
     def preprocessing(self):
         episodes = []
         for wd in glob.glob(f"{self.data_path}/*"):
             activity = wd.split("/")[-1]
             # print(activity)
-            filelist = glob.glob(f"{wd}/*.npy")
-            episodes.append(np.array([np.concatenate((np.load(file), np.broadcast_to(np.array([activity]), (len(np.load(file)),1))), axis=1) for file in filelist]))            
-        episodes = np.concatenate(episodes)
-        
+            filelist = sorted(glob.glob(f"{wd}/*.csv"))
+            for file in filelist:
+                df = pd.read_csv(file, header=None)
+                # df = df.loc[df[0].str.contains(r"Mtest")]
+                df = df.loc[df[0].str.contains(r"seat") | df[0].str.contains(r"Mtest")]
+                df[2] = df[2].apply(lambda x: str(x)[:-3])
+                epi = df.to_numpy()
+                episodes.append(np.concatenate([epi, np.broadcast_to(np.array([activity]), (len(epi), 1))], axis=1))
+            # episodes.append(np.array([np.concatenate((pd.read_csv(file, header=None).to_numpy(), np.broadcast_to(np.array([activity]), (len(pd.read_csv(file, header=None).to_numpy()),1))), axis=1) for file in filelist]))            
+        episodes = np.array(episodes)
+
         sensors = set()
         for ep in episodes:
             sensors |= set(ep[:, 0])
-        return episodes, sensors
+        return episodes, sensors  
+
+    # def preprocessing(self):
+    #     episodes = []
+    #     for wd in glob.glob(f"{self.data_path}/*"):
+    #         activity = wd.split("/")[-1]
+    #         # print(activity)
+    #         filelist = sorted(glob.glob(f"{wd}/*.npy"))
+    #         episodes.append(np.array([np.concatenate((np.load(file), np.broadcast_to(np.array([activity]), (len(np.load(file)),1))), axis=1) for file in filelist]))            
+    #     episodes = np.concatenate(episodes)
+        
+    #     sensors = set()
+    #     for ep in episodes:
+    #         sensors |= set(ep[:, 0])
+    #     return episodes, sensors        
+    
+    
 
 # data2 = Lapras(args)
 

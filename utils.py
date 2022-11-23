@@ -141,6 +141,8 @@ def create_parser():
     parser.add_argument("--noise_low", type=int, default=-1, help="The lower bound of the amount of the noise")
     parser.add_argument("--noise_high", type=int, default=-1, help="The upper bound of the amount of the noise")
     parser.add_argument("--remove_short", type=str2bool, default=False, help="remove short episodes")
+    parser.add_argument("--aug_multiple", type=int, default=0, help="The number of augmented examples per real one")
+    parser.add_argument("--window_ratio", type=float, default="0.1", help="Ratio of window warping.")
     # Model hyperparameters
     parser.add_argument("--nhid", type=int, default=64, help="Number of dimensions of the hidden state of EARLIEST")
     parser.add_argument("--lam", type=float, default=0.08, help="Penalty of waiting. This controls the emphasis on earliness: Larger values lead to earlier predictions.")
@@ -178,6 +180,7 @@ def create_parser():
     parser.add_argument("--train", type=str2bool, default=True, help="whether to train the model")
     parser.add_argument("--test", type=str2bool, default=False, help="whether to test the model")
     parser.add_argument("--model_dir", type=str, default="./saved_models/", help="Where to save the model once it is trained.")
+    parser.add_argument("--full_seq", type=str2bool, default=False, help="Utilze the full sequence of the stream or not")
     # parser.add_argument("--utilize_tr", type=str2bool, default=False, help="Utilize the information on the transition point when conveying the hidden states of the attention model")
     return parser.parse_args()
 
