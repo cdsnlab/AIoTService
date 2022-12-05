@@ -411,12 +411,22 @@ class CASAS_RAW_SEGMENTED:
         # Y.append(mappingActivities[prev_label])
         return X
 
+    # def change_state(self, activated, s, v):
+    #     vector = activated.copy()
+    #     if v.lower() in ["on", "true", "up"]:
+    #         vector[self.sensor2index[s]] = 1
+    #     else:
+    #         vector[self.sensor2index[s]] = 0
+    #     return vector
+    
     def change_state(self, activated, s, v):
         vector = activated.copy()
-        if v.lower() in ["on", "true"]:
+        if v.lower() in ["on", "true", "up"]:
             vector[self.sensor2index[s]] = 1
-        else:
+        elif v.lower() in ["off", "false", "down"]:
             vector[self.sensor2index[s]] = 0
+        else:
+            vector[self.sensor2index[s]] = float(v)
         return vector
 
     def event2matrix(self, episode):
@@ -731,8 +741,12 @@ class Lapras(CASAS_RAW_SEGMENTED):
         self.main()
         
     def main(self):
-        # self.data_path = "../AIoTService/segmentation/dataset/testbed/npy/lapras/motion"
-        self.data_path = "../AIoTService/segmentation/dataset/testbed/npy/lapras/csv"
+        if self.args.dataset == 'lapras_kisoo':
+            self.data_path = "../AIoTService/segmentation/dataset/testbed/npy/lapras/csv"
+        elif self.args.dataset == 'lapras_norm':
+            self.data_path = "./dataset/Lapras_normalized"
+        elif self.args.dataset == 'lapras_stand':
+            self.data_path = "./dataset/Lapras_standardized"
         self.episodes, sensors = self.preprocessing()
         self.sensors = sorted(sensors)
         self.N_FEATURES = len(self.sensors)
@@ -761,8 +775,8 @@ class Lapras(CASAS_RAW_SEGMENTED):
             for file in filelist:
                 df = pd.read_csv(file, header=None)
                 # df = df.loc[df[0].str.contains(r"Mtest")]
-                df = df.loc[df[0].str.contains(r"seat") | df[0].str.contains(r"Mtest")]
-                df[2] = df[2].apply(lambda x: str(x)[:-3])
+                # df = df.loc[df[0].str.contains(r"seat") | df[0].str.contains(r"Mtest")]
+                df[2] = df[2].apply(lambda x: str(x)[:10])
                 epi = df.to_numpy()
                 episodes.append(np.concatenate([epi, np.broadcast_to(np.array([activity]), (len(epi), 1))], axis=1))
             # episodes.append(np.array([np.concatenate((pd.read_csv(file, header=None).to_numpy(), np.broadcast_to(np.array([activity]), (len(pd.read_csv(file, header=None).to_numpy()),1))), axis=1) for file in filelist]))            

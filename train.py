@@ -5,12 +5,14 @@ import pickle
 import logging
 import argparse
 from math import sqrt
+from pathlib import Path
 from datetime import datetime
 
 import numpy as np
 import pandas as pd
 from tqdm import tqdm
 import tensorflow as tf
+from tensorflow.core.util import event_pb2
 from focal_loss import SparseCategoricalFocalLoss
 # from sklearn.metrics import accuracy_score
 from sklearn.model_selection import StratifiedKFold
@@ -185,6 +187,25 @@ def write_test_summary(true_y, pred_y):
     with open(logdir + '/dict_analysis.pickle', 'wb') as f:
         pickle.dump(dict_analysis, f, pickle.HIGHEST_PROTOCOL)
 
+def organize_results(curr_time):
+    event_files = [str(f) for f in Path(f'./output/log/{curr_time}/').rglob('events.out.*')]
+    tag1, tag2, fold, step, val = [], [], [], [], []
+    for event_file in event_files:
+        serialized_examples = tf.data.TFRecordDataset(event_file)
+        for serialized_example in serialized_examples:
+            event = event_pb2.Event.FromString(serialized_example.numpy())
+            for value in event.summary.value:
+                t = tf.make_ndarray(value.tensor)
+                fold.append(event_file.split('/')[3])
+                tag1.append(event_file.split('/')[4])
+                tag2.append(value.tag)
+                step.append(event.step)
+                val.append(float(t))
+    df_concat = pd.DataFrame({'fold':fold, 'tag1':tag1, 'tag2':tag2, 'step':step, 'value':val})
+    df_avg = df_concat.groupby(['tag1', 'tag2', 'step']).mean()
+    df_concat.to_csv(f"./output/log/{curr_time}/raw_results.csv")
+    df_avg.to_csv(f"./output/log/{curr_time}/avg_results.csv")
+
 if __name__ == "__main__":
     if (args.model == "DETECTOR") or args.full_seq:
         logger = tf.get_logger()
@@ -202,7 +223,7 @@ if __name__ == "__main__":
     optimizer = tf.keras.optimizers.Adam(learning_rate=args.learning_rate)
 
     # Load dataset
-    if args.dataset in ['lapras', 'doore']:
+    if 'lapras' in args.dataset:
         data = Lapras(args)
     else:
         if args.segmented == True:
@@ -283,8 +304,11 @@ if __name__ == "__main__":
                 break
         print(f'tensor board dir: {logdir}')
         f = open(f"./exp_info/{args.exp_info_file}.txt", 'a')
-        f.write(f"{args.dataset}\t{args.lam}\t{args.window_ratio}\t{args.aug_multiple}\t{args.model}\t{logdir}\n")
+        # f.write(f"{args.dataset}\t{args.lam}\t{args.window_ratio}\t{args.aug_multiple}\t{args.model}\t{logdir}\n")
+        args.exp_id = args.exp_id.replace('_', '\t').replace('{', '').replace('}', '')
+        f.write(f"{args.exp_id}\t{logdir}\n")
         f.close()
+        organize_results(curr_time)
             
     if args.test:
         epoch = 0
@@ -324,5 +348,6 @@ if __name__ == "__main__":
             if not args.n_fold_cv:
                 break
         f = open(f"./exp_info/{args.exp_info_file}.txt", 'a')
-        f.write(f"{args.dataset}\t{args.model}\t{np.mean(list_avg_duration)}\t{args.model_dir}\t./output/log/{curr_time}\n")
+        args.exp_id = args.exp_id.replace('_', '\t').replace('{', '').replace('}', '')
+        f.write(f"{args.exp_id}\t{logdir}\n")
         f.close()

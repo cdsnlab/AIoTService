@@ -4,27 +4,29 @@
 # lambda_list="0.1"
 random_noise="True"
 lambda_list="0.1 0.01 0.001 0.0001 0.00001"
+# lambda_list="0.001"
 # lambda_list="0.1 0.01 0.001 0.0001"
-model="NONE"
+model="DETECTOR"
 
-file_name="x_kyoto8_lambda_none"
-device="2"
+file_name="x_kyoto8_lambda_detector"
+device="3"
 dataset="kyoto8"
-
+model_dir="./output/log/221004-234946"
 
 for i in $lambda_list
 do
     for j in $model
     do
+        exp_id="{$dataset}_{$j}_{$i}"
         echo "device: $device"
-        echo "lambda: $i"
-        echo "model: $j"
-        echo "dataset: $dataset"
+        echo "$exp_id"
         python train.py --lam $i \
+                        --exp_id $exp_id \
                         --exp_info_file $file_name \
                         --device $device \
                         --random_noise $random_noise \
                         --model $j \
-                        --dataset $dataset
+                        --dataset $dataset \
+                        --model_dir $model_dir \
     done
 done

@@ -1273,6 +1273,11 @@ exp_kyoto11_clear = ['5Js5HmqfR7CDar4E1u6rcA',
                     'KH5JXjQjRXy2G9KzPCOvaw',
                     'PilLgk8VRfGJH5eU2rBOhg',
                     'mtQAUqxARjmikElVmadETg']
+exp_kyoto8_clear = ['4BXAvL0MSdydQQU4Dcl7aA',
+                    'urXv0ruxSliWIniM84j3tg',
+                    'djNOOi9kQTmQkt76doR5MA',
+                    'Xsr1m7awQ3qgoX9G0HKTQA',
+                    'L80hlQOaTW69WsYRSBanlA']
 
 exp_cairo = ['Xi6dgnAmQb2qZxdskQDAzA',
             'oLzbZOwoSkqC7MeiMoonMw',
@@ -1349,16 +1354,23 @@ exp_detector = ['kIAO1WjJS0mFA46J551tBw',
                 'MXa5FaAARsWSJvrpqadm7A',
                 'yytNeS3AQjCkIeVMm4MLVA']
 
-exp_none = ['xo4o7LA6TqqvIocYPx10ew',
-            'nI4VRPtwQlS3wcdcdirJhw',
-            '4uZlQ1z8QPSOJIl9unb77g',
-            'ZjmEPJ7PROqor5m2YQCPmQ',
-            'Jq3zCAJ1RjONKJM5qF9PWg',
-            'rjgmfBZSQvmxc0cvLi7L6w',
-            'F932ACpaSAeaS38eMQDPHA',
-            'havQY6BqQS2S9YFQdYnBOg',
-            'gzkY6OsQQY2W6LKTyJi41w',
-            'UWQz3lADQXe24WotO7NxzA']
+# exp_none = ['xo4o7LA6TqqvIocYPx10ew',
+#             'nI4VRPtwQlS3wcdcdirJhw',
+#             '4uZlQ1z8QPSOJIl9unb77g',
+#             'ZjmEPJ7PROqor5m2YQCPmQ',
+#             'Jq3zCAJ1RjONKJM5qF9PWg',
+#             'rjgmfBZSQvmxc0cvLi7L6w',
+#             'F932ACpaSAeaS38eMQDPHA',
+#             'havQY6BqQS2S9YFQdYnBOg',
+#             'gzkY6OsQQY2W6LKTyJi41w',
+#             'UWQz3lADQXe24WotO7NxzA']
+
+exp_none = ['u4VurrMpRuykrhbaMo6Bbw',
+            '5BWVkzAZQEKXF5i7HAsa2Q',
+            'nFYgQPoZR9y3OD13U22QmA',
+            'LzMs3u7eQjetwow4za5quw',
+            'n4OuZsjeTlGj5HKrL5JTZQ']
+
 exp_lapras_aug = ['VrRiNFXxQn63RsXNqLhVOA',
                 'qtowxW2SRuyEMBXuokdpnQ',
                 '9abKVkUdRb2mUN5XXQdbzw',
@@ -1370,7 +1382,7 @@ exp_lapras_aug = ['VrRiNFXxQn63RsXNqLhVOA',
 from itertools import product
 methods=['basic', 'cnn', 'attn']
 methods=['none_milan', 'none_kyoto11']
-# methods=['lapras']
+methods=['kyoto8_clear']
 lam=['0.001']
 lam=['0.1', '0.01', '0.001', '0.0001', '0.00001']
 lam=['0.1', '0.2', '0.3', '0.4', '0.5']
@@ -1383,6 +1395,7 @@ df_detector = get_exp_results(exp_detector, exp_num)
 df_milan = get_exp_results(exp_milan, exp_num)
 # df_milan = get_exp_results(exp_milan_clear, exp_num)
 # df_kyoto11 = get_exp_results(exp_kyoto11_clear, exp_num)
+# df_kyoto8 = get_exp_results(exp_kyoto8_clear, exp_num)
 df_cairo = get_exp_results(exp_cairo, exp_num)
 df_kyoto7 = get_exp_results(exp_kyoto7, exp_num)
 df_kyoto8 = get_exp_results(exp_kyoto8, exp_num)
@@ -1394,7 +1407,7 @@ save_results(exp_num, 'none', df_none)
 save_results(exp_num, 'milan', df_milan)
 save_results(exp_num, 'cairo', df_cairo)
 save_results(exp_num, 'kyoto7', df_kyoto7)
-save_results(exp_num, 'kyoto8', df_kyoto8)
+save_results(exp_num, 'kyoto8_clear', df_kyoto8)
 save_results(exp_num, 'kyoto11', df_kyoto11)
 save_results(exp_num, 'lapras', df_lapras)
 save_results_train(exp_num, 'lapras_train', df_lapras)
@@ -2147,19 +2160,25 @@ all_gap[0][idx_pos].mean()
 
 # --------------------------------------------------------------------------
 # estimated와 actual간의 gap 분포 및 정확도
+import matplotlib.pyplot as plt
+
 dir = '221101-185505'
 all_noise_amount, all_estimated_tr, all_pred_y, all_true_y = [], [], [], []
+all_locations = []
 for i in range(1, 4):
     with open(f'./output/log/{dir}/fold_{i}/dict_analysis.pickle', 'rb') as f:
         data = pickle.load(f)
+    # data.keys()
     all_noise_amount.append(data['noise_amount'])
     all_estimated_tr.append(data['estimated_tr'])
     all_pred_y.append(data['pred_y'])
     all_true_y.append(data['true_y'])
+    all_locations.append(data['locations'])
 noise_amount = np.concatenate(all_noise_amount)
 estimated_tr = np.concatenate(all_estimated_tr)
 pred_y = np.concatenate(all_pred_y)
 true_y = np.concatenate(all_true_y)
+locations = np.concatenate(all_locations)
 
 diff = estimated_tr - noise_amount
 x, y = np.unique(diff, return_counts=True)
@@ -2181,12 +2200,10 @@ for i in x:
     acc_neg.append(np.where(pred_y[idx_neg] == true_y[idx_neg], 1, 0).mean())
     acc_pos.append(np.where(pred_y[idx_pos] == true_y[idx_pos], 1, 0).mean())
 
-
-
 plt.figure(figsize=(8,6))
-plt.plot(x, acc_neg, color = 'm', linestyle = 'solid', marker = 'o', label='Estimated before actual')
-plt.plot(x, acc_pos, color = 'g', linestyle = 'solid', marker = 'o', label='Estimated after actual')
-plt.xlabel('Absolute Gap')
+plt.plot(x, acc_neg, color = 'm', linestyle = 'solid', marker = 'o', label='Heterogeneous')
+plt.plot(x, acc_pos, color = 'g', linestyle = 'solid', marker = 'o', label='Homogeneous')
+plt.xlabel('Absolute Value of Gap <= x')
 plt.ylabel('Accuracy')
 plt.legend()
 plt.show()
@@ -2194,6 +2211,20 @@ plt.savefig(f'./analysis/threshold_acc_by_gap.png')
 plt.clf()
 
 
+acc_neg, acc_pos = [], []
+loc_neg, loc_pos = [], []
+x = range(0, args.offset + 1)
+for i in x:
+    idx_neg = np.where((diff == -i))[0]
+    idx_pos = np.where((diff == i))[0]
+    acc_neg.append(np.where(pred_y[idx_neg] == true_y[idx_neg], 1, 0).mean())
+    acc_pos.append(np.where(pred_y[idx_pos] == true_y[idx_pos], 1, 0).mean())
+    loc_neg.append(np.mean(locations[idx_neg]))
+    loc_pos.append(np.mean(locations[idx_pos]))
+
+locations
+
+list(x)
 
 
 # -------------------------------------------------------------------------- 
@@ -2247,30 +2278,35 @@ data_natural.org_lengths.mean()/60
 # ---------------------------------------------------------------------------------------------
 # None(Skipped TW)
 # earliness 계산
+import pickle
 
 milan_dir = ['221019-194009',
             '221019-200632',
             '221019-204541',
             '221019-215407',
             '221020-021007']
-
+kyoto8_dir = ['221019-194114',
+            '221019-195539',
+            '221019-201452',
+            '221019-203945',
+            '221019-214809']
 kyoto11_dir = ['221019-194117',
                 '221019-202935',
                 '221019-214613',
                 '221020-002423',
                 '221020-051013']
 list_acc, list_earl1, list_earl2, list_HM1, list_HM2 = [], [], [], [], []
-for dir in kyoto11_dir:
+for dir in kyoto8_dir:
     # dir = '221019-194009'
     acc, earl1, earl2, HM1, HM2 = [], [], [], [], []
-    data.keys()
+    # data.keys()
     for i in range(1, 4):
         with open(f'./output/log/{dir}/fold_{i}/dict_analysis.pickle', 'rb') as f:
             data = pickle.load(f)
         idx = np.where(data['lengths'] > 20)[0]
         accuracy = np.where(data['pred_y'][idx] == data['true_y'][idx], 1, 0).mean()
-        earliness1 = np.mean(data['locations'][idx] / data['lengths'][idx])
-        earliness2 = np.mean((data['locations'][idx] - 20) / data['lengths'][idx])
+        earliness1 = np.mean((data['locations'][idx] - 20) / data['lengths'][idx])
+        earliness2 = np.mean(data['locations'][idx] / data['lengths'][idx])
         acc.append(accuracy)
         earl1.append(earliness1)
         earl2.append(earliness2)
@@ -2388,7 +2424,8 @@ leng = 2000 - np.argmin(np.flip(a, axis=1), axis=1)
 
 
 args = utils.create_parser()
-args.dataset = "lapras"
+args.dataset = "lapras_kisoo"
+args.expiration_period = 40
 args.random_noise=False
 args.window_size = 5
 data_natural = Lapras(args)
@@ -2531,5 +2568,418 @@ sensors = set()
 for ep in episodes:
     sensors |= set(ep[:, 0])
 sorted(sensors)
+len(episodes)
 
-episodes[0]
+
+data_path = "./dataset/Lapras_Raw"
+
+episodes = []
+for wd in glob.glob(f"{data_path}/*"):
+    activity = wd.split("/")[-1]
+    # print(activity)
+    filelist = sorted(glob.glob(f"{wd}/*.csv"))
+    for file in filelist:
+        df = pd.read_csv(file, header=None)
+        # df = df.loc[df[0].str.contains(r"Mtest")]
+        # df = df.loc[df[0].str.contains(r"seat") | df[0].str.contains(r"Mtest")]
+        df[2] = df[2].apply(lambda x: str(x)[:-3])
+        epi = df.to_numpy()
+        episodes.append(np.concatenate([epi, np.broadcast_to(np.array([activity]), (len(epi), 1))], axis=1))
+    # episodes.append(np.array([np.concatenate((pd.read_csv(file, header=None).to_numpy(), np.broadcast_to(np.array([activity]), (len(pd.read_csv(file, header=None).to_numpy()),1))), axis=1) for file in filelist]))            
+episodes = np.array(episodes)
+
+sensors = set()
+for ep in episodes:
+    sensors |= set(ep[:, 0])
+sorted(sensors)
+
+
+
+# --------------------------------------------------------------------------------
+
+data_path = "./dataset/Lapras_Raw"
+episodes = []
+for wd in glob.glob(f"{data_path}/*"):
+    activity = wd.split("/")[-1]
+    # print(activity)
+    filelist = sorted(glob.glob(f"{wd}/*.csv"))
+    for file in filelist:
+        df = pd.read_csv(file, header=None)
+        df = df.loc[df[0].str.contains(r"Brightness|LightGroup|ProjectorPower|Screen|Seat1|Seat2|Seat3|Seat4|Seat5|Seat6|Sound|WhiteboardUsed", case=False)]
+        df = df.loc[~df[0].str.contains(r"_Brightness|TurnOffLight|TurnOnLight", case=False)]
+        if activity in ['Presentation', 'Discussion']:
+            idx = np.where(df[0].str.contains(r"ProjectorPower", case=False).to_numpy())[0]
+            if (len(idx) == 0) or ("On" not in df.iloc[idx][1].to_list()):
+                start_time = df[2].to_list()[0]
+                new_row = pd.DataFrame([['ProjectorPower', 'On', start_time]], columns = df.columns)
+                df = pd.concat([new_row, df], ignore_index = True)
+        df.to_csv(f'./dataset/Lapras_rm_ctxt/{activity}/{file.split("/")[-1]}', header=False, index=False)
+
+
+
+from sklearn.preprocessing import StandardScaler
+from sklearn.preprocessing import MinMaxScaler
+
+# scaler = StandardScaler()
+scaler = MinMaxScaler()
+
+data_path = "./dataset/Lapras_rm_ctxt"
+episodes = []
+normalize_context = ['Brightness', 'SoundC', 'SoundLeft', 'SoundRight']
+for wd in glob.glob(f"{data_path}/*"):
+    activity = wd.split("/")[-1]
+    # print(activity)
+    filelist = sorted(glob.glob(f"{wd}/*.csv"))
+    for file in filelist:
+        df = pd.read_csv(file, header=None)
+        for c in normalize_context:
+            idx = df[df[0]==c][1].index
+            if len(idx) == 0:
+                continue
+            values = df[df[0]==c][1].to_numpy().astype(float).reshape(-1, 1)
+            
+            scaler.fit(values)
+            scaled = scaler.transform(values)
+            df.iloc[idx, 1] = scaled.flatten()
+        df.to_csv(f'./dataset/Lapras_normalized/{activity}/{file.split("/")[-1]}', header=False, index=False)
+        # df.to_csv(f'./dataset/Lapras_standardization/{activity}/{file.split("/")[-1]}', header=False, index=False)
+
+
+
+
+
+
+
+data_path = "./dataset/Lapras_Raw"
+episodes = []
+X, X_file = [], []
+flag = False
+i = 0
+j = 0
+for wd in glob.glob(f"{data_path}/*"):
+    activity = wd.split("/")[-1]
+    # print(activity)
+    filelist = sorted(glob.glob(f"{wd}/*.csv"))
+    i = 0
+    for file in filelist:
+        df = pd.read_csv(file, header=None)
+        for x, x_f in zip(X, X_file):
+            # if (len(df) == len(x)) and (np.sum(x == df.values) == (len(df) * 3)):
+            if (len(df) == len(x)) and df[2][0] == x[0][2]:
+                flag = True
+                # print(x_f, file)
+                break
+        if flag:
+            flag = False
+            continue   
+        else:
+            X.append(df.values)
+            X_file.append(file)
+        if "Present" in df[0].to_list():
+            i += 1
+            print(activity, i)
+
+data_path = "./dataset/Lapras_Raw"
+# data_path = "./dataset/Lapras_rm_ctxt"
+episodes = []
+i = 0
+j = 0
+for wd in glob.glob(f"{data_path}/*"):
+    activity = wd.split("/")[-1]
+    # print(activity)
+    filelist = sorted(glob.glob(f"{wd}/*.csv"))
+    print( activity, len(filelist))
+    for file in filelist:
+        j += 1
+        df_temp = pd.read_csv(file, header=None)
+        df = df.append(df_temp)
+        if "Present" in df_temp[0].to_list():
+            print(activity)
+            i += 1
+        
+a = []        
+for c in np.unique(df[0]):
+    if ':' in c:
+        continue
+    a.append(c)
+    
+sensors = set()
+for ep in episodes:
+    sensors |= set(ep[:, 0])
+sorted(sensors)
+
+list_context = sorted(set(df[0]))
+dict_context = {}
+key, item = [], []
+for context in list_context:
+    dict_context[context] = str(set(df[df[0] == context][1].to_list()))
+    key.append(context)
+    item.append(set(df[df[0] == context][1].to_list()))
+
+
+dict_context.keys()
+pd.DataFrame({'key': key, 'item': item}).to_csv('./dataset/context.csv')
+
+for k, i in zip(key, item):
+    if k not in normalize_context:
+        continue
+    print(k)
+    print(np.min(np.array(list(i)).astype(float)), np.max(np.array(list(i)).astype(float)))
+    
+    
+    plt.hist(np.array(list(i)).astype(float), bins=50)
+    plt.title("Histogram of activity duration")
+    plt.xlabel("values")
+    plt.ylabel("")
+    plt.show()
+    plt.savefig(f"./dataset/histogram_{k}.png")
+    plt.clf()
+
+
+df_ = df.loc[df[0].str.contains(r"Brightness|SoundC|SoundLeft|SoundRight", case=False)]
+df_[1] = df_[1].astype(float)
+
+
+
+data_path = "./dataset/Lapras_rm_ctxt"
+episodes = []
+count = {k:0 for k in key}
+for wd in glob.glob(f"{data_path}/*"):
+    activity = wd.split("/")[-1]
+    # print(activity)
+    filelist = sorted(glob.glob(f"{wd}/*.csv"))
+    for file in filelist:
+        df_temp = pd.read_csv(file, header=None)
+        appearing_key = set(df_temp[0].to_list())
+        for a in appearing_key:
+            count[a] += 1
+
+for k, v in count.items():
+    print(f'{k}:\t{v}')            
+        
+
+
+import glob
+import pandas as pd
+import numpy as np
+
+data_path = "./dataset/Lapras_rm_ctxt"
+
+episodes = []
+for wd in glob.glob(f"{data_path}/*"):
+    activity = wd.split("/")[-1]
+    # print(activity)
+    filelist = sorted(glob.glob(f"{wd}/*.csv"))
+    for file in filelist:
+        df = pd.read_csv(file, header=None)
+        idx = np.where(df[0].str.contains(r"TurnOffProjector", case=False).to_numpy())[0]
+        if len(idx) != 0:
+            for i in idx:
+                if len(df[i:i+5]) != 5:
+                    continue
+                idx = np.where(df[i:i+5][0].to_numpy()=="ProjectorPower")[0]
+                if np.where(df[i:i+5][1].to_numpy()[idx] == "Off",1,0).sum() == 0:
+                    print(file)
+                # print(df[i:i+5])
+                # print('\n')
+                # x = input()
+
+
+
+
+
+data_path = "./dataset/Lapras_rm_ctxt"
+
+list_projector_on = []
+list_projector_off = []
+episodes = []
+for wd in glob.glob(f"{data_path}/*"):
+    activity = wd.split("/")[-1]
+    # print(activity)
+    filelist = sorted(glob.glob(f"{wd}/*.csv"))
+    for file in filelist:
+        df = pd.read_csv(file, header=None)
+        idx = np.where(df[0].str.contains(r"ProjectorPower", case=False).to_numpy())[0]
+        if (len(idx) != 0) and ("On" in df.iloc[idx][1].to_list()):
+            print(file.split('/')[-1])
+            list_projector_on.append(file.split('/')[-1])
+        if (len(idx) != 0) and ("Off" in df.iloc[idx][1].to_list()):
+            print(file.split('/')[-1])
+            list_projector_off.append(file.split('/')[-1])
+        
+projector_on = set(list_projector_on)
+projector_off = set(list_projector_off)
+len(projector_on)
+len(projector_on | projector_off)
+sorted(projector_on | projector_off)
+len(projector_on & projector_off)
+len(projector_on - projector_off)
+len(projector_off - projector_on)
+
+
+data_path = "./dataset/Lapras_rm_ctxt"
+data_path = "../AIoTService/segmentation/dataset/testbed/npy/lapras/csv"
+
+list_starttime = []
+list_starttime2 = []
+episodes = []
+for wd in glob.glob(f"{data_path}/*"):
+    activity = wd.split("/")[-1]
+    # print(activity)
+    filelist = sorted(glob.glob(f"{wd}/*.csv"))
+    for file in filelist:
+        df = pd.read_csv(file, header=None)
+        list_starttime2.append(df[2][0])
+
+
+len(list_starttime2)
+len(list_starttime)
+1490750882832 in list_starttime
+
+'Presentation29.csv' in sorted(projector_on | projector_off)
+
+
+
+# --------------------------------------------------------------------------------
+# lapras dataset characteristics
+
+(825 + 692 + 769)/3
+(775 + 743 + 615)/3
+(800 + 794 + 692)/3
+(700 + 692 + 769)/3
+
+args = utils.create_parser()
+args.dataset = "lapras_norm"
+args.expiration_period = -1
+args.random_noise=False
+args.window_size = 5
+data_natural = Lapras(args)
+
+len(data_natural.sensors)
+
+
+Brightness
+Light
+ProjectorPower
+Screen
+Seat
+Sound
+WhiteboardUsed
+
+len(data_natural.Y)
+np.unique(data_natural.Y, return_counts=True)
+          
+data_natural.idx2label
+
+f1 = [[0.9697, 0.5556, 0.7586],
+    [0.9091, 0.5882, 0.7857],
+    [0.9412, 0.1538, 0.6452]]
+
+precision = [[0.9412, 0.625, 0.7333],
+            [0.8824, 0.625, 0.7857],
+            [0.8889, 0.3333, 0.5556]]
+
+recall = [[1, 0.5, 0.7857],
+            [0.9375, 0.5556, 0.7857],
+            [1, 0.1, 0.7692]]
+
+np.mean(f1, axis=0)
+np.mean(precision, axis=0)
+np.mean(recall, axis=0)
+
+(83+98+71+57)/4
+(94+73+43)/3
+
+70/77.25
+
+# -------------------------------------------------------------------
+# training result from events.out files
+
+import tensorflow as tf
+from tensorflow.core.util import event_pb2
+from pathlib import Path
+import pandas as pd
+
+curr_time = '221129-031732'
+
+
+
+event_files = [str(f) for f in Path(f'./output/log/{curr_time}/').rglob('events.out.*')]
+tag1, tag2, fold, step, val = [], [], [], [], []
+for event_file in event_files:
+    serialized_examples = tf.data.TFRecordDataset(event_file)
+    for serialized_example in serialized_examples:
+        event = event_pb2.Event.FromString(serialized_example.numpy())
+        for value in event.summary.value:
+            t = tf.make_ndarray(value.tensor)
+            fold.append(event_file.split('/')[3])
+            tag1.append(event_file.split('/')[4])
+            tag2.append(value.tag)
+            step.append(event.step)
+            val.append(float(t))
+
+df_concat = pd.DataFrame({'fold':fold,
+                        'tag1':tag1,
+                        'tag2':tag2,
+                        'step':step,
+                        'value':val})
+df_avg = df_concat.groupby(['tag1', 'tag2', 'step']).mean()
+
+df_concat.to_csv(f"./output/log/{curr_time}/raw_results.csv")
+df_avg.to_csv(f"./output/log/{curr_time}/avg_results.csv")
+
+
+f"{args.dataset}"
+
+
+def a(k):
+    print(1)
+    b = [1,2,3,4]
+    c = ([1,2,3,4], [5,6,7,8])
+    return b, c
+d, e = a(1)
+d
+e
+
+
+
+class Softmax(object):
+    def __init__(self, stretch=1.0):
+        self.stretch = stretch
+
+    def __call__(self, X):
+        # This will only operate on the last axis
+        axis = -1
+        X_ = np.atleast_2d(X)*self.stretch
+        Y = np.exp(X_-np.expand_dims(np.max(X_, axis=axis), axis=axis))
+        Y /= np.expand_dims(np.sum(Y, axis=axis), axis=axis)
+
+        if len(X.shape) == 1:
+            Y = Y.flatten()
+        return Y
+
+    def single_jacobian(self, Y):
+        Y_ = Y.reshape(-1,1) # make 2D
+        return self.stretch*(np.diagflat(Y_)-np.dot(Y_, Y_.T))
+
+    def gradient(self, X):
+        Y = self(X)
+        out_shape = Y.shape + (Y.shape[-1],)
+        Y = np.atleast_2d(Y)
+
+        Y = Y.reshape(-1, Y.shape[-1])
+        out = np.zeros(Y.shape+(Y.shape[-1],), dtype=float)
+
+        # process each softmax vector
+        for i in range(Y.shape[0]):
+            out[i] = self.single_jacobian(Y[i])
+        return out.reshape(out_shape)
+    
+import numpy as np
+X = np.array([1,2,3,4,5])
+sm = Softmax()
+sm(X).sum()
+
+grd = sm.gradient(X)
+grd[0][1:].sum()
+grd[-1][:-1].sum()
