@@ -27,6 +27,6 @@ do
                         --random_noise $random_noise \
                         --model $j \
                         --dataset $dataset \
-                        --model_dir $model_dir \
+                        --model_dir $model_dir
     done
 done

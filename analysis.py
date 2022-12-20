@@ -2097,7 +2097,7 @@ plt.clf()
 import pickle
 import numpy as np
 
-dir = '221101-185507'
+dir = '221205-184408'
 all_mae = []
 for i in range(1, 4):
     with open(f'./output/log/{dir}/fold_{i}/dict_analysis.pickle', 'rb') as f:
@@ -2201,10 +2201,10 @@ for i in x:
     acc_pos.append(np.where(pred_y[idx_pos] == true_y[idx_pos], 1, 0).mean())
 
 plt.figure(figsize=(8,6))
-plt.plot(x, acc_neg, color = 'm', linestyle = 'solid', marker = 'o', label='Heterogeneous')
-plt.plot(x, acc_pos, color = 'g', linestyle = 'solid', marker = 'o', label='Homogeneous')
-plt.xlabel('Absolute Value of Gap <= x')
-plt.ylabel('Accuracy')
+plt.plot(x, acc_neg, color = 'm', linestyle = 'solid', marker = 'o', label='estimated before actual')
+plt.plot(x, acc_pos, color = 'g', linestyle = 'solid', marker = 'o', label='actual before estimated')
+plt.xlabel('Absolute value of gap between actual and estimated points')
+plt.ylabel('Accuracy of data <= x')
 plt.legend()
 plt.show()
 plt.savefig(f'./analysis/threshold_acc_by_gap.png')
@@ -2370,7 +2370,7 @@ print(list_HM2)
 0.936 / 0.948
 
 
-kyoto11_dir = ['221004-223621']
+kyoto11_dir = ['221004-234946']
 list_acc, list_earl1, list_earl2, list_HM1, list_HM2 = [], [], [], [], []
 for dir in kyoto11_dir:
     # dir = '221019-194009'
@@ -2400,6 +2400,9 @@ print(list_earl2)
 print(list_HM1)
 print(list_HM2)
 0.885/0.894
+
+0.917/0.968
+
 
 # acc = [0.8564, 0.8686, 0.8907]
 # ear1 = [0.09182, 0.09609, 0.0929]
@@ -2854,7 +2857,6 @@ args.expiration_period = -1
 args.random_noise=False
 args.window_size = 5
 data_natural = Lapras(args)
-
 len(data_natural.sensors)
 
 
@@ -2983,3 +2985,582 @@ sm(X).sum()
 grd = sm.gradient(X)
 grd[0][1:].sum()
 grd[-1][:-1].sum()
+
+
+
+# -----------------------------------------------------------------------------------
+# analysis of LSTM input, output, forget gate
+import keras.backend as K
+
+def lstm_cell(inputs, h_tm1, c_tm1, layer):
+    k_i, k_f, k_c, k_o = tf.split(layer.kernel, num_or_size_splits=4, axis=1)
+    x_i = np.dot(inputs, k_i)
+    x_f = np.dot(inputs, k_f)
+    x_c = np.dot(inputs, k_c)
+    x_o = np.dot(inputs, k_o)
+
+    b_i, b_f, b_c, b_o = tf.split(layer.bias, num_or_size_splits=4, axis=0)
+    x_i = K.bias_add(x_i, b_i)
+    x_f = K.bias_add(x_f, b_f)
+    x_c = K.bias_add(x_c, b_c)
+    x_o = K.bias_add(x_o, b_o)
+
+    i = layer.recurrent_activation(x_i + K.dot(h_tm1, layer.recurrent_kernel[:, : layer.units]))
+    f = layer.recurrent_activation(x_f + K.dot(h_tm1, layer.recurrent_kernel[:, layer.units : layer.units * 2]))
+    c = f * c_tm1 + i * layer.activation(x_c + K.dot(h_tm1, layer.recurrent_kernel[:, layer.units * 2 : layer.units * 3],))
+    o = layer.recurrent_activation(x_o + K.dot(h_tm1, layer.recurrent_kernel[:, layer.units * 3 :]))
+
+    h = o * layer.activation(c)
+    return h, c, i, f, o
+
+def lstm_cell_2(inputs, h_tm1, c_tm1, layer):
+    z = tf.dot(inputs, layer.kernel)
+    z += tf.dot(h_tm1, layer.recurrent_kernel)
+    if layer.use_bias:
+        z = K.bias_add(z, layer.bias)
+
+    z = tf.split(z, num_or_size_splits=4, axis=1)
+    c, o = layer._compute_carry_and_output_fused(z, c_tm1)
+
+    h = o * layer.activation(c)
+    return h, c
+
+def cos_sim(A, B):
+  return np.dot(A, B)/(np.linalg.norm(A)*np.linalg.norm(B))
+
+inputs.shape
+layer_cell.kernel.shape
+np.dot(inputs, layer_cell.kernel).shape
+
+# args.model = "EARLIEST"
+# args.random_noise=True
+# args.window_size=1
+# args.dataset = "milan"
+
+# data = CASAS_RAW_NATURAL(args)
+# args.nclasses = data.N_CLASSES
+# args.N_FEATURES = data.N_FEATURES
+# args.noise_amount = data.noise_amount
+# args.model_dir="./output/log/220908-153132"
+# args.batch_size = 1
+
+# # dict_analysis.keys()
+
+# model = EARLIEST(args)
+# model._epsilon = 0
+# initial_states = tf.zeros([args.batch_size, args.nhid])
+# temp = np.array([[3]])
+# model(np.reshape(data.X[0], (1, -1, data.N_FEATURES)), temp, length=temp, is_train=False)
+# h_list, c_list, i_list, f_list, o_list = [], [], [], [], []
+# for k in range(args.nsplits):
+#     model.load_weights(os.path.join(args.model_dir, f'fold_{k+1}', 'model'))
+#     with open(os.path.join(args.model_dir, f'fold_{k+1}/dict_analysis.pickle'), 'rb') as f:
+#         dict_analysis = pickle.load(f)
+#     test_results = pd.read_csv(f'{args.model_dir}/fold_{i}/test_results.csv')
+#     # test_loader = Dataloader(dict_analysis["idx"], data.X, data.Y, data.lengths, data.event_counts, args.batch_size, shuffle=args.shuffle, tr_points=data.noise_amount)
+#     idx = dict_analysis["idx"]
+#     X = data.X[idx]
+#     true_y = test_results['true_y'].to_numpy()
+#     locations = test_results['locations'].to_numpy()
+#     noise_amount = dict_analysis['noise_amount']
+#     layer = model.layers[2]
+#     for x, y, loc, tr in zip(X, true_y, locations, noise_amount): 
+#         h_tm1 = tf.identity(initial_states)  # previous memory state
+#         c_tm1 = tf.identity(initial_states)
+#         hh, cc, ii, ff, oo = [], [], [], [], []
+#         for i in range(int(loc)):
+#             inputs = x[:, i, :]
+#             h_tm1, c_tm1, i_tm1, f_tm1, o_tm1 = lstm_cell(inputs, h_tm1, c_tm1, layer)
+#             if i == loc-1:
+                
+#             hh.append(tf.squeeze(h_tm1))
+#             cc.append(tf.squeeze(c_tm1))
+#             # ii.append(tf.squeeze(i_tm1))
+#             # ff.append(tf.squeeze(f_tm1))
+#             # oo.append(tf.squeeze(o_tm1))
+#         h_list.append(hh)
+#         c_list.append(cc)
+# dict_analysis.keys()
+
+
+
+
+args.model = "ATTENTION"
+
+args.dataset = "milan"
+args.window_size=1
+args.random_noise=True
+data = CASAS_RAW_NATURAL(args)
+
+args.nclasses = data.N_CLASSES
+args.N_FEATURES = data.N_FEATURES
+args.noise_amount = data.noise_amount
+args.model_dir="./output/log/220926-154933"
+args.batch_size = 1
+
+model = EARLIEST(args)
+model._epsilon = 0
+initial_states = tf.zeros([args.batch_size, args.nhid])
+temp = np.array([[3]])
+model(np.reshape(data.X[0], (1, -1, data.N_FEATURES)), temp, length=temp, is_train=False)
+h_list, c_list, i_list, f_list, o_list = [], [], [], [], []
+for k in range(args.nsplits):
+    model.load_weights(os.path.join(args.model_dir, f'fold_{k+1}', 'model'))
+    with open(os.path.join(args.model_dir, f'fold_{k+1}/dict_analysis.pickle'), 'rb') as f:
+        dict_analysis = pickle.load(f)
+    test_results = pd.read_csv(f'{args.model_dir}/fold_{k+1}/test_results.csv')
+    # test_loader = Dataloader(dict_analysis["idx"], data.X, data.Y, data.lengths, data.event_counts, args.batch_size, shuffle=args.shuffle, tr_points=data.noise_amount)
+    idx = dict_analysis["idx"]
+    X = data.X[idx]
+    true_y = test_results['true_y'].to_numpy()
+    pred_y = test_results['pred_y'].to_numpy()
+    locations = test_results['locations'].to_numpy()
+    noise_amount = dict_analysis['noise_amount']
+    layer_attn = model.layers[0]
+    layer_cell = model.layers[3]
+    for x, y, loc, tr in zip(X, true_y, locations, noise_amount): 
+        x = np.reshape(x, (1, 2000, 31))
+        h_tm1 = tf.identity(initial_states)  # previous memory state
+        c_tm1 = tf.identity(initial_states)
+        hh, cc, ii, ff, oo = [], [], [], [], []
+        attn_hidden, _ = layer_attn(x[:, :args.offset , :], False)
+        h_t0 = tf.identity(attn_hidden)
+        h_tm1 = attn_hidden
+        for ii in range(args.offset, int(loc)):
+            inputs = x[:, ii, :]
+            # h_tm1, c_tm1, i_tm1, f_tm1, o_tm1 = lstm_cell(inputs, h_tm1, c_tm1, layer_cell)
+            h_tm1, c_tm1 = lstm_cell_2(inputs, h_tm1, c_tm1, layer_cell)
+                
+            # hh.append(tf.squeeze(h_tm1))
+            # cc.append(tf.squeeze(c_tm1))
+            # ii.append(tf.squeeze(i_tm1))
+            # ff.append(tf.squeeze(f_tm1))
+            # oo.append(tf.squeeze(o_tm1))
+        h_list.append(cos_sim(np.reshape(h_tm1, (64)), np.reshape(h_t0, (64))))
+        # c_list.append(cc)
+    
+    
+    h_list = np.array(h_list)
+    idx_corr = np.where(true_y == pred_y)
+    idx_wrong = np.where(true_y != pred_y)
+        
+    h_list.mean()
+    h_list[idx_corr].mean()
+    h_list[idx_wrong].mean()
+    
+
+args.model = "EARLIEST"
+
+args.dataset = "milan"
+args.window_size=1
+args.random_noise=True
+data = CASAS_RAW_NATURAL(args)
+
+args.nclasses = data.N_CLASSES
+args.N_FEATURES = data.N_FEATURES
+args.noise_amount = data.noise_amount
+args.model_dir="./output/log/220908-153132"
+args.batch_size = 1
+
+model = EARLIEST(args)
+model._epsilon = 0
+initial_states = tf.zeros([args.batch_size, args.nhid])
+temp = np.array([[3]])
+model(np.reshape(data.X[0], (1, -1, data.N_FEATURES)), temp, length=temp, is_train=False)
+h_list, c_list, i_list, f_list, o_list = [], [], [], [], []
+for k in range(args.nsplits):
+    model.load_weights(os.path.join(args.model_dir, f'fold_{k+1}', 'model'))
+    with open(os.path.join(args.model_dir, f'fold_{k+1}/dict_analysis.pickle'), 'rb') as f:
+        dict_analysis = pickle.load(f)
+    test_results = pd.read_csv(f'{args.model_dir}/fold_{k+1}/test_results.csv')
+    # test_loader = Dataloader(dict_analysis["idx"], data.X, data.Y, data.lengths, data.event_counts, args.batch_size, shuffle=args.shuffle, tr_points=data.noise_amount)
+    idx = dict_analysis["idx"]
+    X = data.X[idx]
+    true_y = test_results['true_y'].to_numpy()
+    pred_y = test_results['pred_y'].to_numpy()
+    pred_list = []
+    locations = test_results['locations'].to_numpy()
+    noise_amount = dict_analysis['noise_amount']
+    layer_cell = model.layers[2]
+    layer_dense = model.layers[3]
+    for x, y, loc, tr in zip(X, true_y, locations, noise_amount): 
+        x = np.reshape(x, (1, 2000, 31))
+        h_tm1 = tf.identity(initial_states)  # previous memory state
+        c_tm1 = tf.identity(initial_states)
+        hh, cc, ii, ff, oo = [], [], [], [], []
+        for ii in range(int(loc)):
+            inputs = x[:, ii, :]
+            # h_tm1, c_tm1, i_tm1, f_tm1, o_tm1 = lstm_cell(inputs, h_tm1, c_tm1, layer_cell)
+            h_tm1, c_tm1 = lstm_cell_2(inputs, h_tm1, c_tm1, layer_cell)
+            if ii == 0:
+                h_t0 = tf.identity(h_tm1)
+            # hh.append(tf.squeeze(h_tm1))
+            # cc.append(tf.squeeze(c_tm1))
+            # ii.append(tf.squeeze(i_tm1))
+            # ff.append(tf.squeeze(f_tm1))
+            # oo.append(tf.squeeze(o_tm1))
+        pred_logit = layer_dense(h_tm1)
+        pred_list.append(np.argmax(pred_logit, 1)[0])
+        h_list.append(cos_sim(np.reshape(h_tm1, (64)), np.reshape(h_t0, (64))))
+        # c_list.append(cc)
+    print(np.mean(np.where(np.array(pred_list) == pred_y, 1, 0)))
+    
+    
+    idx_mismat = np.where(np.array(pred_list) != pred_y)
+    np.array(pred_list)[idx_mismat]
+    pred_y[idx_mismat]
+    
+    
+    
+    np.where(pred_y == true_y, 1, 0).mean()
+
+h_list = np.array(h_list)
+idx_corr = np.where(true_y == pred_y)
+idx_wrong = np.where(true_y != pred_y)
+
+h_list.mean()
+h_list[idx_corr].mean()
+h_list[idx_wrong].mean()
+
+
+
+
+
+# beginning of activity -----------------------------------------------------------------------------------
+
+from PIL import Image
+from heatmappy import Heatmapper
+
+args.model = "EARLIEST"
+args.dataset = "milan"
+args.window_size=1
+args.random_noise=True
+data = CASAS_RAW_NATURAL(args)
+args.nclasses = data.N_CLASSES
+
+coord_sensors = {'D001': [(1038, 1102)], 
+                 'D002': [(973, 978)], 
+                 'D003': [(401, 1094)], 
+                 'M001': [(1031, 1054)], 
+                 'M002': [(1032, 894)], 
+                 'M003': [(822, 953)], 
+                 'M004': [(730, 307)], 
+                 'M005': [(932, 38)], 
+                 'M006': [(680, 103)], 
+                 'M007': [(418, 156)], 
+                 'M008': [(606, 306)], 
+                 'M009': [(536, 532)], 
+                 'M010': [(639, 811)], 
+                 'M011': [(532, 813)], 
+                 'M012': [(639, 983)], 
+                 'M013': [(376, 503)], 
+                 'M014': [(405, 1048)], 
+                 'M015': [(406, 952)], 
+                 'M016': [(428, 879)], 
+                 'M017': [(470, 718)], 
+                 'M018': [(351, 714)], 
+                 'M019': [(474, 416)], 
+                 'M020': [(144, 322)], 
+                 'M021': [(87, 152)], 
+                 'M022': [(563, 1023)], 
+                 'M023': [(486, 959)], 
+                 'M024': [(146, 901)], 
+                 'M025': [(203, 532)], 
+                 'M026': [(503, 155)], 
+                 'M027': [(862, 647)], 
+                 'M028': [(186, 229)]}
+
+# 221018-201601 #clearcut
+# 220908-153132 #earliest
+# 220926-154933 #filter
+
+args.model_dir="./output/log/220926-154933"
+with open(os.path.join(args.model_dir, f'fold_{2}/dict_analysis.pickle'), 'rb') as f:
+    dict_analysis_f = pickle.load(f)
+dict_analysis_f.keys()
+test_results_f = pd.read_csv(f'{args.model_dir}/fold_{2}/test_results.csv')
+
+
+
+true_y_c = dict_analysis_c['true_y']
+if dict_analysis.get('pred_y') is None:
+    pred_y_c = test_results_c['pred_y'].to_numpy()
+else:
+    pred_y_c = dict_analysis_c['pred_y']
+
+true_y_e = dict_analysis_e['true_y']
+if dict_analysis.get('pred_y') is None:
+    pred_y_e = test_results_e['pred_y'].to_numpy()
+else:
+    pred_y_e = dict_analysis_e['pred_y']
+
+
+true_y_f = dict_analysis_f['true_y']
+if dict_analysis.get('pred_y') is None:
+    pred_y_f = test_results_f['pred_y'].to_numpy()
+else:
+    pred_y_f = dict_analysis_f['pred_y']
+    
+(dict_analysis_f['idx'] == dict_analysis_e['idx']).mean()
+(true_y_f == true_y_e).mean()
+np.where(true_y_e ==  pred_y_e, 1, 0).mean()
+
+e_idx = np.where(true_y_e != pred_y_e)[0]
+f_idx = np.where(true_y_f == pred_y_f)[0]
+ef_idx = set(e_idx) & set(f_idx)
+ef_idx = np.array(sorted(list(ef_idx)))
+pred_y_e[ef_idx]
+data.idx2label
+
+# dict_analysis_e['idx'][ef_idx]
+
+
+
+
+dict_analysis = dict_analysis_f
+test_results = test_results_f
+dict_analysis.keys()
+test_results.columns
+
+X = data.X[dict_analysis['idx'][ef_idx]]
+Y = dict_analysis['true_y'][ef_idx]
+if dict_analysis.get('attn_scores') is not None:
+    attn_scores = dict_analysis['attn_scores'][ef_idx]
+else:
+    attn_scores = None
+
+if dict_analysis.get('locations') is None:
+    locations = test_results['locations'].to_numpy()
+else:
+    locations = dict_analysis['locations']
+locations = locations[ef_idx]
+
+if dict_analysis.get('pred_y') is None:
+    Y_pred = test_results['pred_y'].to_numpy()
+else:
+    Y_pred = dict_analysis['pred_y']
+Y_pred = Y_pred[ef_idx]
+
+def print_info(capture_at, idx):
+    print(f'capture_at: {capture_at}')
+    print(f'True_y: {data.idx2label[Y[capture_at]]}')
+    print(f'Pred_y: {data.idx2label[Y_pred[capture_at]]}')
+    print(f'Location: {locations[capture_at]}')
+    print(f'idx in saved result: {idx[capture_at]}')
+    print(f'idx in data object: {dict_analysis["idx"][idx[capture_at]]}')
+
+
+
+
+dict_analysis = dict_analysis_c
+dict_analysis.keys()
+ef_idx
+dict_analysis_e['idx'][ef_idx][19]
+
+dict_analysis_e['idx'][]
+
+result_idx = ef_idx[[4, 12, 15, 18, 19]]
+data_idx = dict_analysis_e['idx'][result_idx]
+
+data_idx
+
+
+match = []
+for i, idx in enumerate(dict_analysis['idx']):
+    if idx in data_idx:
+        match.append(i)
+new = [554, 533, 181, 50, 199]
+dict_analysis['idx'][new]
+
+
+
+
+
+X = data.X[data_idx]
+Y = dict_analysis['true_y'][new]
+# for y in Y:
+#     print(data.idx2label[y])
+if dict_analysis.get('attn_scores') is not None:
+    attn_scores = dict_analysis['attn_scores'][new]
+else:
+    attn_scores = None
+
+if dict_analysis.get('locations') is None:
+    locations = test_results['locations'].to_numpy()
+else:
+    locations = dict_analysis['locations']
+locations = locations[new]
+
+if dict_analysis.get('pred_y') is None:
+    Y_pred = test_results['pred_y'].to_numpy()
+else:
+    Y_pred = dict_analysis['pred_y']
+Y_pred = Y_pred[new]
+
+
+
+capture_at = 4
+print_info(capture_at, new)
+
+
+count_sensor = {label:{sensor: 0 for sensor in data.sensor2index.keys()} for idx, label in data.idx2label.items()}
+idx2sensor = {i:s for s, i in data.sensor2index.items()}
+if attn_scores is not None:
+    for ii, (x, y, loc, attn) in enumerate(zip(X, Y, locations, attn_scores)):
+        if ii != capture_at:
+            continue
+        l = data.idx2label[y]
+        
+        tw = x[:args.offset]
+        scores = np.reshape(attn[0][1:], (1, -1))
+        weighted = np.dot(scores, tw)
+        # weighted *= args.offset
+        
+        used_x = x[args.offset:int(loc)]
+        used_x = np.concatenate((weighted, used_x))
+        for u in used_x:
+            for i in range(data.N_FEATURES):
+                s = idx2sensor[i]
+                if s == 'D002':
+                    continue
+                count_sensor[l][s] += u[i]
+else:
+    for ii, (x, y, loc) in enumerate(zip(X, Y, locations)):
+        if ii != capture_at:
+            continue
+        used_x = x[:int(loc)]
+        l = data.idx2label[y]
+        for u in used_x:
+            for i in range(data.N_FEATURES):
+                s = idx2sensor[i]
+                if s == 'D002':
+                    continue
+                count_sensor[l][s] += u[i]
+        
+
+for cls, dic in count_sensor.items():
+    if Y[capture_at] != data.label2idx[cls]:
+        continue
+    img_path = './analysis/heatmap_filter/milan.png'
+    img = Image.open(img_path).convert('RGB')
+    max_count = max(dic.values())
+    for sensor, coord in coord_sensors.items():
+        if dic[sensor] == 0:
+            continue
+        heatmapper = Heatmapper(
+            point_diameter=90,  # the size of each point to be drawn
+            point_strength=dic[sensor] / max_count,  # the strength, between 0 and 1, of each point to be drawn
+            opacity=0.65,  # the opacity of the heatmap layer
+            colours='default',  # 'default' or 'reveal'
+                                # OR a matplotlib LinearSegmentedColorMap object 
+                                # OR the path to a horizontal scale image
+            grey_heatmapper='PIL'  # The object responsible for drawing the points
+                                # Pillow used by default, 'PySide' option available if installed
+        )
+        img = heatmapper.heatmap_on_img(coord, img).convert('RGB')
+        r0, g0, b0 = img.getpixel((0,0))
+    for i in range(img.size[0]): # x방향 탐색
+        for j in range(img.size[1]): # y방향 탐색
+            r, g, b = img.getpixel((i,j))  # i,j 위치에서의 RGB 취득
+            if r == r0 and g == g0 and b == b0:
+                img.putpixel((i,j), (255, 255, 255))
+            else:
+                img.putpixel((i,j), (r, g, b))
+    # 출력 이미지 경로 설정
+    path = f'./analysis/heatmap_filter/example/heatmap_{cls}_c_{dict_analysis["idx"][new[capture_at]]}.png'
+    img.save(path)
+    print(path)
+
+
+print_info(capture_at)
+
+
+
+
+
+
+args.model_dir="./output/log/220926-154933"
+with open(os.path.join(args.model_dir, f'fold_{2}/dict_analysis.pickle'), 'rb') as f:
+    dict_analysis = pickle.load(f)
+dict_analysis.keys()
+test_results = pd.read_csv(f'{args.model_dir}/fold_{2}/test_results.csv')
+
+X = data.X[dict_analysis['idx']]
+Y = dict_analysis['true_y']
+if dict_analysis.get('attn_scores') is not None:
+    attn_scores = dict_analysis['attn_scores']
+else:
+    attn_scores = None
+
+if dict_analysis.get('locations') is None:
+    locations = test_results['locations'].to_numpy()
+else:
+    locations = dict_analysis['locations']
+
+
+count_sensor = {label:{sensor: 0 for sensor in data.sensor2index.keys()} for idx, label in data.idx2label.items()}
+idx2sensor = {i:s for s, i in data.sensor2index.items()}
+if attn_scores is not None:
+    for ii, (x, y, loc, attn) in enumerate(zip(X, Y, locations, attn_scores)):
+        l = data.idx2label[y]
+        
+        tw = x[:args.offset]
+        scores = np.reshape(attn[0][1:], (1, -1))
+        weighted = np.dot(scores, tw)
+        # weighted *= args.offset
+        
+        used_x = x[args.offset:int(loc)]
+        used_x = np.concatenate((weighted, used_x))
+        for u in used_x:
+            for i in range(data.N_FEATURES):
+                s = idx2sensor[i]
+                if s == 'D002':
+                    continue
+                count_sensor[l][s] += u[i]
+else:
+    for ii, (x, y, loc) in enumerate(zip(X, Y, locations)):
+        used_x = x[:int(loc)]
+        l = data.idx2label[y]
+        for u in used_x:
+            for i in range(data.N_FEATURES):
+                s = idx2sensor[i]
+                if s == 'D002':
+                    continue
+                count_sensor[l][s] += u[i]
+        
+
+for cls, dic in count_sensor.items():
+    img_path = './analysis/heatmap_filter/milan.png'
+    img = Image.open(img_path).convert('RGB')
+    max_count = max(dic.values())
+    for sensor, coord in coord_sensors.items():
+        if dic[sensor] == 0:
+            continue
+        heatmapper = Heatmapper(
+            point_diameter=90,  # the size of each point to be drawn
+            point_strength=dic[sensor] / max_count,  # the strength, between 0 and 1, of each point to be drawn
+            opacity=0.65,  # the opacity of the heatmap layer
+            colours='default',  # 'default' or 'reveal'
+                                # OR a matplotlib LinearSegmentedColorMap object 
+                                # OR the path to a horizontal scale image
+            grey_heatmapper='PIL'  # The object responsible for drawing the points
+                                # Pillow used by default, 'PySide' option available if installed
+        )
+        img = heatmapper.heatmap_on_img(coord, img).convert('RGB')
+        r0, g0, b0 = img.getpixel((0,0))
+    for i in range(img.size[0]): # x방향 탐색
+        for j in range(img.size[1]): # y방향 탐색
+            r, g, b = img.getpixel((i,j))  # i,j 위치에서의 RGB 취득
+            if r == r0 and g == g0 and b == b0:
+                img.putpixel((i,j), (255, 255, 255))
+            else:
+                img.putpixel((i,j), (r, g, b))
+    # 출력 이미지 경로 설정
+    path = f'./analysis/heatmap_filter/example/heatmap_{cls}.png'
+    img.save(path)
+    print(path)
+
+(120 * 5) / 60
+
+600 / 10
+

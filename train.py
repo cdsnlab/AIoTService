@@ -235,6 +235,7 @@ if __name__ == "__main__":
     args.nclasses = data.N_CLASSES
     args.N_FEATURES = data.N_FEATURES
     args.noise_amount = data.noise_amount
+    args.offset = data.args.offset
     kfold = StratifiedKFold(n_splits=args.nsplits, random_state=args.random_seed, shuffle=args.shuffle)
     print(args)
     

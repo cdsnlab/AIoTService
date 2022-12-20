@@ -488,7 +488,8 @@ class CASAS_RAW_SEGMENTED:
         Y = [self.label2idx[l] for l in Y]
         Y = np.array(Y)
         lengths = np.array(lengths)
-        event_counts = np.array(event_counts)
+        event_counts = pad_sequences(event_counts, padding='post', truncating='post', dtype='float32', maxlen=self.args.seq_len, value=0.0)
+        # event_counts = np.array(event_counts)
         self.start_time = np.array(start_time)
         return X, Y, lengths, event_counts
     
@@ -738,6 +739,7 @@ class CASAS_RAW_NATURAL(CASAS_RAW_SEGMENTED):
 class Lapras(CASAS_RAW_SEGMENTED):
     def __init__(self, args):
         self.args = args
+        self.idx_noise_amount = 0
         self.main()
         
     def main(self):
@@ -747,7 +749,16 @@ class Lapras(CASAS_RAW_SEGMENTED):
             self.data_path = "./dataset/Lapras_normalized"
         elif self.args.dataset == 'lapras_stand':
             self.data_path = "./dataset/Lapras_standardized"
+        if self.args.random_noise:
+            self.data_path += '_ms'
+        print(f'data_path: {self.data_path}')
+            
         self.episodes, sensors = self.preprocessing()
+        if self.args.random_noise:
+            self.noise_amount = np.random.randint(low=self.args.offset, size=len(self.episodes))
+        else:
+            noise_amount = int(self.args.noise_ratio / 100 * self.args.offset)
+            self.noise_amount = np.ones(len(self.episodes), dtype=int) * noise_amount
         self.sensors = sorted(sensors)
         self.N_FEATURES = len(self.sensors)
         self.sensor2index = {sensor: i for i, sensor in enumerate(self.sensors)}
@@ -762,9 +773,7 @@ class Lapras(CASAS_RAW_SEGMENTED):
         self.lengths = np.where(self.lengths > self.args.seq_len, self.args.seq_len, self.lengths)
         self.nseries, _, _ = self.X.shape
         self.N_CLASSES = len(np.unique(self.Y))
-        
-        noise_amount = int(self.args.noise_ratio / 100 * self.args.offset)
-        self.noise_amount = np.ones(len(self.X), dtype=int) * noise_amount
+        self.args.offset = int(self.args.offset / self.args.window_size)
         
     def preprocessing(self):
         episodes = []
@@ -786,6 +795,49 @@ class Lapras(CASAS_RAW_SEGMENTED):
         for ep in episodes:
             sensors |= set(ep[:, 0])
         return episodes, sensors  
+    
+    def event2matrix(self, episode):
+        activated = np.zeros(self.N_FEATURES)
+        start_time = int(float(episode[0][2]))
+        episode[:,2] = list(map(lambda x: int(float(x) - start_time), episode[:,2]))
+        duration = int(episode[-1][2])
+        if duration < 1:
+            return None
+        # state_matrix = np.zeros((int(episode[-1][2]) + 1, self.N_FEATURES))
+        state_matrix = np.zeros((self.args.seq_len + self.args.offset, self.N_FEATURES))
+        # if self.args.dataset == 'lapras':
+        #     state_matrix -= 1
+        prev_t = 0
+        count = 0
+        count_seq = np.zeros((self.args.seq_len + self.args.offset))
+        for s, v, t, l in episode:
+            t = int(t)
+            if t >= self.args.seq_len + self.args.offset:  # Only for the episode whose sequence length exceeds the predefined seq_len
+                t = self.args.seq_len + self.args.offset - 1
+                state_matrix[prev_t:t] = activated
+                count_seq[prev_t:t] = count
+                activated = self.change_state(activated, s, v)
+                break
+            if t != prev_t:
+                state_matrix[prev_t:t] = activated
+                count_seq[prev_t:t] = count
+                prev_t = t
+            activated = self.change_state(activated, s, v)
+            count += 1
+        state_matrix[t] = activated
+        count_seq[t] = count       
+        
+        if self.noise_amount[self.idx_noise_amount] != 0:
+            i = self.args.offset - self.noise_amount[self.idx_noise_amount]
+            state_matrix = np.array(state_matrix[i:])
+            duration = duration - i
+            count_seq = count_seq[i:] - count_seq[:i].max()
+            count_seq = np.where(count_seq > 0, count_seq, 0)
+            # count_seq = np.where(count_seq[i:] != 0, count_seq[i:] - count_seq[:i].max(), 0)
+            t = t - i
+        self.idx_noise_amount += 1
+        return [state_matrix, l, duration+1, count_seq, t, start_time]
+
 
     # def preprocessing(self):
     #     episodes = []
