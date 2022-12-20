@@ -124,6 +124,8 @@ def create_parser():
     parser.add_argument("--seq_len", type=int, default=2000, help="The number of timesteps")
     parser.add_argument("--shuffle", type=str2bool, default=True, help="Shuffle training dataset or not.")
     parser.add_argument("--offset", type=int, default=20, help="The offset of the detected segmented windows")
+    parser.add_argument("--expiration_period", type=int, default=-1, help="The expiration period of the sensor activation")
+    parser.add_argument("--window_size", type=int, default=1, help="The window size for Lapras dataset")
     parser.add_argument("--noise_ratio", type=int, default=0, help="The ratio of the noise in the detected segmented windows")
     parser.add_argument("--random_noise", type=str2bool, default=False, help="Add noise to the beginning randomly.")
     parser.add_argument("--nsplits", type=int, default=3, help="The number of splits for validation")
@@ -139,6 +141,8 @@ def create_parser():
     parser.add_argument("--noise_low", type=int, default=-1, help="The lower bound of the amount of the noise")
     parser.add_argument("--noise_high", type=int, default=-1, help="The upper bound of the amount of the noise")
     parser.add_argument("--remove_short", type=str2bool, default=False, help="remove short episodes")
+    parser.add_argument("--aug_multiple", type=int, default=0, help="The number of augmented examples per real one")
+    parser.add_argument("--window_ratio", type=float, default="0.1", help="Ratio of window warping.")
     # Model hyperparameters
     parser.add_argument("--nhid", type=int, default=64, help="Number of dimensions of the hidden state of EARLIEST")
     parser.add_argument("--lam", type=float, default=0.08, help="Penalty of waiting. This controls the emphasis on earliness: Larger values lead to earlier predictions.")
@@ -167,6 +171,7 @@ def create_parser():
     parser.add_argument("--random_seed", type=int, default="42", help="Set the random seed.")
     parser.add_argument("--device", type=str, default="0", help="Which device will be used")
     parser.add_argument("--exp_num", type=str, default="0", help="Experiment number")
+    parser.add_argument("--exp_id", type=str, default="0", help="Experiment identifier")
     parser.add_argument("--gamma", type=int, default=0, help="gamma for focal loss.")
     parser.add_argument("--class_weight", type=str2bool, default=False, help="Apply class weight or not")
     parser.add_argument("--decay_weight", type=float, default=10, help="decay weight for exploration")
@@ -176,6 +181,7 @@ def create_parser():
     parser.add_argument("--train", type=str2bool, default=True, help="whether to train the model")
     parser.add_argument("--test", type=str2bool, default=False, help="whether to test the model")
     parser.add_argument("--model_dir", type=str, default="./saved_models/", help="Where to save the model once it is trained.")
+    parser.add_argument("--full_seq", type=str2bool, default=False, help="Utilze the full sequence of the stream or not")
     # parser.add_argument("--utilize_tr", type=str2bool, default=False, help="Utilize the information on the transition point when conveying the hidden states of the attention model")
     return parser.parse_args()
 

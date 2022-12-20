@@ -1,6 +1,7 @@
 from numpy import dtype
 import re
 import time
+import glob
 import pickle
 import math
 import datetime
@@ -15,12 +16,16 @@ from tensorflow.keras.preprocessing.sequence import pad_sequences
 
 
 class Dataloader(Sequence):
-    def __init__(self, indices, x_set, y_set, len_set, count_set, batch_size, shuffle=False, tr_points=None, tr_boundary=None):
+    def __init__(self, indices, x_set, y_set, len_set, count_set, batch_size, shuffle=False, tr_points=None, tr_boundary=None, window_ratio=0.1, aug_multiple=0):
     # def __init__(self, indices, x_set, y_set, len_set, count_set, batch_size, prev_y_set, shuffle=False, tr_points=None, tr_boundary=None):
         self.indices = indices
         self.x, self.y, self.len, self.count = x_set, y_set, len_set, count_set
         # self.prev_y = prev_y_set
         self.tr_points, self.tr_boundary = tr_points, tr_boundary
+        if aug_multiple > 0:
+            self.x, self.y, self.len, self.count = self.x[indices], self.y[indices], self.len[indices], self.count[indices]
+            self.augmentation(window_ratio, aug_multiple)
+            self.indices = np.array(range(self.x.shape[0]))
         self.batch_size = batch_size
         self.shuffle = shuffle
         self.on_epoch_end()
@@ -45,6 +50,47 @@ class Dataloader(Sequence):
         #     batch_tr_boundary = None
         return batch_x, batch_y, batch_len, batch_count, batch_tr_point
         # return batch_x, batch_y, batch_len, batch_count, batch_prev_y
+        
+    def augmentation(self, window_ratio, multiple):
+        X, Y, lengths, event_counts, noise_amount = [], [], [], [], []
+        X.append(self.x)
+        Y += list(self.y)
+        lengths += list(self.len)
+        event_counts += list(self.count)
+        noise_amount += list(self.tr_points)
+        for x, y, l, e, n in zip(self.x, self.y, self.len, self.count, self.tr_points):
+            X.append(self.window_warp(x, l, window_ratio=window_ratio, multiple=multiple))
+            Y += [y] * multiple
+            lengths += [l] * multiple
+            event_counts += [e] * multiple
+            noise_amount += [n] * multiple
+        self.x = np.concatenate(X)
+        self.y = np.array(Y)
+        self.len = np.array(lengths)
+        self.count = np.array(event_counts)
+        self.tr_points = np.array(noise_amount)
+    
+    def window_warp(self, x, length, window_ratio=0.1, scales=[0.5, 2.], multiple=3):
+        # https://halshs.archives-ouvertes.fr/halshs-01357973/document
+        warp_scales = np.random.choice(scales, multiple)
+        warp_size = np.ceil(window_ratio*length).astype(int)
+        window_steps = np.arange(warp_size)
+        
+        window_starts = np.random.randint(low=1, high=length-warp_size-1, size=multiple).astype(int)
+        window_ends = (window_starts + warp_size).astype(int)
+        
+        time_steps, channel = x.shape        
+        ret = np.zeros([multiple, time_steps, channel])
+        for i in range(multiple):
+            for dim in range(channel):
+                start_seg = x[:window_starts[i],dim]
+                window_seg = np.interp(np.linspace(0, warp_size-1, num=int(warp_size*warp_scales[i])), window_steps, x[window_starts[i]:window_ends[i],dim])
+                end_seg = x[window_ends[i]:length,dim]
+                padding_seg = x[length:,dim]
+                warped = np.concatenate((start_seg, window_seg, end_seg))                
+                warped = np.interp(np.arange(length), np.linspace(0, length-1., num=warped.size), warped).T
+                ret[i,:,dim] = np.concatenate((warped, padding_seg))
+        return ret
 
     def on_epoch_end(self):
         # self.indices = np.arange(len(self.x))
@@ -52,102 +98,123 @@ class Dataloader(Sequence):
             np.random.shuffle(self.indices)
 
 
-class AmbientData(metaclass=ABCMeta):
-    def __init__(self, args):
-        # self.seq_len = args.seq_len
-        self.idx2label = {}
-        self.label2idx = {}
-        self.N_FEATURES = len(self.sensors)
-        self.sensor2index = {sensor: i for i, sensor in enumerate(self.sensors)}
-        self.X, self.Y, self.lengths, self.event_counts = self.generateDataset()
-        self.nseries, _, _ = self.X.shape
-        self.N_CLASSES = len(np.unique(self.Y))
+# class AmbientData(metaclass=ABCMeta):
+#     def __init__(self, args):
+#         # self.seq_len = args.seq_len
+#         self.idx2label = {}
+#         self.label2idx = {}
+#         self.N_FEATURES = len(self.sensors)
+#         self.sensor2index = {sensor: i for i, sensor in enumerate(self.sensors)}
+#         self.X, self.Y, self.lengths, self.event_counts = self.generateDataset()
+#         self.nseries, _, _ = self.X.shape
+#         self.N_CLASSES = len(np.unique(self.Y))
 
-    def change_state(self, activated, s, v):
-        vector = activated.copy()
-        if v == "ON":
-            vector[self.sensor2index[s]] = 1
-        else:
-            vector[self.sensor2index[s]] = 0
-        return vector
+#     def change_state(self, activated, s, v):
+#         vector = activated.copy()
+#         if v.lower() in ["on", "true"]:
+#             vector[self.sensor2index[s]] = 1
+#         else:
+#             vector[self.sensor2index[s]] = 0
+#         return vector
 
-    def event2matrix(self, episode):
-        activated = np.zeros(self.N_FEATURES)
-        start_time = int(float(episode[0][2]))
-        episode[:,2] = list(map(lambda x: int(float(x) - start_time), episode[:,2]))
-        duration = int(episode[-1][2])
-        if duration < 1:
-            return None
-        # state_matrix = np.zeros((int(episode[-1][2]) + 1, self.N_FEATURES))
-        state_matrix = np.zeros((self.args.seq_len, self.N_FEATURES))
-        prev_t = 0
-        count = 0
-        count_seq = np.zeros((self.args.seq_len))
-        for s, v, t, l in episode:
-            t = int(t)
-            if t >= self.args.seq_len:  # Only for the episode whose sequence length exceeds the predefined seq_len
-                t = self.args.seq_len - 1
-                state_matrix[prev_t:t] = activated
-                count_seq[prev_t:t] = count
-                activated = self.change_state(activated, s, v)
-                break
-            if t != prev_t:
-                state_matrix[prev_t:t] = activated
-                count_seq[prev_t:t] = count
-                prev_t = t
-            activated = self.change_state(activated, s, v)
-            count += 1
-        state_matrix[t] = activated
-        count_seq[t] = count
-        return [np.array(state_matrix), l, duration+1, count_seq, t, start_time]
+#     def event2matrix(self, episode):
+#         activated = np.zeros(self.N_FEATURES)
+#         start_time = int(float(episode[0][2]))
+#         episode[:,2] = list(map(lambda x: int(float(x) - start_time), episode[:,2]))
+#         duration = int(episode[-1][2])
+#         if duration < 1:
+#             return None
+#         # state_matrix = np.zeros((int(episode[-1][2]) + 1, self.N_FEATURES))
+#         state_matrix = np.zeros((self.args.seq_len, self.N_FEATURES))
+#         prev_t = 0
+#         count = 0
+#         count_seq = np.zeros((self.args.seq_len))
+#         for s, v, t, l in episode:
+#             t = int(t)
+#             if t >= self.args.seq_len:  # Only for the episode whose sequence length exceeds the predefined seq_len
+#                 t = self.args.seq_len - 1
+#                 state_matrix[prev_t:t] = activated
+#                 count_seq[prev_t:t] = count
+#                 activated = self.change_state(activated, s, v)
+#                 break
+#             if t != prev_t:
+#                 state_matrix[prev_t:t] = activated
+#                 count_seq[prev_t:t] = count
+#                 prev_t = t
+#             activated = self.change_state(activated, s, v)
+#             count += 1
+#         state_matrix[t] = activated
+#         count_seq[t] = count
+#         return [np.array(state_matrix), l, duration+1, count_seq, t, start_time]
 
-    def generateDataset(self):
-        # if self.args.rnd_prefix:
-        #     self.sample_suffix()
-        X, Y, lengths, event_counts, start_time = [], [], [], [], []
-        for episode in self.episodes:
-            # if self.args.remove_prefix:
-            #     episode = episode[self.args.prefix_len:, :] if len(episode) > self.args.prefix_len else episode
-            converted = self.event2matrix(episode)
-            if converted is None:
-                continue
-            # if self.args.rnd_prefix:
-            #     idx = np.random.choice(len(self.suffix), 1)[0]
-            #     converted[0] = np.concatenate((self.suffix[idx], converted[0]), axis=0)
-            X.append(converted[0])
-            Y.append(converted[1])
-            lengths.append(converted[2])
-            event_counts.append(converted[3])
-            start_time.append(converted[5])
-        X = pad_sequences(X, padding='post', truncating='post', dtype='float32', maxlen=self.args.seq_len)  # B * T * V
-        self.idx2label = {i:label for i, label in enumerate(sorted(set(Y)))}
-        self.label2idx = {label:i for i, label in self.idx2label.items()}
-        Y = [self.label2idx[l] for l in Y]
-        Y = np.array(Y)
-        lengths = np.array(lengths)
-        event_counts = np.array(event_counts)
-        self.start_time = np.array(start_time)
-        return X, Y, lengths, event_counts
-
-
-class CASAS_ADLMR(AmbientData):
-    def __init__(self, args):
-        self.args = args
-        self.main()
-        super().__init__(args)
+#     def generateDataset(self):
+#         # if self.args.rnd_prefix:
+#         #     self.sample_suffix()
+#         X, Y, lengths, event_counts, start_time = [], [], [], [], []
+#         for episode in self.episodes:
+#             # if self.args.remove_prefix:
+#             #     episode = episode[self.args.prefix_len:, :] if len(episode) > self.args.prefix_len else episode
+#             converted = self.event2matrix(episode)
+#             if converted is None:
+#                 continue
+#             # if self.args.rnd_prefix:
+#             #     idx = np.random.choice(len(self.suffix), 1)[0]
+#             #     converted[0] = np.concatenate((self.suffix[idx], converted[0]), axis=0)
+#             if self.args.expiration_period != -1:
+#                 X.append(self.activation_expire(converted[0]))
+#             else:
+#                 X.append(converted[0])
+#             Y.append(converted[1])
+#             lengths.append(converted[2])
+#             event_counts.append(converted[3])
+#             start_time.append(converted[5])
+#         X = pad_sequences(X, padding='post', truncating='post', dtype='float32', maxlen=self.args.seq_len)  # B * T * V
+#         self.idx2label = {i:label for i, label in enumerate(sorted(set(Y)))}
+#         self.label2idx = {label:i for i, label in self.idx2label.items()}
+#         Y = [self.label2idx[l] for l in Y]
+#         Y = np.array(Y)
+#         lengths = np.array(lengths)
+#         event_counts = np.array(event_counts)
+#         self.start_time = np.array(start_time)
+#         return X, Y, lengths, event_counts
     
-    def main(self):
-        self.filename = './dataset/adlmr_collaborative'
-        with open(self.filename, 'rb') as f:
-            self.adlmr = pickle.load(f)
-        self.episodes = self.adlmr['episodes']
-        self.sensors = self.adlmr['sensors']
+#     def activation_expire(self, state_matrix):
+#         count = np.zeros((self.N_FEATURES))
+#         flag = np.zeros((self.N_FEATURES))
+#         temp_state_matrix = []
+#         for state in state_matrix:
+#             new_ON_idx = np.where((state==1) & (flag == 0))[0]
+#             new_OFF_idx = np.where(((state==0) & (flag == 1)) | (count>=self.args.expiration_period))[0]
+            
+#             flag[new_ON_idx] = 1
+#             flag[new_OFF_idx] = 0
+#             count[new_OFF_idx] = 0
+            
+#             activated_idx = np.where(flag==1)[0]
+#             count[activated_idx] += 1
+#             temp_state_matrix.append(flag.copy())
+#         state_matrix = np.concatenate(temp_state_matrix).reshape((-1, self.N_FEATURES))
+#         return state_matrix
+
+
+# class CASAS_ADLMR(AmbientData):
+#     def __init__(self, args):
+#         self.args = args
+#         self.main()
+#         super().__init__(args)
+    
+#     def main(self):
+#         self.filename = './dataset/adlmr_collaborative'
+#         with open(self.filename, 'rb') as f:
+#             self.adlmr = pickle.load(f)
+#         self.episodes = self.adlmr['episodes']
+#         self.sensors = self.adlmr['sensors']
         
-        col = [0, 1, 2, 4]
-        episodes = []
-        for episode in self.episodes:
-            episodes.append(episode[:, col])
-        self.episodes = episodes
+#         col = [0, 1, 2, 4]
+#         episodes = []
+#         for episode in self.episodes:
+#             episodes.append(episode[:, col])
+#         self.episodes = episodes
   
 
 # args.with_other=False
@@ -182,12 +249,11 @@ class CASAS_ADLMR(AmbientData):
     
 
 
-class CASAS_RAW_SEGMENTED(AmbientData):
+class CASAS_RAW_SEGMENTED:
     def __init__(self, args):
         self.args = args
         self.main()
-        super().__init__(args)
-    
+        
     def main(self):
         self.mappingActivities = {
                     "cairo": {"": "Other",
@@ -281,23 +347,11 @@ class CASAS_RAW_SEGMENTED(AmbientData):
         self.N_FEATURES = len(self.sensors)
         self.sensor2index = {sensor: i for i, sensor in enumerate(self.sensors)}
         self.episodes = self.create_episodes(sensors, values, timestamps, activities)
+        if self.episodes is not None:
+            self.X, self.Y, self.lengths, self.event_counts = self.generateDataset()
+        self.nseries, _, _ = self.X.shape
+        self.N_CLASSES = len(np.unique(self.Y))
     
-    def create_episodes(self, sensors, values, timestamps, activities):
-        X, x = [], []
-        # Y = []
-        prev_label = None
-        for s, v, t, l in zip(sensors, values, timestamps, activities):
-            if prev_label == l or prev_label is None:
-                x.append([s, v, t, self.mappingActivities[self.args.dataset][l]])
-            else:
-                X.append(np.array(x))
-                # Y.append(mappingActivities[prev_label])
-                x = [[s, v, t, self.mappingActivities[self.args.dataset][l]]]
-            prev_label = l
-        X.append(np.array(x))
-        # Y.append(mappingActivities[prev_label])
-        return X
-
     def preprocessing(self):
         activity = ''  # empty
         sensors, values, timestamps, activities = [], [], [], []
@@ -341,19 +395,114 @@ class CASAS_RAW_SEGMENTED(AmbientData):
         # sensors, values, timestamps, activities = self.sort_by_time(sensors, values, timestamps, activities)
         return sensors, values, timestamps, activities
     
-    def sort_by_time(self, sensors, values, timestamps, activities):
-        df = pd.DataFrame({'sensors': sensors, 'values': values,
-                        'timestamps': timestamps, 'activities': activities})
-        df.sort_values(by=['timestamps'], inplace=True)
-        return df['sensors'].tolist(), df['values'].tolist(), df['timestamps'].tolist(), df['activities'].tolist()
+    def create_episodes(self, sensors, values, timestamps, activities):
+        X, x = [], []
+        # Y = []
+        prev_label = None
+        for s, v, t, l in zip(sensors, values, timestamps, activities):
+            if prev_label == l or prev_label is None:
+                x.append([s, v, t, self.mappingActivities[self.args.dataset][l]])
+            else:
+                X.append(np.array(x))
+                # Y.append(mappingActivities[prev_label])
+                x = [[s, v, t, self.mappingActivities[self.args.dataset][l]]]
+            prev_label = l
+        X.append(np.array(x))
+        # Y.append(mappingActivities[prev_label])
+        return X
+
+    # def change_state(self, activated, s, v):
+    #     vector = activated.copy()
+    #     if v.lower() in ["on", "true", "up"]:
+    #         vector[self.sensor2index[s]] = 1
+    #     else:
+    #         vector[self.sensor2index[s]] = 0
+    #     return vector
     
-    def limit_duration(self):
+    def change_state(self, activated, s, v):
+        vector = activated.copy()
+        if v.lower() in ["on", "true", "up"]:
+            vector[self.sensor2index[s]] = 1
+        elif v.lower() in ["off", "false", "down"]:
+            vector[self.sensor2index[s]] = 0
+        else:
+            vector[self.sensor2index[s]] = float(v)
+        return vector
+
+    def event2matrix(self, episode):
+        activated = np.zeros(self.N_FEATURES)
+        start_time = int(float(episode[0][2]))
+        episode[:,2] = list(map(lambda x: int(float(x) - start_time), episode[:,2]))
+        duration = int(episode[-1][2])
+        if duration < 1:
+            return None
+        # state_matrix = np.zeros((int(episode[-1][2]) + 1, self.N_FEATURES))
+        state_matrix = np.zeros((self.args.seq_len, self.N_FEATURES))
+        # if self.args.dataset == 'lapras':
+        #     state_matrix -= 1
+        prev_t = 0
+        count = 0
+        count_seq = np.zeros((self.args.seq_len))
+        for s, v, t, l in episode:
+            t = int(t)
+            if t >= self.args.seq_len:  # Only for the episode whose sequence length exceeds the predefined seq_len
+                t = self.args.seq_len - 1
+                state_matrix[prev_t:t] = activated
+                count_seq[prev_t:t] = count
+                activated = self.change_state(activated, s, v)
+                break
+            if t != prev_t:
+                state_matrix[prev_t:t] = activated
+                count_seq[prev_t:t] = count
+                prev_t = t
+            activated = self.change_state(activated, s, v)
+            count += 1
+        state_matrix[t] = activated
+        count_seq[t] = count
+        return [np.array(state_matrix), l, duration+1, count_seq, t, start_time]
+
+    def generateDataset(self):
+        # if self.args.rnd_prefix:
+        #     self.sample_suffix()
+        X, Y, lengths, event_counts, start_time = [], [], [], [], []
+        for episode in self.episodes:
+            # if self.args.remove_prefix:
+            #     episode = episode[self.args.prefix_len:, :] if len(episode) > self.args.prefix_len else episode
+            converted = self.event2matrix(episode)
+            if converted is None:
+                continue
+            # if self.args.rnd_prefix:
+            #     idx = np.random.choice(len(self.suffix), 1)[0]
+            #     converted[0] = np.concatenate((self.suffix[idx], converted[0]), axis=0)
+            if self.args.expiration_period != -1:
+                X.append(self.activation_expire(converted[0]))
+            else:
+                X.append(converted[0])
+            Y.append(converted[1])
+            lengths.append(converted[2])
+            event_counts.append(converted[3])
+            start_time.append(converted[5])
+        X = pad_sequences(X, padding='post', truncating='post', dtype='float32', maxlen=self.args.seq_len)  # B * T * V
+        self.idx2label = {i:label for i, label in enumerate(sorted(set(Y)))}
+        self.label2idx = {label:i for i, label in self.idx2label.items()}
+        Y = [self.label2idx[l] for l in Y]
+        Y = np.array(Y)
+        lengths = np.array(lengths)
+        event_counts = pad_sequences(event_counts, padding='post', truncating='post', dtype='float32', maxlen=self.args.seq_len, value=0.0)
+        # event_counts = np.array(event_counts)
+        self.start_time = np.array(start_time)
+        return X, Y, lengths, event_counts
+    
+    def activation_expire(self, state_matrix):
         count = np.zeros((self.N_FEATURES))
         flag = np.zeros((self.N_FEATURES))
         temp_state_matrix = []
-        for state in self.state_matrix:
+        for state in state_matrix:
+            # if self.args.dataset == 'lapras' and np.sum(state) == -self.N_FEATURES:
+            #     temp_state_matrix.append(padding.copy())
+            #     continue
             new_ON_idx = np.where((state==1) & (flag == 0))[0]
-            new_OFF_idx = np.where(((state==0) & (flag == 1)) | (count>=10))[0]
+            new_OFF_idx = np.where(((state==0) & (flag == 1)) | (count>=self.args.expiration_period))[0]
             
             flag[new_ON_idx] = 1
             flag[new_OFF_idx] = 0
@@ -362,8 +511,14 @@ class CASAS_RAW_SEGMENTED(AmbientData):
             activated_idx = np.where(flag==1)[0]
             count[activated_idx] += 1
             temp_state_matrix.append(flag.copy())
-        self.state_matrix = np.concatenate(temp_state_matrix).reshape((-1, self.N_FEATURES))
-        print("limit the duration of the sensor activation")
+        state_matrix = np.concatenate(temp_state_matrix).reshape((-1, self.N_FEATURES))
+        return state_matrix
+    
+    def sort_by_time(self, sensors, values, timestamps, activities):
+        df = pd.DataFrame({'sensors': sensors, 'values': values,
+                        'timestamps': timestamps, 'activities': activities})
+        df.sort_values(by=['timestamps'], inplace=True)
+        return df['sensors'].tolist(), df['values'].tolist(), df['timestamps'].tolist(), df['activities'].tolist()
     
     def exclude_other_events(self, sensors, values, timestamps, activities):
         temp_sensors, temp_values, temp_timestamps, temp_activities = [], [], [], []
@@ -390,13 +545,31 @@ class CASAS_RAW_NATURAL(CASAS_RAW_SEGMENTED):
     def __init__(self, args):
         self.args = args
         self.main()
-        self.nseries, _, _ = self.X.shape
-        self.N_CLASSES = len(np.unique(self.Y))
-
+        # self.nseries, _, _ = self.X.shape
+        # self.N_CLASSES = len(np.unique(self.Y))
+    
+    def activation_expire(self):
+        count = np.zeros((self.N_FEATURES))
+        flag = np.zeros((self.N_FEATURES))
+        temp_state_matrix = []
+        for state in self.state_matrix:
+            new_ON_idx = np.where((state==1) & (flag == 0))[0]
+            new_OFF_idx = np.where(((state==0) & (flag == 1)) | (count>=10))[0]
+            
+            flag[new_ON_idx] = 1
+            flag[new_OFF_idx] = 0
+            count[new_OFF_idx] = 0
+            
+            activated_idx = np.where(flag==1)[0]
+            count[activated_idx] += 1
+            temp_state_matrix.append(flag.copy())
+        self.state_matrix = np.concatenate(temp_state_matrix).reshape((-1, self.N_FEATURES))
+        print("limit the duration of the sensor activation")
+    
     def create_episodes(self, sensors, values, timestamps, activities):
         self.state_matrix, self.labels, prev_counts = self.event2matrix(sensors, values, timestamps, activities)
         if self.args.except_all_other_events:
-            self.limit_duration()
+            self.activation_expire()
         prev_count = 0
         prev_label = None
         x, counts = [], []
@@ -561,6 +734,142 @@ class CASAS_RAW_NATURAL(CASAS_RAW_SEGMENTED):
         self.prev_Y = self.prev_Y[idx]
         self.noise_amount = self.noise_amount[idx]
         print(f'The number of the instances: {len(self.Y)}')
+
+
+class Lapras(CASAS_RAW_SEGMENTED):
+    def __init__(self, args):
+        self.args = args
+        self.idx_noise_amount = 0
+        self.main()
+        
+    def main(self):
+        if self.args.dataset == 'lapras_kisoo':
+            self.data_path = "../AIoTService/segmentation/dataset/testbed/npy/lapras/csv"
+        elif self.args.dataset == 'lapras_norm':
+            self.data_path = "./dataset/Lapras_normalized"
+        elif self.args.dataset == 'lapras_stand':
+            self.data_path = "./dataset/Lapras_standardized"
+        if self.args.random_noise:
+            self.data_path += '_ms'
+        print(f'data_path: {self.data_path}')
+            
+        self.episodes, sensors = self.preprocessing()
+        if self.args.random_noise:
+            self.noise_amount = np.random.randint(low=self.args.offset, size=len(self.episodes))
+        else:
+            noise_amount = int(self.args.noise_ratio / 100 * self.args.offset)
+            self.noise_amount = np.ones(len(self.episodes), dtype=int) * noise_amount
+        self.sensors = sorted(sensors)
+        self.N_FEATURES = len(self.sensors)
+        self.sensor2index = {sensor: i for i, sensor in enumerate(self.sensors)}
+        
+        self.args.seq_len = int(self.args.seq_len * self.args.window_size)
+        self.X, self.Y, self.org_lengths, self.event_counts = self.generateDataset()
+        self.args.seq_len = int(self.args.seq_len / self.args.window_size)
+        self.X = np.reshape(self.X, (self.X.shape[0], self.args.seq_len, self.args.window_size, self.N_FEATURES))
+        self.X = np.mean(self.X, axis=2)
+
+        self.lengths = np.ceil(self.org_lengths / self.args.window_size).astype(np.int64)
+        self.lengths = np.where(self.lengths > self.args.seq_len, self.args.seq_len, self.lengths)
+        self.nseries, _, _ = self.X.shape
+        self.N_CLASSES = len(np.unique(self.Y))
+        self.args.offset = int(self.args.offset / self.args.window_size)
+        
+    def preprocessing(self):
+        episodes = []
+        for wd in glob.glob(f"{self.data_path}/*"):
+            activity = wd.split("/")[-1]
+            # print(activity)
+            filelist = sorted(glob.glob(f"{wd}/*.csv"))
+            for file in filelist:
+                df = pd.read_csv(file, header=None)
+                # df = df.loc[df[0].str.contains(r"Mtest")]
+                # df = df.loc[df[0].str.contains(r"seat") | df[0].str.contains(r"Mtest")]
+                df[2] = df[2].apply(lambda x: str(x)[:10])
+                epi = df.to_numpy()
+                episodes.append(np.concatenate([epi, np.broadcast_to(np.array([activity]), (len(epi), 1))], axis=1))
+            # episodes.append(np.array([np.concatenate((pd.read_csv(file, header=None).to_numpy(), np.broadcast_to(np.array([activity]), (len(pd.read_csv(file, header=None).to_numpy()),1))), axis=1) for file in filelist]))            
+        episodes = np.array(episodes)
+
+        sensors = set()
+        for ep in episodes:
+            sensors |= set(ep[:, 0])
+        return episodes, sensors  
+    
+    def event2matrix(self, episode):
+        activated = np.zeros(self.N_FEATURES)
+        start_time = int(float(episode[0][2]))
+        episode[:,2] = list(map(lambda x: int(float(x) - start_time), episode[:,2]))
+        duration = int(episode[-1][2])
+        if duration < 1:
+            return None
+        # state_matrix = np.zeros((int(episode[-1][2]) + 1, self.N_FEATURES))
+        state_matrix = np.zeros((self.args.seq_len + self.args.offset, self.N_FEATURES))
+        # if self.args.dataset == 'lapras':
+        #     state_matrix -= 1
+        prev_t = 0
+        count = 0
+        count_seq = np.zeros((self.args.seq_len + self.args.offset))
+        for s, v, t, l in episode:
+            t = int(t)
+            if t >= self.args.seq_len + self.args.offset:  # Only for the episode whose sequence length exceeds the predefined seq_len
+                t = self.args.seq_len + self.args.offset - 1
+                state_matrix[prev_t:t] = activated
+                count_seq[prev_t:t] = count
+                activated = self.change_state(activated, s, v)
+                break
+            if t != prev_t:
+                state_matrix[prev_t:t] = activated
+                count_seq[prev_t:t] = count
+                prev_t = t
+            activated = self.change_state(activated, s, v)
+            count += 1
+        state_matrix[t] = activated
+        count_seq[t] = count       
+        
+        if self.noise_amount[self.idx_noise_amount] != 0:
+            i = self.args.offset - self.noise_amount[self.idx_noise_amount]
+            state_matrix = np.array(state_matrix[i:])
+            duration = duration - i
+            count_seq = count_seq[i:] - count_seq[:i].max()
+            count_seq = np.where(count_seq > 0, count_seq, 0)
+            # count_seq = np.where(count_seq[i:] != 0, count_seq[i:] - count_seq[:i].max(), 0)
+            t = t - i
+        self.idx_noise_amount += 1
+        return [state_matrix, l, duration+1, count_seq, t, start_time]
+
+
+    # def preprocessing(self):
+    #     episodes = []
+    #     for wd in glob.glob(f"{self.data_path}/*"):
+    #         activity = wd.split("/")[-1]
+    #         # print(activity)
+    #         filelist = sorted(glob.glob(f"{wd}/*.npy"))
+    #         episodes.append(np.array([np.concatenate((np.load(file), np.broadcast_to(np.array([activity]), (len(np.load(file)),1))), axis=1) for file in filelist]))            
+    #     episodes = np.concatenate(episodes)
+        
+    #     sensors = set()
+    #     for ep in episodes:
+    #         sensors |= set(ep[:, 0])
+    #     return episodes, sensors        
+    
+    
+
+# data2 = Lapras(args)
+
+# data_casas1 = CASAS_RAW_NATURAL(args)
+# data_casas1.X
+
+# np.sum(data1.X != data2.X)
+
+# aa = episodes['Presentation'] + episodes['Discussion'] + episodes['GroupStudy'] + episodes['Chatting']
+# lengths = []
+# for a in aa:
+#     lengths.append(int(a[-1][-1]) - int(a[0][-1]))
+# np.mean(lengths)
+
+# np.percentile(lengths, [0, 25, 50, 75, 90], interpolation='nearest')
+
 
 
     # def transition_boundary(self, offset=21):

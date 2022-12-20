@@ -1203,12 +1203,12 @@ import pandas as pd
 import tensorboard as tb
 
 
-def get_exp_results(exp_ids, lam):
+def get_exp_results(exp_ids, lam, query='test'):
     df_list = []
     for i, experiment_id in enumerate(exp_ids):
         experiment = tb.data.experimental.ExperimentFromDev(experiment_id)
         df = experiment.get_scalars()
-        df = df.loc[df['run'].str.contains(r"test")]
+        df = df.loc[df['run'].str.contains(r"%s" % query)]
         df["step"] += 1
         df["group"] = df["tag"] + "_" + df["step"].astype('str')
         df_grouped = df.groupby("group").mean()
@@ -1219,6 +1219,7 @@ def get_exp_results(exp_ids, lam):
         df_list.append(df_grouped)
     df_concat = pd.concat(df_list)
     return df_concat
+
 def save_results(exp_num, data_name, df):
     acc_100, ear_100, hm_100 = [], [], []
     for id in exp_num:
@@ -1230,6 +1231,16 @@ def save_results(exp_num, data_name, df):
         ear_100.append(ear[ear['step'] == 100]['value'].values[0])
         hm_100.append(hm[hm['step'] == 100]['value'].values[0])
     df_result = pd.DataFrame({'exp_id': exp_num, 'accuracy': acc_100, 'earliness': ear_100, 'hm': hm_100})
+    df_result.to_csv(f'./results/{data_name}_1.csv')
+    # print(f'{acc_100: .4f} {ear_100: .4f} {hm_100: .4f}')
+    
+def save_results_train(exp_num, data_name, df):
+    acc_100 = []
+    for id in exp_num:
+        # id = 'basic_0.01'
+        acc = df[(df['lambda'] == id) & (df['metrics'] == 'whole_accuracy')]
+        acc_100.append(acc[acc['step'] == 50]['value'].values[0])
+    df_result = pd.DataFrame({'exp_id': exp_num, 'accuracy': acc_100})
     df_result.to_csv(f'./results/{data_name}_1.csv')
     # print(f'{acc_100: .4f} {ear_100: .4f} {hm_100: .4f}')
 
@@ -1256,6 +1267,17 @@ exp_milan_clear = ['0bP9lcJaQ2C4mvFzkF4Agg',
                 'b9sk8YnbRlW1pCpWhYU5Hw',
                 'VJP6DEvlTBSDdUd7tzXcgg',
                 'R0dh1I2XQ629kyBlDqOkRg']
+
+exp_kyoto11_clear = ['5Js5HmqfR7CDar4E1u6rcA',
+                    'GT2Hry4LQ9CK0e1aIj69Aw',
+                    'KH5JXjQjRXy2G9KzPCOvaw',
+                    'PilLgk8VRfGJH5eU2rBOhg',
+                    'mtQAUqxARjmikElVmadETg']
+exp_kyoto8_clear = ['4BXAvL0MSdydQQU4Dcl7aA',
+                    'urXv0ruxSliWIniM84j3tg',
+                    'djNOOi9kQTmQkt76doR5MA',
+                    'Xsr1m7awQ3qgoX9G0HKTQA',
+                    'L80hlQOaTW69WsYRSBanlA']
 
 exp_cairo = ['Xi6dgnAmQb2qZxdskQDAzA',
             'oLzbZOwoSkqC7MeiMoonMw',
@@ -1321,31 +1343,74 @@ exp_kyoto11 =['nIwiQOa2QEWOZJso9nxSEA',
             'gJ3WyQlaSbqeELxtXQJ1RA',
             '1PoVVBZlQTmh7FoE8Rvy9A']
 
-exp_detector = ['IkcGCZaeS26fGMCoyLkZZA',
-                'xGkTyESNS3GTpztmsAx6Ig']
+exp_detector = ['kIAO1WjJS0mFA46J551tBw',
+                'xnptpyWHQYWN8DzGjFDKLw',
+                '1XjKsr6NSRmOkEiGoGZCPA',
+                '2lreNx3lS9eoaxoQA8pzRw',
+                'pZB0KlgPQwaqeCdgxB3OyQ',
+                'CkYNRbe8QK2SD15vGDdp9Q',
+                '3k1FRS4YSOCP2wpLi9HpaA',
+                'VKc32RCKSPq2raowJnpjTw',
+                'MXa5FaAARsWSJvrpqadm7A',
+                'yytNeS3AQjCkIeVMm4MLVA']
+
+# exp_none = ['xo4o7LA6TqqvIocYPx10ew',
+#             'nI4VRPtwQlS3wcdcdirJhw',
+#             '4uZlQ1z8QPSOJIl9unb77g',
+#             'ZjmEPJ7PROqor5m2YQCPmQ',
+#             'Jq3zCAJ1RjONKJM5qF9PWg',
+#             'rjgmfBZSQvmxc0cvLi7L6w',
+#             'F932ACpaSAeaS38eMQDPHA',
+#             'havQY6BqQS2S9YFQdYnBOg',
+#             'gzkY6OsQQY2W6LKTyJi41w',
+#             'UWQz3lADQXe24WotO7NxzA']
+
+exp_none = ['u4VurrMpRuykrhbaMo6Bbw',
+            '5BWVkzAZQEKXF5i7HAsa2Q',
+            'nFYgQPoZR9y3OD13U22QmA',
+            'LzMs3u7eQjetwow4za5quw',
+            'n4OuZsjeTlGj5HKrL5JTZQ']
+
+exp_lapras_aug = ['VrRiNFXxQn63RsXNqLhVOA',
+                'qtowxW2SRuyEMBXuokdpnQ',
+                '9abKVkUdRb2mUN5XXQdbzw',
+                'cmcNRQCPRR20l37CzGcgUA',
+                'ubjFJSeYRFGYoXENUNaRhQ']
+
+
 
 from itertools import product
 methods=['basic', 'cnn', 'attn']
-methods=['detector_milan', 'detector_kyoto11']
+methods=['none_milan', 'none_kyoto11']
+methods=['kyoto8_clear']
 lam=['0.001']
 lam=['0.1', '0.01', '0.001', '0.0001', '0.00001']
+lam=['0.1', '0.2', '0.3', '0.4', '0.5']
+# lam=['0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '10']
 exp_num = []
 for i in product(methods, lam):
     exp_num.append('_'.join(i))
 df_detector = get_exp_results(exp_detector, exp_num)
+# df_none = get_exp_results(exp_none, exp_num)
 df_milan = get_exp_results(exp_milan, exp_num)
 # df_milan = get_exp_results(exp_milan_clear, exp_num)
+# df_kyoto11 = get_exp_results(exp_kyoto11_clear, exp_num)
+# df_kyoto8 = get_exp_results(exp_kyoto8_clear, exp_num)
 df_cairo = get_exp_results(exp_cairo, exp_num)
 df_kyoto7 = get_exp_results(exp_kyoto7, exp_num)
 df_kyoto8 = get_exp_results(exp_kyoto8, exp_num)
 df_kyoto11 = get_exp_results(exp_kyoto11, exp_num)
-
+df_lapras = get_exp_results(exp_lapras_aug, exp_num, 'train')
+np.mean([8564, 8686, 8907])
 save_results(exp_num, 'detector', df_detector)
+save_results(exp_num, 'none', df_none)
 save_results(exp_num, 'milan', df_milan)
 save_results(exp_num, 'cairo', df_cairo)
 save_results(exp_num, 'kyoto7', df_kyoto7)
-save_results(exp_num, 'kyoto8', df_kyoto8)
+save_results(exp_num, 'kyoto8_clear', df_kyoto8)
 save_results(exp_num, 'kyoto11', df_kyoto11)
+save_results(exp_num, 'lapras', df_lapras)
+save_results_train(exp_num, 'lapras_train', df_lapras)
 
 pd.options.display.float_format = '{:.5f}'.format
 id = 'basic_0.1'
@@ -1994,12 +2059,13 @@ plt.show()
 plt.savefig(f'./analysis/attn_scores_normal_{ratio}_.png')
 plt.clf()
 
+# --------------------------------------------------------------
+# estimated transition point and mean squred error
 
 import pickle
 
-dir = '221021-161244'
+dir = '221021-164850'
 all_idx, all_noise_amount, all_attn_scores = [], [], []
-data.keys()
 for i in range(1, 4):
     with open(f'./output/log/{dir}/fold_{i}/dict_analysis.pickle', 'rb') as f:
         data = pickle.load(f)
@@ -2009,10 +2075,13 @@ data.keys()
 x = [th/100. for th in range(1, 21, 1)]
 y = data['threshold_mse_list']
 
+# data['estimated_tr']
+np.sqrt(np.min(data['threshold_mse_list']))
+
 
 plt.plot(x, y, color = 'b', linestyle = 'solid', marker = 'o')
 
-plt.xticks(np.arange(0, args.offset, 5))
+# plt.xticks(np.arange(0, args.offset, 5))
 plt.xlabel('Threshold')
 # plt.xticks(rotation = 25)
 plt.ylabel('MSE')
@@ -2021,10 +2090,145 @@ plt.show()
 plt.savefig(f'./analysis/attn_scores_threshold.png')
 plt.clf()
 
-data['noise_amount'][:30]
-data['estimated_tr'][:30]
 
 
+# -------------------------------------------------------------------------- 
+# mean absolute error
+import pickle
+import numpy as np
+
+dir = '221205-184408'
+all_mae = []
+for i in range(1, 4):
+    with open(f'./output/log/{dir}/fold_{i}/dict_analysis.pickle', 'rb') as f:
+        data = pickle.load(f)
+        idx = np.argmin(data['threshold_mse_list'])
+        all_mae.append(data['threshold_mae_list'][idx])
+data.keys()
+np.mean(all_mae)
+
+data['noise_amount'][20:40]
+data['estimated_tr'][20:40]
+data['lengths'][20:40]
+
+idx = 39
+data['noise_amount'][idx]
+data['estimated_tr'][idx]
+data['attn_scores'][idx][0][1:]*100
+data['threshold']
+
+
+
+x = range(1, args.offset+1)
+y = data['attn_scores'][idx][0][1:]
+
+plt.figure(figsize=(6,6))
+plt.plot(x, y, color = 'g', linestyle = 'solid', marker = '.', label='Attention scores')
+
+plt.xticks(np.arange(0, args.offset+1, 5))
+plt.axvline(data['noise_amount'][idx]+0.5, 0, 1, color='blue', linestyle='--', linewidth=2, label='Transition')
+plt.axvline(data['estimated_tr'][idx]+0.5, 0, 1, color='red', linestyle='--', linewidth=2, label='Estimated')
+plt.xlabel('Timesteps')
+# plt.xticks(rotation = 25)
+plt.ylabel('Attention scores')
+# plt.title(f'Attention scores for all ({ratio}:{100-ratio})')
+plt.legend()
+plt.show()
+plt.savefig(f'./analysis/attn_scores.png')
+plt.clf()
+
+
+
+
+
+dir = '221101-185505'
+all_gap = []
+for i in range(1, 4):
+    with open(f'./output/log/{dir}/fold_{i}/dict_analysis.pickle', 'rb') as f:
+        data = pickle.load(f)
+        all_gap.append(data['estimated_tr'] - data['noise_amount'])
+data.keys()
+
+np.where(all_gap[0] < 0, 1, 0).sum()
+np.where(all_gap[0] > 0, 1, 0).sum()
+
+idx_neg = np.where(all_gap[0] < 0)
+idx_pos = np.where(all_gap[0] > 0)
+
+all_gap[0][idx_neg].mean()
+all_gap[0][idx_pos].mean()
+
+# --------------------------------------------------------------------------
+# estimated와 actual간의 gap 분포 및 정확도
+import matplotlib.pyplot as plt
+
+dir = '221101-185505'
+all_noise_amount, all_estimated_tr, all_pred_y, all_true_y = [], [], [], []
+all_locations = []
+for i in range(1, 4):
+    with open(f'./output/log/{dir}/fold_{i}/dict_analysis.pickle', 'rb') as f:
+        data = pickle.load(f)
+    # data.keys()
+    all_noise_amount.append(data['noise_amount'])
+    all_estimated_tr.append(data['estimated_tr'])
+    all_pred_y.append(data['pred_y'])
+    all_true_y.append(data['true_y'])
+    all_locations.append(data['locations'])
+noise_amount = np.concatenate(all_noise_amount)
+estimated_tr = np.concatenate(all_estimated_tr)
+pred_y = np.concatenate(all_pred_y)
+true_y = np.concatenate(all_true_y)
+locations = np.concatenate(all_locations)
+
+diff = estimated_tr - noise_amount
+x, y = np.unique(diff, return_counts=True)
+
+plt.figure(figsize=(8,6))
+plt.bar(x, y)
+# plt.xticks(x, years)
+plt.xlabel('Gap between estimated and actual transition point')
+plt.ylabel('Counts')
+plt.show()
+plt.savefig(f'./analysis/threshold_gap.png')
+plt.clf()
+
+acc_neg, acc_pos = [], []
+x = range(1, args.offset + 1)
+for i in x:
+    idx_neg = np.where((diff <= 0) & (diff > -i))[0]
+    idx_pos = np.where((diff >= 0) & (diff < i))[0]
+    acc_neg.append(np.where(pred_y[idx_neg] == true_y[idx_neg], 1, 0).mean())
+    acc_pos.append(np.where(pred_y[idx_pos] == true_y[idx_pos], 1, 0).mean())
+
+plt.figure(figsize=(8,6))
+plt.plot(x, acc_neg, color = 'm', linestyle = 'solid', marker = 'o', label='estimated before actual')
+plt.plot(x, acc_pos, color = 'g', linestyle = 'solid', marker = 'o', label='actual before estimated')
+plt.xlabel('Absolute value of gap between actual and estimated points')
+plt.ylabel('Accuracy of data <= x')
+plt.legend()
+plt.show()
+plt.savefig(f'./analysis/threshold_acc_by_gap.png')
+plt.clf()
+
+
+acc_neg, acc_pos = [], []
+loc_neg, loc_pos = [], []
+x = range(0, args.offset + 1)
+for i in x:
+    idx_neg = np.where((diff == -i))[0]
+    idx_pos = np.where((diff == i))[0]
+    acc_neg.append(np.where(pred_y[idx_neg] == true_y[idx_neg], 1, 0).mean())
+    acc_pos.append(np.where(pred_y[idx_pos] == true_y[idx_pos], 1, 0).mean())
+    loc_neg.append(np.mean(locations[idx_neg]))
+    loc_pos.append(np.mean(locations[idx_pos]))
+
+locations
+
+list(x)
+
+
+# -------------------------------------------------------------------------- 
+# 얼마나 delay가 생겼는지, 에피소드의 평균 길이는 몇분인지
 
 dir = '221004-223621'
 all_locations = []
@@ -2056,3 +2260,1307 @@ a
 b
 c
 np.mean([a,b,c])
+
+
+import utils
+from dataset import CASAS_ADLMR, CASAS_RAW_NATURAL, CASAS_RAW_SEGMENTED, Dataloader
+args = utils.create_parser()
+args.dataset = "milan"
+args.random_noise=True
+data_natural = CASAS_RAW_NATURAL(args)
+
+
+data_natural.org_lengths.mean()/60
+# Milan: 23.00900153609831
+# kyoto8: 40.01735042735042
+# kyoto11: 28.774137154185816
+
+# ---------------------------------------------------------------------------------------------
+# None(Skipped TW)
+# earliness 계산
+import pickle
+
+milan_dir = ['221019-194009',
+            '221019-200632',
+            '221019-204541',
+            '221019-215407',
+            '221020-021007']
+kyoto8_dir = ['221019-194114',
+            '221019-195539',
+            '221019-201452',
+            '221019-203945',
+            '221019-214809']
+kyoto11_dir = ['221019-194117',
+                '221019-202935',
+                '221019-214613',
+                '221020-002423',
+                '221020-051013']
+list_acc, list_earl1, list_earl2, list_HM1, list_HM2 = [], [], [], [], []
+for dir in kyoto8_dir:
+    # dir = '221019-194009'
+    acc, earl1, earl2, HM1, HM2 = [], [], [], [], []
+    # data.keys()
+    for i in range(1, 4):
+        with open(f'./output/log/{dir}/fold_{i}/dict_analysis.pickle', 'rb') as f:
+            data = pickle.load(f)
+        idx = np.where(data['lengths'] > 20)[0]
+        accuracy = np.where(data['pred_y'][idx] == data['true_y'][idx], 1, 0).mean()
+        earliness1 = np.mean((data['locations'][idx] - 20) / data['lengths'][idx])
+        earliness2 = np.mean(data['locations'][idx] / data['lengths'][idx])
+        acc.append(accuracy)
+        earl1.append(earliness1)
+        earl2.append(earliness2)
+        HM1.append((2 * (1 - earliness1) * accuracy) / ((1 - earliness1) + accuracy))
+        HM2.append((2 * (1 - earliness2) * accuracy) / ((1 - earliness2) + accuracy))
+    list_acc.append(np.mean(acc))
+    list_earl1.append(np.mean(earl1))
+    list_earl2.append(np.mean(earl2))
+    list_HM1.append(np.mean(HM1))
+    list_HM2.append(np.mean(HM2))
+print(list_acc)
+print(list_earl1)
+print(list_earl2)
+print(list_HM1)
+print(list_HM2)
+
+
+
+# ---------------------------------------------------------------------------------------------
+# Filter model
+# earliness 계산
+args = utils.create_parser()
+args.dataset = "milan"
+args.random_noise=True
+data_natural = CASAS_RAW_NATURAL(args)
+
+
+milan_dir = ['220926-154933']
+
+locations = np.where(data_natural.lengths[data['idx']] <= 20, data_natural.lengths[data['idx']], data['locations']) 
+
+list_acc, list_earl1, list_earl2, list_HM1, list_HM2 = [], [], [], [], []
+for dir in milan_dir:
+    # dir = '221019-194009'
+    acc, earl1, earl2, HM1, HM2 = [], [], [], [], []
+    # data.keys()
+    for i in range(1, 4):
+        data = pd.read_csv(f'./output/log/{dir}/fold_{i}/test_results.csv')
+        
+        
+        locations = np.where(data['lengths'].to_numpy() <= 20, 1, data['locations'].to_numpy() - 20)        
+        accuracy = np.where(data['pred_y'].to_numpy() == data['true_y'].to_numpy(), 1, 0).mean()
+        earliness1 = np.mean(locations / data['lengths'].to_numpy())
+        earliness2 = np.mean(data['locations'].to_numpy() / data['lengths'].to_numpy())
+        acc.append(accuracy)
+        earl1.append(earliness1)
+        earl2.append(earliness2)
+        HM1.append((2 * (1 - earliness1) * accuracy) / ((1 - earliness1) + accuracy))
+        HM2.append((2 * (1 - earliness2) * accuracy) / ((1 - earliness2) + accuracy))
+    list_acc.append(np.mean(acc))
+    list_earl1.append(np.mean(earl1))
+    list_earl2.append(np.mean(earl2))
+    list_HM1.append(np.mean(HM1))
+    list_HM2.append(np.mean(HM2))
+print(list_acc)
+print(list_earl1)
+print(list_earl2)
+print(list_HM1)
+print(list_HM2)
+
+0.936 / 0.948
+
+
+kyoto11_dir = ['221004-234946']
+list_acc, list_earl1, list_earl2, list_HM1, list_HM2 = [], [], [], [], []
+for dir in kyoto11_dir:
+    # dir = '221019-194009'
+    acc, earl1, earl2, HM1, HM2 = [], [], [], [], []
+    # data.keys()
+    for i in range(1, 4):
+        with open(f'./output/log/{dir}/fold_{i}/dict_analysis.pickle', 'rb') as f:
+            data = pickle.load(f)
+        
+        locations = np.where(data['lengths'] <= 20, 1, data['locations'] - 20)        
+        accuracy = np.where(data['pred_y'] == data['true_y'], 1, 0).mean()
+        earliness1 = np.mean(locations / data['lengths'])
+        earliness2 = np.mean(data['locations'] / data['lengths'])
+        acc.append(accuracy)
+        earl1.append(earliness1)
+        earl2.append(earliness2)
+        HM1.append((2 * (1 - earliness1) * accuracy) / ((1 - earliness1) + accuracy))
+        HM2.append((2 * (1 - earliness2) * accuracy) / ((1 - earliness2) + accuracy))
+    list_acc.append(np.mean(acc))
+    list_earl1.append(np.mean(earl1))
+    list_earl2.append(np.mean(earl2))
+    list_HM1.append(np.mean(HM1))
+    list_HM2.append(np.mean(HM2))
+print(list_acc)
+print(list_earl1)
+print(list_earl2)
+print(list_HM1)
+print(list_HM2)
+0.885/0.894
+
+0.917/0.968
+
+
+# acc = [0.8564, 0.8686, 0.8907]
+# ear1 = [0.09182, 0.09609, 0.0929]
+# ear2 = [0.1915, 0.1958, 0.1969]
+acc = [0.7997, 0.781, 0.8102]
+ear1 = [0.1146, 0.1005, 0.1042]
+ear2 = [0.2121, 0.2123, 0.2072]
+
+HM1, HM2 = [], []
+for a, e1, e2 in zip(acc, ear1, ear2):
+    HM1.append((2 * (1 - e1) * a) / ((1 - e1) + a))
+    HM2.append((2 * (1 - e2) * a) / ((1 - e2) + a))
+    
+np.mean(HM1)
+np.mean(HM2)
+np.mean(ear2)
+
+# ---------------------------------------------------------------------------------------------
+# Window Warping
+a = np.where(np.sum(data_natural.X, axis=2) == 0, 1, 0)
+leng = 2000 - np.argmin(np.flip(a, axis=1), axis=1)
+
+
+args = utils.create_parser()
+args.dataset = "lapras_kisoo"
+args.expiration_period = 40
+args.random_noise=False
+args.window_size = 5
+data_natural = Lapras(args)
+data_natural.X.shape
+data_natural.org_lengths
+data_natural.lengths
+
+
+X, Y, lengths, event_counts, noise_amount = [], [], [], [], []
+X.append(data_natural.X)
+Y += list(data_natural.Y)
+lengths += list(data_natural.lengths)
+event_counts += list(data_natural.event_counts)
+noise_amount += list(data_natural.noise_amount)
+for x, y, l, e, n in zip(data_natural.X, data_natural.Y, data_natural.lengths, data_natural.event_counts, data_natural.noise_amount):
+    X.append(window_warp(x, l, multiple=multiple))
+    Y += [y] * multiple
+    lengths += [l] * multiple
+    event_counts += [e] * multiple
+    noise_amount += [n] * multiple
+X = np.concatenate(X)
+Y = np.array(Y)
+lenghts = np.array(lengths)
+event_counts = np.array(event_counts)
+noise_amount = np.array(noise_amount)
+
+X[0].shape
+data_natural.X[0]
+x2 = window_warp(x, l, multiple=multiple)
+x.shape
+
+
+
+
+
+def window_warp(x, length, window_ratio=0.1, scales=[0.5, 2.], multiple=3):
+    # https://halshs.archives-ouvertes.fr/halshs-01357973/document
+    warp_scales = np.random.choice(scales, multiple)
+    warp_size = np.ceil(window_ratio*length).astype(int)
+    window_steps = np.arange(warp_size)
+        
+    window_starts = np.random.randint(low=1, high=length-warp_size-1, size=multiple).astype(int)
+    window_ends = (window_starts + warp_size).astype(int)
+    
+    time_steps, channel = x.shape        
+    ret = np.zeros([multiple, time_steps, channel])
+    for i in range(multiple):
+        for dim in range(channel):
+            start_seg = x[:window_starts[i],dim]
+            window_seg = np.interp(np.linspace(0, warp_size-1, num=int(warp_size*warp_scales[i])), window_steps, x[window_starts[i]:window_ends[i],dim])
+            end_seg = x[window_ends[i]:length,dim]
+            padding_seg = x[length:,dim]
+            warped = np.concatenate((start_seg, window_seg, end_seg))                
+            warped = np.interp(np.arange(length), np.linspace(0, length-1., num=warped.size), warped).T
+            ret[i,:,dim] = np.concatenate((warped, padding_seg))
+    return ret
+
+
+
+
+x[window_starts[i]:window_ends[i],dim].shape
+window_starts[i] = 606
+window_ends[i] = 675
+
+start_seg.shape
+window_seg.shape
+end_seg.shape
+padding_seg.shape
+warped.shape
+np.concatenate((warped, padding_seg)).shape
+length
+
+ret.shape
+
+
+
+def window_warp(x, window_ratio=0.1, scales=[0.5, 2.]):
+    # https://halshs.archives-ouvertes.fr/halshs-01357973/document
+    warp_scales = np.random.choice(scales, x.shape[0])
+    warp_size = np.ceil(window_ratio*x.shape[1]).astype(int)
+    window_steps = np.arange(warp_size)
+        
+    window_starts = np.random.randint(low=1, high=x.shape[1]-warp_size-1, size=(x.shape[0])).astype(int)
+    window_ends = (window_starts + warp_size).astype(int)
+            
+    ret = np.zeros_like(x)
+    for i, pat in enumerate(x):
+        for dim in range(x.shape[2]):
+            start_seg = pat[:window_starts[i],dim]
+            window_seg = np.interp(np.linspace(0, warp_size-1, num=int(warp_size*warp_scales[i])), window_steps, pat[window_starts[i]:window_ends[i],dim])
+            end_seg = pat[window_ends[i]:,dim]
+            warped = np.concatenate((start_seg, window_seg, end_seg))                
+            ret[i,:,dim] = np.interp(np.arange(x.shape[1]), np.linspace(0, x.shape[1]-1., num=warped.size), warped).T
+    return ret
+
+
+# -------------------------------------------------------------------------------------------
+data_path = "../AIoTService/segmentation/dataset/testbed/npy/lapras/csv"
+
+episodes = []
+for wd in glob.glob(f"{data_path}/*"):
+    activity = wd.split("/")[-1]
+    # print(activity)
+    filelist = sorted(glob.glob(f"{wd}/*.csv"))
+    for file in filelist:
+        df = pd.read_csv(file, header=None)
+        # df = df.loc[df[0].str.contains(r"Mtest")]
+        # df = df.loc[df[0].str.contains(r"seat") | df[0].str.contains(r"Mtest")]
+        df[2] = df[2].apply(lambda x: str(x)[:-3])
+        epi = df.to_numpy()
+        episodes.append(np.concatenate([epi, np.broadcast_to(np.array([activity]), (len(epi), 1))], axis=1))
+    # episodes.append(np.array([np.concatenate((pd.read_csv(file, header=None).to_numpy(), np.broadcast_to(np.array([activity]), (len(pd.read_csv(file, header=None).to_numpy()),1))), axis=1) for file in filelist]))            
+episodes = np.array(episodes)
+
+sensors = set()
+for ep in episodes:
+    sensors |= set(ep[:, 0])
+sorted(sensors)
+
+import re
+
+data_path = "../AIoTService/segmentation/dataset/testbed/RevisionData"
+filelist = sorted(glob.glob(f"{data_path}/*.csv"))
+episodes = []
+for file in filelist:
+    file_name = file.split('/')[-1][:-4]
+    activity = re.sub(r"[0-9]", "", file_name)
+    
+    df = pd.read_csv(file, header=None)
+    # df = df.loc[df[0].str.contains(r"Mtest")]
+    # df = df.loc[df[0].str.contains(r"seat") | df[0].str.contains(r"Mtest")]
+    df[2] = df[2].apply(lambda x: str(x)[:-3])
+    epi = df.to_numpy()
+    episodes.append(np.concatenate([epi, np.broadcast_to(np.array([activity]), (len(epi), 1))], axis=1))
+# episodes.append(np.array([np.concatenate((pd.read_csv(file, header=None).to_numpy(), np.broadcast_to(np.array([activity]), (len(pd.read_csv(file, header=None).to_numpy()),1))), axis=1) for file in filelist]))            
+episodes = np.array(episodes)
+
+
+sensors = set()
+for ep in episodes:
+    sensors |= set(ep[:, 0])
+sorted(sensors)
+len(episodes)
+
+
+data_path = "./dataset/Lapras_Raw"
+
+episodes = []
+for wd in glob.glob(f"{data_path}/*"):
+    activity = wd.split("/")[-1]
+    # print(activity)
+    filelist = sorted(glob.glob(f"{wd}/*.csv"))
+    for file in filelist:
+        df = pd.read_csv(file, header=None)
+        # df = df.loc[df[0].str.contains(r"Mtest")]
+        # df = df.loc[df[0].str.contains(r"seat") | df[0].str.contains(r"Mtest")]
+        df[2] = df[2].apply(lambda x: str(x)[:-3])
+        epi = df.to_numpy()
+        episodes.append(np.concatenate([epi, np.broadcast_to(np.array([activity]), (len(epi), 1))], axis=1))
+    # episodes.append(np.array([np.concatenate((pd.read_csv(file, header=None).to_numpy(), np.broadcast_to(np.array([activity]), (len(pd.read_csv(file, header=None).to_numpy()),1))), axis=1) for file in filelist]))            
+episodes = np.array(episodes)
+
+sensors = set()
+for ep in episodes:
+    sensors |= set(ep[:, 0])
+sorted(sensors)
+
+
+
+# --------------------------------------------------------------------------------
+
+data_path = "./dataset/Lapras_Raw"
+episodes = []
+for wd in glob.glob(f"{data_path}/*"):
+    activity = wd.split("/")[-1]
+    # print(activity)
+    filelist = sorted(glob.glob(f"{wd}/*.csv"))
+    for file in filelist:
+        df = pd.read_csv(file, header=None)
+        df = df.loc[df[0].str.contains(r"Brightness|LightGroup|ProjectorPower|Screen|Seat1|Seat2|Seat3|Seat4|Seat5|Seat6|Sound|WhiteboardUsed", case=False)]
+        df = df.loc[~df[0].str.contains(r"_Brightness|TurnOffLight|TurnOnLight", case=False)]
+        if activity in ['Presentation', 'Discussion']:
+            idx = np.where(df[0].str.contains(r"ProjectorPower", case=False).to_numpy())[0]
+            if (len(idx) == 0) or ("On" not in df.iloc[idx][1].to_list()):
+                start_time = df[2].to_list()[0]
+                new_row = pd.DataFrame([['ProjectorPower', 'On', start_time]], columns = df.columns)
+                df = pd.concat([new_row, df], ignore_index = True)
+        df.to_csv(f'./dataset/Lapras_rm_ctxt/{activity}/{file.split("/")[-1]}', header=False, index=False)
+
+
+
+from sklearn.preprocessing import StandardScaler
+from sklearn.preprocessing import MinMaxScaler
+
+# scaler = StandardScaler()
+scaler = MinMaxScaler()
+
+data_path = "./dataset/Lapras_rm_ctxt"
+episodes = []
+normalize_context = ['Brightness', 'SoundC', 'SoundLeft', 'SoundRight']
+for wd in glob.glob(f"{data_path}/*"):
+    activity = wd.split("/")[-1]
+    # print(activity)
+    filelist = sorted(glob.glob(f"{wd}/*.csv"))
+    for file in filelist:
+        df = pd.read_csv(file, header=None)
+        for c in normalize_context:
+            idx = df[df[0]==c][1].index
+            if len(idx) == 0:
+                continue
+            values = df[df[0]==c][1].to_numpy().astype(float).reshape(-1, 1)
+            
+            scaler.fit(values)
+            scaled = scaler.transform(values)
+            df.iloc[idx, 1] = scaled.flatten()
+        df.to_csv(f'./dataset/Lapras_normalized/{activity}/{file.split("/")[-1]}', header=False, index=False)
+        # df.to_csv(f'./dataset/Lapras_standardization/{activity}/{file.split("/")[-1]}', header=False, index=False)
+
+
+
+
+
+
+
+data_path = "./dataset/Lapras_Raw"
+episodes = []
+X, X_file = [], []
+flag = False
+i = 0
+j = 0
+for wd in glob.glob(f"{data_path}/*"):
+    activity = wd.split("/")[-1]
+    # print(activity)
+    filelist = sorted(glob.glob(f"{wd}/*.csv"))
+    i = 0
+    for file in filelist:
+        df = pd.read_csv(file, header=None)
+        for x, x_f in zip(X, X_file):
+            # if (len(df) == len(x)) and (np.sum(x == df.values) == (len(df) * 3)):
+            if (len(df) == len(x)) and df[2][0] == x[0][2]:
+                flag = True
+                # print(x_f, file)
+                break
+        if flag:
+            flag = False
+            continue   
+        else:
+            X.append(df.values)
+            X_file.append(file)
+        if "Present" in df[0].to_list():
+            i += 1
+            print(activity, i)
+
+data_path = "./dataset/Lapras_Raw"
+# data_path = "./dataset/Lapras_rm_ctxt"
+episodes = []
+i = 0
+j = 0
+for wd in glob.glob(f"{data_path}/*"):
+    activity = wd.split("/")[-1]
+    # print(activity)
+    filelist = sorted(glob.glob(f"{wd}/*.csv"))
+    print( activity, len(filelist))
+    for file in filelist:
+        j += 1
+        df_temp = pd.read_csv(file, header=None)
+        df = df.append(df_temp)
+        if "Present" in df_temp[0].to_list():
+            print(activity)
+            i += 1
+        
+a = []        
+for c in np.unique(df[0]):
+    if ':' in c:
+        continue
+    a.append(c)
+    
+sensors = set()
+for ep in episodes:
+    sensors |= set(ep[:, 0])
+sorted(sensors)
+
+list_context = sorted(set(df[0]))
+dict_context = {}
+key, item = [], []
+for context in list_context:
+    dict_context[context] = str(set(df[df[0] == context][1].to_list()))
+    key.append(context)
+    item.append(set(df[df[0] == context][1].to_list()))
+
+
+dict_context.keys()
+pd.DataFrame({'key': key, 'item': item}).to_csv('./dataset/context.csv')
+
+for k, i in zip(key, item):
+    if k not in normalize_context:
+        continue
+    print(k)
+    print(np.min(np.array(list(i)).astype(float)), np.max(np.array(list(i)).astype(float)))
+    
+    
+    plt.hist(np.array(list(i)).astype(float), bins=50)
+    plt.title("Histogram of activity duration")
+    plt.xlabel("values")
+    plt.ylabel("")
+    plt.show()
+    plt.savefig(f"./dataset/histogram_{k}.png")
+    plt.clf()
+
+
+df_ = df.loc[df[0].str.contains(r"Brightness|SoundC|SoundLeft|SoundRight", case=False)]
+df_[1] = df_[1].astype(float)
+
+
+
+data_path = "./dataset/Lapras_rm_ctxt"
+episodes = []
+count = {k:0 for k in key}
+for wd in glob.glob(f"{data_path}/*"):
+    activity = wd.split("/")[-1]
+    # print(activity)
+    filelist = sorted(glob.glob(f"{wd}/*.csv"))
+    for file in filelist:
+        df_temp = pd.read_csv(file, header=None)
+        appearing_key = set(df_temp[0].to_list())
+        for a in appearing_key:
+            count[a] += 1
+
+for k, v in count.items():
+    print(f'{k}:\t{v}')            
+        
+
+
+import glob
+import pandas as pd
+import numpy as np
+
+data_path = "./dataset/Lapras_rm_ctxt"
+
+episodes = []
+for wd in glob.glob(f"{data_path}/*"):
+    activity = wd.split("/")[-1]
+    # print(activity)
+    filelist = sorted(glob.glob(f"{wd}/*.csv"))
+    for file in filelist:
+        df = pd.read_csv(file, header=None)
+        idx = np.where(df[0].str.contains(r"TurnOffProjector", case=False).to_numpy())[0]
+        if len(idx) != 0:
+            for i in idx:
+                if len(df[i:i+5]) != 5:
+                    continue
+                idx = np.where(df[i:i+5][0].to_numpy()=="ProjectorPower")[0]
+                if np.where(df[i:i+5][1].to_numpy()[idx] == "Off",1,0).sum() == 0:
+                    print(file)
+                # print(df[i:i+5])
+                # print('\n')
+                # x = input()
+
+
+
+
+
+data_path = "./dataset/Lapras_rm_ctxt"
+
+list_projector_on = []
+list_projector_off = []
+episodes = []
+for wd in glob.glob(f"{data_path}/*"):
+    activity = wd.split("/")[-1]
+    # print(activity)
+    filelist = sorted(glob.glob(f"{wd}/*.csv"))
+    for file in filelist:
+        df = pd.read_csv(file, header=None)
+        idx = np.where(df[0].str.contains(r"ProjectorPower", case=False).to_numpy())[0]
+        if (len(idx) != 0) and ("On" in df.iloc[idx][1].to_list()):
+            print(file.split('/')[-1])
+            list_projector_on.append(file.split('/')[-1])
+        if (len(idx) != 0) and ("Off" in df.iloc[idx][1].to_list()):
+            print(file.split('/')[-1])
+            list_projector_off.append(file.split('/')[-1])
+        
+projector_on = set(list_projector_on)
+projector_off = set(list_projector_off)
+len(projector_on)
+len(projector_on | projector_off)
+sorted(projector_on | projector_off)
+len(projector_on & projector_off)
+len(projector_on - projector_off)
+len(projector_off - projector_on)
+
+
+data_path = "./dataset/Lapras_rm_ctxt"
+data_path = "../AIoTService/segmentation/dataset/testbed/npy/lapras/csv"
+
+list_starttime = []
+list_starttime2 = []
+episodes = []
+for wd in glob.glob(f"{data_path}/*"):
+    activity = wd.split("/")[-1]
+    # print(activity)
+    filelist = sorted(glob.glob(f"{wd}/*.csv"))
+    for file in filelist:
+        df = pd.read_csv(file, header=None)
+        list_starttime2.append(df[2][0])
+
+
+len(list_starttime2)
+len(list_starttime)
+1490750882832 in list_starttime
+
+'Presentation29.csv' in sorted(projector_on | projector_off)
+
+
+
+# --------------------------------------------------------------------------------
+# lapras dataset characteristics
+
+(825 + 692 + 769)/3
+(775 + 743 + 615)/3
+(800 + 794 + 692)/3
+(700 + 692 + 769)/3
+
+args = utils.create_parser()
+args.dataset = "lapras_norm"
+args.expiration_period = -1
+args.random_noise=False
+args.window_size = 5
+data_natural = Lapras(args)
+len(data_natural.sensors)
+
+
+Brightness
+Light
+ProjectorPower
+Screen
+Seat
+Sound
+WhiteboardUsed
+
+len(data_natural.Y)
+np.unique(data_natural.Y, return_counts=True)
+          
+data_natural.idx2label
+
+f1 = [[0.9697, 0.5556, 0.7586],
+    [0.9091, 0.5882, 0.7857],
+    [0.9412, 0.1538, 0.6452]]
+
+precision = [[0.9412, 0.625, 0.7333],
+            [0.8824, 0.625, 0.7857],
+            [0.8889, 0.3333, 0.5556]]
+
+recall = [[1, 0.5, 0.7857],
+            [0.9375, 0.5556, 0.7857],
+            [1, 0.1, 0.7692]]
+
+np.mean(f1, axis=0)
+np.mean(precision, axis=0)
+np.mean(recall, axis=0)
+
+(83+98+71+57)/4
+(94+73+43)/3
+
+70/77.25
+
+# -------------------------------------------------------------------
+# training result from events.out files
+
+import tensorflow as tf
+from tensorflow.core.util import event_pb2
+from pathlib import Path
+import pandas as pd
+
+curr_time = '221129-031732'
+
+
+
+event_files = [str(f) for f in Path(f'./output/log/{curr_time}/').rglob('events.out.*')]
+tag1, tag2, fold, step, val = [], [], [], [], []
+for event_file in event_files:
+    serialized_examples = tf.data.TFRecordDataset(event_file)
+    for serialized_example in serialized_examples:
+        event = event_pb2.Event.FromString(serialized_example.numpy())
+        for value in event.summary.value:
+            t = tf.make_ndarray(value.tensor)
+            fold.append(event_file.split('/')[3])
+            tag1.append(event_file.split('/')[4])
+            tag2.append(value.tag)
+            step.append(event.step)
+            val.append(float(t))
+
+df_concat = pd.DataFrame({'fold':fold,
+                        'tag1':tag1,
+                        'tag2':tag2,
+                        'step':step,
+                        'value':val})
+df_avg = df_concat.groupby(['tag1', 'tag2', 'step']).mean()
+
+df_concat.to_csv(f"./output/log/{curr_time}/raw_results.csv")
+df_avg.to_csv(f"./output/log/{curr_time}/avg_results.csv")
+
+
+f"{args.dataset}"
+
+
+def a(k):
+    print(1)
+    b = [1,2,3,4]
+    c = ([1,2,3,4], [5,6,7,8])
+    return b, c
+d, e = a(1)
+d
+e
+
+
+
+class Softmax(object):
+    def __init__(self, stretch=1.0):
+        self.stretch = stretch
+
+    def __call__(self, X):
+        # This will only operate on the last axis
+        axis = -1
+        X_ = np.atleast_2d(X)*self.stretch
+        Y = np.exp(X_-np.expand_dims(np.max(X_, axis=axis), axis=axis))
+        Y /= np.expand_dims(np.sum(Y, axis=axis), axis=axis)
+
+        if len(X.shape) == 1:
+            Y = Y.flatten()
+        return Y
+
+    def single_jacobian(self, Y):
+        Y_ = Y.reshape(-1,1) # make 2D
+        return self.stretch*(np.diagflat(Y_)-np.dot(Y_, Y_.T))
+
+    def gradient(self, X):
+        Y = self(X)
+        out_shape = Y.shape + (Y.shape[-1],)
+        Y = np.atleast_2d(Y)
+
+        Y = Y.reshape(-1, Y.shape[-1])
+        out = np.zeros(Y.shape+(Y.shape[-1],), dtype=float)
+
+        # process each softmax vector
+        for i in range(Y.shape[0]):
+            out[i] = self.single_jacobian(Y[i])
+        return out.reshape(out_shape)
+    
+import numpy as np
+X = np.array([1,2,3,4,5])
+sm = Softmax()
+sm(X).sum()
+
+grd = sm.gradient(X)
+grd[0][1:].sum()
+grd[-1][:-1].sum()
+
+
+
+# -----------------------------------------------------------------------------------
+# analysis of LSTM input, output, forget gate
+import keras.backend as K
+
+def lstm_cell(inputs, h_tm1, c_tm1, layer):
+    k_i, k_f, k_c, k_o = tf.split(layer.kernel, num_or_size_splits=4, axis=1)
+    x_i = np.dot(inputs, k_i)
+    x_f = np.dot(inputs, k_f)
+    x_c = np.dot(inputs, k_c)
+    x_o = np.dot(inputs, k_o)
+
+    b_i, b_f, b_c, b_o = tf.split(layer.bias, num_or_size_splits=4, axis=0)
+    x_i = K.bias_add(x_i, b_i)
+    x_f = K.bias_add(x_f, b_f)
+    x_c = K.bias_add(x_c, b_c)
+    x_o = K.bias_add(x_o, b_o)
+
+    i = layer.recurrent_activation(x_i + K.dot(h_tm1, layer.recurrent_kernel[:, : layer.units]))
+    f = layer.recurrent_activation(x_f + K.dot(h_tm1, layer.recurrent_kernel[:, layer.units : layer.units * 2]))
+    c = f * c_tm1 + i * layer.activation(x_c + K.dot(h_tm1, layer.recurrent_kernel[:, layer.units * 2 : layer.units * 3],))
+    o = layer.recurrent_activation(x_o + K.dot(h_tm1, layer.recurrent_kernel[:, layer.units * 3 :]))
+
+    h = o * layer.activation(c)
+    return h, c, i, f, o
+
+def lstm_cell_2(inputs, h_tm1, c_tm1, layer):
+    z = tf.dot(inputs, layer.kernel)
+    z += tf.dot(h_tm1, layer.recurrent_kernel)
+    if layer.use_bias:
+        z = K.bias_add(z, layer.bias)
+
+    z = tf.split(z, num_or_size_splits=4, axis=1)
+    c, o = layer._compute_carry_and_output_fused(z, c_tm1)
+
+    h = o * layer.activation(c)
+    return h, c
+
+def cos_sim(A, B):
+  return np.dot(A, B)/(np.linalg.norm(A)*np.linalg.norm(B))
+
+inputs.shape
+layer_cell.kernel.shape
+np.dot(inputs, layer_cell.kernel).shape
+
+# args.model = "EARLIEST"
+# args.random_noise=True
+# args.window_size=1
+# args.dataset = "milan"
+
+# data = CASAS_RAW_NATURAL(args)
+# args.nclasses = data.N_CLASSES
+# args.N_FEATURES = data.N_FEATURES
+# args.noise_amount = data.noise_amount
+# args.model_dir="./output/log/220908-153132"
+# args.batch_size = 1
+
+# # dict_analysis.keys()
+
+# model = EARLIEST(args)
+# model._epsilon = 0
+# initial_states = tf.zeros([args.batch_size, args.nhid])
+# temp = np.array([[3]])
+# model(np.reshape(data.X[0], (1, -1, data.N_FEATURES)), temp, length=temp, is_train=False)
+# h_list, c_list, i_list, f_list, o_list = [], [], [], [], []
+# for k in range(args.nsplits):
+#     model.load_weights(os.path.join(args.model_dir, f'fold_{k+1}', 'model'))
+#     with open(os.path.join(args.model_dir, f'fold_{k+1}/dict_analysis.pickle'), 'rb') as f:
+#         dict_analysis = pickle.load(f)
+#     test_results = pd.read_csv(f'{args.model_dir}/fold_{i}/test_results.csv')
+#     # test_loader = Dataloader(dict_analysis["idx"], data.X, data.Y, data.lengths, data.event_counts, args.batch_size, shuffle=args.shuffle, tr_points=data.noise_amount)
+#     idx = dict_analysis["idx"]
+#     X = data.X[idx]
+#     true_y = test_results['true_y'].to_numpy()
+#     locations = test_results['locations'].to_numpy()
+#     noise_amount = dict_analysis['noise_amount']
+#     layer = model.layers[2]
+#     for x, y, loc, tr in zip(X, true_y, locations, noise_amount): 
+#         h_tm1 = tf.identity(initial_states)  # previous memory state
+#         c_tm1 = tf.identity(initial_states)
+#         hh, cc, ii, ff, oo = [], [], [], [], []
+#         for i in range(int(loc)):
+#             inputs = x[:, i, :]
+#             h_tm1, c_tm1, i_tm1, f_tm1, o_tm1 = lstm_cell(inputs, h_tm1, c_tm1, layer)
+#             if i == loc-1:
+                
+#             hh.append(tf.squeeze(h_tm1))
+#             cc.append(tf.squeeze(c_tm1))
+#             # ii.append(tf.squeeze(i_tm1))
+#             # ff.append(tf.squeeze(f_tm1))
+#             # oo.append(tf.squeeze(o_tm1))
+#         h_list.append(hh)
+#         c_list.append(cc)
+# dict_analysis.keys()
+
+
+
+
+args.model = "ATTENTION"
+
+args.dataset = "milan"
+args.window_size=1
+args.random_noise=True
+data = CASAS_RAW_NATURAL(args)
+
+args.nclasses = data.N_CLASSES
+args.N_FEATURES = data.N_FEATURES
+args.noise_amount = data.noise_amount
+args.model_dir="./output/log/220926-154933"
+args.batch_size = 1
+
+model = EARLIEST(args)
+model._epsilon = 0
+initial_states = tf.zeros([args.batch_size, args.nhid])
+temp = np.array([[3]])
+model(np.reshape(data.X[0], (1, -1, data.N_FEATURES)), temp, length=temp, is_train=False)
+h_list, c_list, i_list, f_list, o_list = [], [], [], [], []
+for k in range(args.nsplits):
+    model.load_weights(os.path.join(args.model_dir, f'fold_{k+1}', 'model'))
+    with open(os.path.join(args.model_dir, f'fold_{k+1}/dict_analysis.pickle'), 'rb') as f:
+        dict_analysis = pickle.load(f)
+    test_results = pd.read_csv(f'{args.model_dir}/fold_{k+1}/test_results.csv')
+    # test_loader = Dataloader(dict_analysis["idx"], data.X, data.Y, data.lengths, data.event_counts, args.batch_size, shuffle=args.shuffle, tr_points=data.noise_amount)
+    idx = dict_analysis["idx"]
+    X = data.X[idx]
+    true_y = test_results['true_y'].to_numpy()
+    pred_y = test_results['pred_y'].to_numpy()
+    locations = test_results['locations'].to_numpy()
+    noise_amount = dict_analysis['noise_amount']
+    layer_attn = model.layers[0]
+    layer_cell = model.layers[3]
+    for x, y, loc, tr in zip(X, true_y, locations, noise_amount): 
+        x = np.reshape(x, (1, 2000, 31))
+        h_tm1 = tf.identity(initial_states)  # previous memory state
+        c_tm1 = tf.identity(initial_states)
+        hh, cc, ii, ff, oo = [], [], [], [], []
+        attn_hidden, _ = layer_attn(x[:, :args.offset , :], False)
+        h_t0 = tf.identity(attn_hidden)
+        h_tm1 = attn_hidden
+        for ii in range(args.offset, int(loc)):
+            inputs = x[:, ii, :]
+            # h_tm1, c_tm1, i_tm1, f_tm1, o_tm1 = lstm_cell(inputs, h_tm1, c_tm1, layer_cell)
+            h_tm1, c_tm1 = lstm_cell_2(inputs, h_tm1, c_tm1, layer_cell)
+                
+            # hh.append(tf.squeeze(h_tm1))
+            # cc.append(tf.squeeze(c_tm1))
+            # ii.append(tf.squeeze(i_tm1))
+            # ff.append(tf.squeeze(f_tm1))
+            # oo.append(tf.squeeze(o_tm1))
+        h_list.append(cos_sim(np.reshape(h_tm1, (64)), np.reshape(h_t0, (64))))
+        # c_list.append(cc)
+    
+    
+    h_list = np.array(h_list)
+    idx_corr = np.where(true_y == pred_y)
+    idx_wrong = np.where(true_y != pred_y)
+        
+    h_list.mean()
+    h_list[idx_corr].mean()
+    h_list[idx_wrong].mean()
+    
+
+args.model = "EARLIEST"
+
+args.dataset = "milan"
+args.window_size=1
+args.random_noise=True
+data = CASAS_RAW_NATURAL(args)
+
+args.nclasses = data.N_CLASSES
+args.N_FEATURES = data.N_FEATURES
+args.noise_amount = data.noise_amount
+args.model_dir="./output/log/220908-153132"
+args.batch_size = 1
+
+model = EARLIEST(args)
+model._epsilon = 0
+initial_states = tf.zeros([args.batch_size, args.nhid])
+temp = np.array([[3]])
+model(np.reshape(data.X[0], (1, -1, data.N_FEATURES)), temp, length=temp, is_train=False)
+h_list, c_list, i_list, f_list, o_list = [], [], [], [], []
+for k in range(args.nsplits):
+    model.load_weights(os.path.join(args.model_dir, f'fold_{k+1}', 'model'))
+    with open(os.path.join(args.model_dir, f'fold_{k+1}/dict_analysis.pickle'), 'rb') as f:
+        dict_analysis = pickle.load(f)
+    test_results = pd.read_csv(f'{args.model_dir}/fold_{k+1}/test_results.csv')
+    # test_loader = Dataloader(dict_analysis["idx"], data.X, data.Y, data.lengths, data.event_counts, args.batch_size, shuffle=args.shuffle, tr_points=data.noise_amount)
+    idx = dict_analysis["idx"]
+    X = data.X[idx]
+    true_y = test_results['true_y'].to_numpy()
+    pred_y = test_results['pred_y'].to_numpy()
+    pred_list = []
+    locations = test_results['locations'].to_numpy()
+    noise_amount = dict_analysis['noise_amount']
+    layer_cell = model.layers[2]
+    layer_dense = model.layers[3]
+    for x, y, loc, tr in zip(X, true_y, locations, noise_amount): 
+        x = np.reshape(x, (1, 2000, 31))
+        h_tm1 = tf.identity(initial_states)  # previous memory state
+        c_tm1 = tf.identity(initial_states)
+        hh, cc, ii, ff, oo = [], [], [], [], []
+        for ii in range(int(loc)):
+            inputs = x[:, ii, :]
+            # h_tm1, c_tm1, i_tm1, f_tm1, o_tm1 = lstm_cell(inputs, h_tm1, c_tm1, layer_cell)
+            h_tm1, c_tm1 = lstm_cell_2(inputs, h_tm1, c_tm1, layer_cell)
+            if ii == 0:
+                h_t0 = tf.identity(h_tm1)
+            # hh.append(tf.squeeze(h_tm1))
+            # cc.append(tf.squeeze(c_tm1))
+            # ii.append(tf.squeeze(i_tm1))
+            # ff.append(tf.squeeze(f_tm1))
+            # oo.append(tf.squeeze(o_tm1))
+        pred_logit = layer_dense(h_tm1)
+        pred_list.append(np.argmax(pred_logit, 1)[0])
+        h_list.append(cos_sim(np.reshape(h_tm1, (64)), np.reshape(h_t0, (64))))
+        # c_list.append(cc)
+    print(np.mean(np.where(np.array(pred_list) == pred_y, 1, 0)))
+    
+    
+    idx_mismat = np.where(np.array(pred_list) != pred_y)
+    np.array(pred_list)[idx_mismat]
+    pred_y[idx_mismat]
+    
+    
+    
+    np.where(pred_y == true_y, 1, 0).mean()
+
+h_list = np.array(h_list)
+idx_corr = np.where(true_y == pred_y)
+idx_wrong = np.where(true_y != pred_y)
+
+h_list.mean()
+h_list[idx_corr].mean()
+h_list[idx_wrong].mean()
+
+
+
+
+
+# beginning of activity -----------------------------------------------------------------------------------
+
+from PIL import Image
+from heatmappy import Heatmapper
+
+args.model = "EARLIEST"
+args.dataset = "milan"
+args.window_size=1
+args.random_noise=True
+data = CASAS_RAW_NATURAL(args)
+args.nclasses = data.N_CLASSES
+
+coord_sensors = {'D001': [(1038, 1102)], 
+                 'D002': [(973, 978)], 
+                 'D003': [(401, 1094)], 
+                 'M001': [(1031, 1054)], 
+                 'M002': [(1032, 894)], 
+                 'M003': [(822, 953)], 
+                 'M004': [(730, 307)], 
+                 'M005': [(932, 38)], 
+                 'M006': [(680, 103)], 
+                 'M007': [(418, 156)], 
+                 'M008': [(606, 306)], 
+                 'M009': [(536, 532)], 
+                 'M010': [(639, 811)], 
+                 'M011': [(532, 813)], 
+                 'M012': [(639, 983)], 
+                 'M013': [(376, 503)], 
+                 'M014': [(405, 1048)], 
+                 'M015': [(406, 952)], 
+                 'M016': [(428, 879)], 
+                 'M017': [(470, 718)], 
+                 'M018': [(351, 714)], 
+                 'M019': [(474, 416)], 
+                 'M020': [(144, 322)], 
+                 'M021': [(87, 152)], 
+                 'M022': [(563, 1023)], 
+                 'M023': [(486, 959)], 
+                 'M024': [(146, 901)], 
+                 'M025': [(203, 532)], 
+                 'M026': [(503, 155)], 
+                 'M027': [(862, 647)], 
+                 'M028': [(186, 229)]}
+
+# 221018-201601 #clearcut
+# 220908-153132 #earliest
+# 220926-154933 #filter
+
+args.model_dir="./output/log/220926-154933"
+with open(os.path.join(args.model_dir, f'fold_{2}/dict_analysis.pickle'), 'rb') as f:
+    dict_analysis_f = pickle.load(f)
+dict_analysis_f.keys()
+test_results_f = pd.read_csv(f'{args.model_dir}/fold_{2}/test_results.csv')
+
+
+
+true_y_c = dict_analysis_c['true_y']
+if dict_analysis.get('pred_y') is None:
+    pred_y_c = test_results_c['pred_y'].to_numpy()
+else:
+    pred_y_c = dict_analysis_c['pred_y']
+
+true_y_e = dict_analysis_e['true_y']
+if dict_analysis.get('pred_y') is None:
+    pred_y_e = test_results_e['pred_y'].to_numpy()
+else:
+    pred_y_e = dict_analysis_e['pred_y']
+
+
+true_y_f = dict_analysis_f['true_y']
+if dict_analysis.get('pred_y') is None:
+    pred_y_f = test_results_f['pred_y'].to_numpy()
+else:
+    pred_y_f = dict_analysis_f['pred_y']
+    
+(dict_analysis_f['idx'] == dict_analysis_e['idx']).mean()
+(true_y_f == true_y_e).mean()
+np.where(true_y_e ==  pred_y_e, 1, 0).mean()
+
+e_idx = np.where(true_y_e != pred_y_e)[0]
+f_idx = np.where(true_y_f == pred_y_f)[0]
+ef_idx = set(e_idx) & set(f_idx)
+ef_idx = np.array(sorted(list(ef_idx)))
+pred_y_e[ef_idx]
+data.idx2label
+
+# dict_analysis_e['idx'][ef_idx]
+
+
+
+
+dict_analysis = dict_analysis_f
+test_results = test_results_f
+dict_analysis.keys()
+test_results.columns
+
+X = data.X[dict_analysis['idx'][ef_idx]]
+Y = dict_analysis['true_y'][ef_idx]
+if dict_analysis.get('attn_scores') is not None:
+    attn_scores = dict_analysis['attn_scores'][ef_idx]
+else:
+    attn_scores = None
+
+if dict_analysis.get('locations') is None:
+    locations = test_results['locations'].to_numpy()
+else:
+    locations = dict_analysis['locations']
+locations = locations[ef_idx]
+
+if dict_analysis.get('pred_y') is None:
+    Y_pred = test_results['pred_y'].to_numpy()
+else:
+    Y_pred = dict_analysis['pred_y']
+Y_pred = Y_pred[ef_idx]
+
+def print_info(capture_at, idx):
+    print(f'capture_at: {capture_at}')
+    print(f'True_y: {data.idx2label[Y[capture_at]]}')
+    print(f'Pred_y: {data.idx2label[Y_pred[capture_at]]}')
+    print(f'Location: {locations[capture_at]}')
+    print(f'idx in saved result: {idx[capture_at]}')
+    print(f'idx in data object: {dict_analysis["idx"][idx[capture_at]]}')
+
+
+
+
+dict_analysis = dict_analysis_c
+dict_analysis.keys()
+ef_idx
+dict_analysis_e['idx'][ef_idx][19]
+
+dict_analysis_e['idx'][]
+
+result_idx = ef_idx[[4, 12, 15, 18, 19]]
+data_idx = dict_analysis_e['idx'][result_idx]
+
+data_idx
+
+
+match = []
+for i, idx in enumerate(dict_analysis['idx']):
+    if idx in data_idx:
+        match.append(i)
+new = [554, 533, 181, 50, 199]
+dict_analysis['idx'][new]
+
+
+
+
+
+X = data.X[data_idx]
+Y = dict_analysis['true_y'][new]
+# for y in Y:
+#     print(data.idx2label[y])
+if dict_analysis.get('attn_scores') is not None:
+    attn_scores = dict_analysis['attn_scores'][new]
+else:
+    attn_scores = None
+
+if dict_analysis.get('locations') is None:
+    locations = test_results['locations'].to_numpy()
+else:
+    locations = dict_analysis['locations']
+locations = locations[new]
+
+if dict_analysis.get('pred_y') is None:
+    Y_pred = test_results['pred_y'].to_numpy()
+else:
+    Y_pred = dict_analysis['pred_y']
+Y_pred = Y_pred[new]
+
+
+
+capture_at = 4
+print_info(capture_at, new)
+
+
+count_sensor = {label:{sensor: 0 for sensor in data.sensor2index.keys()} for idx, label in data.idx2label.items()}
+idx2sensor = {i:s for s, i in data.sensor2index.items()}
+if attn_scores is not None:
+    for ii, (x, y, loc, attn) in enumerate(zip(X, Y, locations, attn_scores)):
+        if ii != capture_at:
+            continue
+        l = data.idx2label[y]
+        
+        tw = x[:args.offset]
+        scores = np.reshape(attn[0][1:], (1, -1))
+        weighted = np.dot(scores, tw)
+        # weighted *= args.offset
+        
+        used_x = x[args.offset:int(loc)]
+        used_x = np.concatenate((weighted, used_x))
+        for u in used_x:
+            for i in range(data.N_FEATURES):
+                s = idx2sensor[i]
+                if s == 'D002':
+                    continue
+                count_sensor[l][s] += u[i]
+else:
+    for ii, (x, y, loc) in enumerate(zip(X, Y, locations)):
+        if ii != capture_at:
+            continue
+        used_x = x[:int(loc)]
+        l = data.idx2label[y]
+        for u in used_x:
+            for i in range(data.N_FEATURES):
+                s = idx2sensor[i]
+                if s == 'D002':
+                    continue
+                count_sensor[l][s] += u[i]
+        
+
+for cls, dic in count_sensor.items():
+    if Y[capture_at] != data.label2idx[cls]:
+        continue
+    img_path = './analysis/heatmap_filter/milan.png'
+    img = Image.open(img_path).convert('RGB')
+    max_count = max(dic.values())
+    for sensor, coord in coord_sensors.items():
+        if dic[sensor] == 0:
+            continue
+        heatmapper = Heatmapper(
+            point_diameter=90,  # the size of each point to be drawn
+            point_strength=dic[sensor] / max_count,  # the strength, between 0 and 1, of each point to be drawn
+            opacity=0.65,  # the opacity of the heatmap layer
+            colours='default',  # 'default' or 'reveal'
+                                # OR a matplotlib LinearSegmentedColorMap object 
+                                # OR the path to a horizontal scale image
+            grey_heatmapper='PIL'  # The object responsible for drawing the points
+                                # Pillow used by default, 'PySide' option available if installed
+        )
+        img = heatmapper.heatmap_on_img(coord, img).convert('RGB')
+        r0, g0, b0 = img.getpixel((0,0))
+    for i in range(img.size[0]): # x방향 탐색
+        for j in range(img.size[1]): # y방향 탐색
+            r, g, b = img.getpixel((i,j))  # i,j 위치에서의 RGB 취득
+            if r == r0 and g == g0 and b == b0:
+                img.putpixel((i,j), (255, 255, 255))
+            else:
+                img.putpixel((i,j), (r, g, b))
+    # 출력 이미지 경로 설정
+    path = f'./analysis/heatmap_filter/example/heatmap_{cls}_c_{dict_analysis["idx"][new[capture_at]]}.png'
+    img.save(path)
+    print(path)
+
+
+print_info(capture_at)
+
+
+
+
+
+
+args.model_dir="./output/log/220926-154933"
+with open(os.path.join(args.model_dir, f'fold_{2}/dict_analysis.pickle'), 'rb') as f:
+    dict_analysis = pickle.load(f)
+dict_analysis.keys()
+test_results = pd.read_csv(f'{args.model_dir}/fold_{2}/test_results.csv')
+
+X = data.X[dict_analysis['idx']]
+Y = dict_analysis['true_y']
+if dict_analysis.get('attn_scores') is not None:
+    attn_scores = dict_analysis['attn_scores']
+else:
+    attn_scores = None
+
+if dict_analysis.get('locations') is None:
+    locations = test_results['locations'].to_numpy()
+else:
+    locations = dict_analysis['locations']
+
+
+count_sensor = {label:{sensor: 0 for sensor in data.sensor2index.keys()} for idx, label in data.idx2label.items()}
+idx2sensor = {i:s for s, i in data.sensor2index.items()}
+if attn_scores is not None:
+    for ii, (x, y, loc, attn) in enumerate(zip(X, Y, locations, attn_scores)):
+        l = data.idx2label[y]
+        
+        tw = x[:args.offset]
+        scores = np.reshape(attn[0][1:], (1, -1))
+        weighted = np.dot(scores, tw)
+        # weighted *= args.offset
+        
+        used_x = x[args.offset:int(loc)]
+        used_x = np.concatenate((weighted, used_x))
+        for u in used_x:
+            for i in range(data.N_FEATURES):
+                s = idx2sensor[i]
+                if s == 'D002':
+                    continue
+                count_sensor[l][s] += u[i]
+else:
+    for ii, (x, y, loc) in enumerate(zip(X, Y, locations)):
+        used_x = x[:int(loc)]
+        l = data.idx2label[y]
+        for u in used_x:
+            for i in range(data.N_FEATURES):
+                s = idx2sensor[i]
+                if s == 'D002':
+                    continue
+                count_sensor[l][s] += u[i]
+        
+
+for cls, dic in count_sensor.items():
+    img_path = './analysis/heatmap_filter/milan.png'
+    img = Image.open(img_path).convert('RGB')
+    max_count = max(dic.values())
+    for sensor, coord in coord_sensors.items():
+        if dic[sensor] == 0:
+            continue
+        heatmapper = Heatmapper(
+            point_diameter=90,  # the size of each point to be drawn
+            point_strength=dic[sensor] / max_count,  # the strength, between 0 and 1, of each point to be drawn
+            opacity=0.65,  # the opacity of the heatmap layer
+            colours='default',  # 'default' or 'reveal'
+                                # OR a matplotlib LinearSegmentedColorMap object 
+                                # OR the path to a horizontal scale image
+            grey_heatmapper='PIL'  # The object responsible for drawing the points
+                                # Pillow used by default, 'PySide' option available if installed
+        )
+        img = heatmapper.heatmap_on_img(coord, img).convert('RGB')
+        r0, g0, b0 = img.getpixel((0,0))
+    for i in range(img.size[0]): # x방향 탐색
+        for j in range(img.size[1]): # y방향 탐색
+            r, g, b = img.getpixel((i,j))  # i,j 위치에서의 RGB 취득
+            if r == r0 and g == g0 and b == b0:
+                img.putpixel((i,j), (255, 255, 255))
+            else:
+                img.putpixel((i,j), (r, g, b))
+    # 출력 이미지 경로 설정
+    path = f'./analysis/heatmap_filter/example/heatmap_{cls}.png'
+    img.save(path)
+    print(path)
+
+(120 * 5) / 60
+
+600 / 10
+

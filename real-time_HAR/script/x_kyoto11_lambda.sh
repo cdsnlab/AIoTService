@@ -11,7 +11,7 @@ model="DETECTOR"
 file_name="x_kyoto11_lambda_detector"
 device="2"
 dataset="kyoto11"
-model_dir="./output/log/221005-054821"
+model_dir="./output/log/221004-223621"
 
 for i in $lambda_list
 do

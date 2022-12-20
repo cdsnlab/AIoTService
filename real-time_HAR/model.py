@@ -1,5 +1,3 @@
-# from this import d
-# from tkinter.tix import X_REGION
 import sys
 import random
 import numpy as np
@@ -50,13 +48,13 @@ class Controller(tf.keras.layers.Layer):
         log_pi = m.log_prob(action)
         return action, log_pi, -tf.math.log(probs), probs  # shape: BATCH x 1
 
-class Controller_Proposed(tf.keras.layers.Layer):
+class Controller_ADAPTIVE(tf.keras.layers.Layer):
     """
     A network that chooses whether or not enough information
     has been seen to predict a label of a time series.
     """
     def __init__(self, args):
-        super(Controller_Proposed, self).__init__()
+        super(Controller_ADAPTIVE, self).__init__()
         self.args = args
         self._epsilon = self.args._epsilon
         
@@ -87,8 +85,8 @@ class EARLIEST(tf.keras.Model):
             self.cnn = CNNLayer(self.args)
         if self.args.model == 'ANN':
             self.ann = ANNLayer(self.args)
-        if self.args.model == 'PROPOSED':
-            self.Controller = Controller_Proposed(self.args)
+        if self.args.model == 'ADAPTIVE':
+            self.Controller = Controller_ADAPTIVE(self.args)
             if self.args.filter_name == 'attn':
                 self.filter = TransformerEncoder(self.args)
             else:
@@ -100,14 +98,14 @@ class EARLIEST(tf.keras.Model):
 # model.attn_encoder(data.X[:, :args.offset, :], is_train=False)
 # np.take_along_axis(np.array(model.attn_encoder.attention_weights[:, 0, 1:]), np.reshape(data.noise_amount, (-1, 1)), axis=1).mean()  #0.15921913
             threshold_list = [th/100. for th in range(1, 21, 1)]
-            self.mse_list = []
+            self.mse_list, self.mae_list = [], []
             for thr in threshold_list:
                 over_threshold = tf.where(self.attn_encoder.attention_weights[:, 0, 1:] > thr, 1, 0)
                 estimated_tr = np.argmax(over_threshold, axis=1)
                 self.mse_list.append(np.square(np.subtract(estimated_tr, self.args.noise_amount[self.args.test_idx])).mean())
+                self.mae_list.append(np.abs(np.subtract(estimated_tr, self.args.noise_amount[self.args.test_idx])).mean())
             min_idx = np.argmin(self.mse_list)
             self.detector_threshold = threshold_list[min_idx]
-            
         self.BaselineNetwork = BaselineNetwork(self.args)
         self.LSTM = layers.LSTMCell(self.args.nhid)
         self.initial_states = tf.zeros([self.args.batch_size, self.args.nhid])
@@ -127,7 +125,7 @@ class EARLIEST(tf.keras.Model):
             self.Controller._epsilon = 0.0
         B, T, V = X.shape # Input shape (BATCH x TIMESTEPS x VARIABLES)     
         
-        if self.args.model in ['EARLIEST', 'PROPOSED']:
+        if self.args.model in ['EARLIEST', 'ADAPTIVE']:
             hidden = [tf.identity(self.initial_states[:B, :]), tf.identity(self.initial_states[:B, :])]
             start_point = 0
             self.attention_weights = []
@@ -193,7 +191,7 @@ class EARLIEST(tf.keras.Model):
         #     return logits
         
         for t in range(start_point, T):
-            # if t == self.args.offset and self.args.model == "PROPOSED":
+            # if t == self.args.offset and self.args.model == "ADAPTIVE":
             #     if self.args.hidden_as_input:
             #         tr_window_hidden = tf.concat(tr_window_hidden, axis=1)
             #         filter_hidden, self.filter_logits = self.filter(tr_window_hidden, is_train)
@@ -258,7 +256,7 @@ class EARLIEST(tf.keras.Model):
             # if t < self.args.offset and self.args.read_all_tw:
             #     a_t = a_t * 0
             
-            # if t < self.args.offset and self.args.model == "PROPOSED":
+            # if t < self.args.offset and self.args.model == "ADAPTIVE":
             #     filter_points = tf.where((a_t == 2) & (filter_flags == 0), t, filter_points)
             #     filter_flags = tf.where((a_t == 2) & (halt_points == -1), 1, filter_flags)
             #     predictions = tf.where((length-1 <= t) & (predictions == 0), logits, predictions)
@@ -273,6 +271,8 @@ class EARLIEST(tf.keras.Model):
             # If a_t == 1 and this class hasn't been halted, save its logits
             if self.args.model == "DETECTOR":
                 a_t = tf.where(self.estimated_tr > t , 0, a_t)
+            if self.args.full_seq:
+                a_t *= 0
             
             predictions = tf.where((length-1 <= t) & (predictions == 0), logits, predictions)
             predictions = tf.where((a_t == 1) & (predictions == 0), logits, predictions)
@@ -289,9 +289,9 @@ class EARLIEST(tf.keras.Model):
             raw_probs.append(probs_t)
             pred_y.append(yhat_t)
             distribution.append(logits)
-            if self.args.model == "PROPOSED" and np.sum((halt_points == -1)) == 0 and t >= self.args.offset:  # If no negative values, every class has been halted
+            if self.args.model == "ADAPTIVE" and np.sum((halt_points == -1)) == 0 and t >= self.args.offset:  # If no negative values, every class has been halted
                 break
-            if self.args.model != "PROPOSED" and np.sum((halt_points == -1)) == 0:
+            if self.args.model != "ADAPTIVE" and np.sum((halt_points == -1)) == 0:
                 break
             # If one element in the batch has not been halting, use its final prediction
         logits = tf.where(predictions == 0.0, logits, predictions)
@@ -318,14 +318,17 @@ class EARLIEST(tf.keras.Model):
                 self.grad_mask[b, :(1 + int(halt_points[b, 0]))] = 1
             elif self.args.model in ["ATTENTION", "CNN", "ANN", "NONE"]:
                 self.grad_mask[b, :(1 + int(halt_points[b, 0]) - self.args.offset)] = 1
-            elif self.args.model in ["PROPOSED"]:
+            elif self.args.model in ["ADAPTIVE"]:
                 halt_points = tf.where(halt_points < filter_points, halt_points, filter_points)
                 self.grad_mask[b, :(1 + int(halt_points[b, 0]))] = 1
             elif self.args.model in ["DETECTOR"]:
                 self.grad_mask[b, :(1 + int(halt_points[b, 0]))] = 1
                 self.grad_mask[b, :int(self.estimated_tr[b, 0])] = 0
         if self.args.model in ["DETECTOR"]:
-            halt_points = halt_points - self.estimated_tr
+            # halt_points = halt_points - self.estimated_tr
+            self.locations_det = tf.where(self.locations < self.args.offset, self.args.offset, self.locations)
+            self.locations_det = tf.where(self.locations_det > length, length, self.locations_det)          
+            self.locations_det = self.locations_det.numpy()
             self.locations = self.locations - self.estimated_tr
         return logits
 

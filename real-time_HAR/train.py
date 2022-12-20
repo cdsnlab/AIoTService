@@ -5,12 +5,14 @@ import pickle
 import logging
 import argparse
 from math import sqrt
+from pathlib import Path
 from datetime import datetime
 
 import numpy as np
 import pandas as pd
 from tqdm import tqdm
 import tensorflow as tf
+from tensorflow.core.util import event_pb2
 from focal_loss import SparseCategoricalFocalLoss
 # from sklearn.metrics import accuracy_score
 from sklearn.model_selection import StratifiedKFold
@@ -18,7 +20,7 @@ from sklearn.metrics import precision_recall_fscore_support as f_score
 
 import utils
 from model import EARLIEST
-from dataset import CASAS_ADLMR, CASAS_RAW_NATURAL, CASAS_RAW_SEGMENTED, Dataloader
+from dataset import Lapras, CASAS_RAW_NATURAL, CASAS_RAW_SEGMENTED, Dataloader
 
 
 args = utils.create_parser()
@@ -52,7 +54,11 @@ def loss_EARLIEST(model, x, true_y, length, tr_points):  # shape of true_y is (B
     if args.model == "DETECTOR":
         model.halt_probs = model.halt_probs * model.grad_mask
     wait_penalty = tf.reduce_mean(tf.reduce_sum(model.halt_probs, 1))
-    loss = loss_r + loss_b + loss_c + args.lam*(wait_penalty)
+    if args.full_seq:
+        loss = loss_c
+    else:
+        loss = loss_r + loss_b + loss_c + args.lam*(wait_penalty)
+        
     if args.train_filter:
         CE_filter = tf.keras.losses.SparseCategoricalCrossentropy()
         tr_points = np.reshape(tr_points, (model.filter_logits.shape[0], -1))
@@ -62,7 +68,7 @@ def loss_EARLIEST(model, x, true_y, length, tr_points):  # shape of true_y is (B
         loss_filter = CE_filter(y_true=tr_points, y_pred=model.filter_logits) # Classification loss
         loss += loss_filter*(model._epsilon)
         # loss += loss_filter*(model._epsilon)
-    # if args.model == "PROPOSED":
+    # if args.model == "ADAPTIVE":
     #     loss += model.loss_r_filter
     return loss, pred_logit, model.locations
 
@@ -107,6 +113,7 @@ def test_step(model, x, true_y, length, num_event, tr_points):
     list_attn.append(model.attention_weights)
     if args.model == "DETECTOR":
         list_estimated_tr.append(model.estimated_tr.flatten())
+        list_locations_det.append(model.locations_det.flatten())
     # if args.model == 'CNN':
     #     list_cnn_feature.append(model.feature_map)
     #     list_attn.append(model.attn_encoder.attention_weights)
@@ -125,6 +132,10 @@ def write_test_summary(true_y, pred_y):
     all_yhat = np.concatenate(list_yhat)
     all_dist = np.concatenate(list_distribution)
     all_attn = np.concatenate(list_attn)
+    if args.model == "DETECTOR":
+        estimated_tr = np.concatenate(list_estimated_tr)
+        locations_det = np.concatenate(list_locations_det)
+        
     
     # Calculate representative metric of whole data
     with test_summary_writer.as_default():
@@ -141,6 +152,8 @@ def write_test_summary(true_y, pred_y):
         tf.summary.scalar('whole_earliness2', locations.mean() / lengths.mean(), step=epoch)
         hm = (2 * (1 - test_earliness.result()) * test_accuracy.result()) / ((1 - test_earliness.result()) + test_accuracy.result())
         tf.summary.scalar('whole_harmonic_mean', hm, step=epoch)
+        if args.model == "DETECTOR":
+            tf.summary.scalar('whole_earliness_det', np.mean(locations_det.flatten() / lengths.flatten()), step=epoch)
         
     # Calculate metrics by classes
     for i, summary_writer in cls_summary_writer.items():
@@ -165,16 +178,36 @@ def write_test_summary(true_y, pred_y):
                      'pred_y': pred_y, 'locations': locations, 'lengths': lengths, 'event_count': event_count, "filter_flags": filter_flags}
     if args.model == "DETECTOR":
         dict_analysis['threshold_mse_list'] = model.mse_list
+        dict_analysis['threshold_mae_list'] = model.mae_list
         dict_analysis['threshold'] = model.detector_threshold
-        dict_analysis['estimated_tr'] = np.concatenate(list_estimated_tr)
+        dict_analysis['estimated_tr'] = estimated_tr
         
     if args.test:
         dict_analysis['duration'] = list_duration
     with open(logdir + '/dict_analysis.pickle', 'wb') as f:
         pickle.dump(dict_analysis, f, pickle.HIGHEST_PROTOCOL)
 
+def organize_results(curr_time):
+    event_files = [str(f) for f in Path(f'./output/log/{curr_time}/').rglob('events.out.*')]
+    tag1, tag2, fold, step, val = [], [], [], [], []
+    for event_file in event_files:
+        serialized_examples = tf.data.TFRecordDataset(event_file)
+        for serialized_example in serialized_examples:
+            event = event_pb2.Event.FromString(serialized_example.numpy())
+            for value in event.summary.value:
+                t = tf.make_ndarray(value.tensor)
+                fold.append(event_file.split('/')[3])
+                tag1.append(event_file.split('/')[4])
+                tag2.append(value.tag)
+                step.append(event.step)
+                val.append(float(t))
+    df_concat = pd.DataFrame({'fold':fold, 'tag1':tag1, 'tag2':tag2, 'step':step, 'value':val})
+    df_avg = df_concat.groupby(['tag1', 'tag2', 'step']).mean()
+    df_concat.to_csv(f"./output/log/{curr_time}/raw_results.csv")
+    df_avg.to_csv(f"./output/log/{curr_time}/avg_results.csv")
+
 if __name__ == "__main__":
-    if args.model == "DETECTOR":
+    if (args.model == "DETECTOR") or args.full_seq:
         logger = tf.get_logger()
         logger.setLevel(logging.ERROR)
     tf.autograph.set_verbosity(0)
@@ -190,15 +223,19 @@ if __name__ == "__main__":
     optimizer = tf.keras.optimizers.Adam(learning_rate=args.learning_rate)
 
     # Load dataset
-    if args.segmented == True:
-        data = CASAS_RAW_SEGMENTED(args)
-    elif args.segmented == False:
-        data = CASAS_RAW_NATURAL(args)
+    if 'lapras' in args.dataset:
+        data = Lapras(args)
+    else:
+        if args.segmented == True:
+            data = CASAS_RAW_SEGMENTED(args)
+        elif args.segmented == False:
+            data = CASAS_RAW_NATURAL(args)
     # elif args.dataset == "adlmr":
     #     data = CASAS_ADLMR(args)
     args.nclasses = data.N_CLASSES
     args.N_FEATURES = data.N_FEATURES
     args.noise_amount = data.noise_amount
+    args.offset = data.args.offset
     kfold = StratifiedKFold(n_splits=args.nsplits, random_state=args.random_seed, shuffle=args.shuffle)
     print(args)
     
@@ -210,8 +247,8 @@ if __name__ == "__main__":
     if args.train:
         for k, (train_idx, test_idx) in enumerate(kfold.split(data.X, data.Y)):
             # Define data loaders and model
-            train_loader = Dataloader(train_idx, data.X, data.Y, data.lengths, data.event_counts, args.batch_size, shuffle=args.shuffle, tr_points=data.noise_amount)
-            test_loader = Dataloader(test_idx, data.X, data.Y, data.lengths, data.event_counts, args.batch_size, shuffle=args.shuffle, tr_points=data.noise_amount)
+            train_loader = Dataloader(train_idx, data.X, data.Y, data.lengths, data.event_counts, args.batch_size, shuffle=args.shuffle, tr_points=data.noise_amount, window_ratio=args.window_ratio, aug_multiple=args.aug_multiple)
+            test_loader = Dataloader(test_idx, data.X, data.Y, data.lengths, data.event_counts, args.batch_size, shuffle=args.shuffle, tr_points=data.noise_amount, aug_multiple=0)
             # if args.model in ["EARLIEST", "ATTENTION"]:
             if args.model == 'DETECTOR':
                 temp_model = args.model
@@ -248,7 +285,7 @@ if __name__ == "__main__":
                 if (epoch + 1) % 10 == 0:
                     true_labels, pred_labels, list_locations, list_lengths, list_event_count = [], [], [], [], []
                     list_probs, list_yhat, list_distribution, list_attn, list_filter_flags = [], [], [], [], []
-                    list_estimated_tr = []
+                    list_estimated_tr, list_locations_det = [], []
                     # list_cnn_feature = []
                     for x, true_y, length, num_event, tr_points in test_loader: 
                         test_step(model, x, true_y, length, num_event, tr_points)
@@ -268,8 +305,11 @@ if __name__ == "__main__":
                 break
         print(f'tensor board dir: {logdir}')
         f = open(f"./exp_info/{args.exp_info_file}.txt", 'a')
-        f.write(f"{args.dataset}\t{args.lam}\t{args.model}\t{logdir}\n")
+        # f.write(f"{args.dataset}\t{args.lam}\t{args.window_ratio}\t{args.aug_multiple}\t{args.model}\t{logdir}\n")
+        args.exp_id = args.exp_id.replace('_', '\t').replace('{', '').replace('}', '')
+        f.write(f"{args.exp_id}\t{logdir}\n")
         f.close()
+        organize_results(curr_time)
             
     if args.test:
         epoch = 0
@@ -286,6 +326,7 @@ if __name__ == "__main__":
             true_labels, pred_labels, list_locations, list_lengths, list_event_count = [], [], [], [], []
             list_probs, list_yhat, list_distribution, list_attn, list_filter_flags = [], [], [], [], []
             list_duration = []
+            list_estimated_tr, list_locations_det = [], []
             
             logdir = "./output/log/" + curr_time + f'/fold_{k+1}'
             print(f'tensor board dir: {logdir}')
@@ -308,5 +349,6 @@ if __name__ == "__main__":
             if not args.n_fold_cv:
                 break
         f = open(f"./exp_info/{args.exp_info_file}.txt", 'a')
-        f.write(f"{args.dataset}\t{args.model}\t{np.mean(list_avg_duration)}\t{args.model_dir}\t./output/log/{curr_time}\n")
+        args.exp_id = args.exp_id.replace('_', '\t').replace('{', '').replace('}', '')
+        f.write(f"{args.exp_id}\t{logdir}\n")
         f.close()
