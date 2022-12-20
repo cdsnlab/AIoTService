@@ -114,11 +114,6 @@ def test_step(model, x, true_y, length, num_event, tr_points):
     if args.model == "DETECTOR":
         list_estimated_tr.append(model.estimated_tr.flatten())
         list_locations_det.append(model.locations_det.flatten())
-    # if args.model == 'CNN':
-    #     list_cnn_feature.append(model.feature_map)
-    #     list_attn.append(model.attn_encoder.attention_weights)
-    # else:
-    #     list_attn.append([])
 
 def write_test_summary(true_y, pred_y):
     precision, recall, f1, support = f_score(true_y, pred_y, average=None, labels=range(args.nclasses))
@@ -286,7 +281,6 @@ if __name__ == "__main__":
                     true_labels, pred_labels, list_locations, list_lengths, list_event_count = [], [], [], [], []
                     list_probs, list_yhat, list_distribution, list_attn, list_filter_flags = [], [], [], [], []
                     list_estimated_tr, list_locations_det = [], []
-                    # list_cnn_feature = []
                     for x, true_y, length, num_event, tr_points in test_loader: 
                         test_step(model, x, true_y, length, num_event, tr_points)
                     # Write summary

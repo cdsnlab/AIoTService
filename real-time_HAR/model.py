@@ -81,16 +81,10 @@ class EARLIEST(tf.keras.Model):
         self.args = args
         if self.args.model == 'ATTENTION':
             self.attn_encoder = TransformerEncoder(self.args)
-        if self.args.model == 'CNN':
-            self.cnn = CNNLayer(self.args)
-        if self.args.model == 'ANN':
-            self.ann = ANNLayer(self.args)
         if self.args.model == 'ADAPTIVE':
             self.Controller = Controller_ADAPTIVE(self.args)
             if self.args.filter_name == 'attn':
                 self.filter = TransformerEncoder(self.args)
-            else:
-                self.filter = CNNLayer(self.args)
         else:
             self.Controller = Controller(self.args)
         if self.args.model == 'DETECTOR':
@@ -134,17 +128,6 @@ class EARLIEST(tf.keras.Model):
             hidden = [attn_hidden, tf.identity(self.initial_states[:B, :])]
             start_point = self.args.offset
             self.attention_weights = self.attn_encoder.attention_weights
-        elif self.args.model == 'CNN':
-            cnn_hidden, self.filter_logits = self.cnn(X[:, :self.args.offset , :], is_train)
-            # self.feature_map = self.cnn.feature_map
-            hidden = [cnn_hidden, tf.identity(self.initial_states[:B, :])]
-            start_point = self.args.offset
-            self.attention_weights = []
-        elif self.args.model == 'ANN':
-            ann_hidden, self.filter_logits = self.ann(X[:, :self.args.offset , :], is_train)
-            hidden = [ann_hidden, tf.identity(self.initial_states[:B, :])]
-            start_point = self.args.offset
-            self.attention_weights = []
         elif self.args.model =='NONE':
             hidden = [tf.identity(self.initial_states[:B, :]), tf.identity(self.initial_states[:B, :])]
             start_point = self.args.offset
@@ -176,52 +159,7 @@ class EARLIEST(tf.keras.Model):
         distribution = []
         tr_window_hidden = []
         
-        # if not is_train and pred_at != -1:
-        #     halt_points = pred_at / 100 * length + noise_amount
-        #     for t in range(T):
-        #         x = X[:,t,:]
-        #         output, hidden = self.LSTM(x, states=hidden)
-        #         # predict logits for all elements in the batch
-        #         logits = self.out(output)
-        #         predictions = tf.where((t > halt_points) & (predictions == 0), logits, predictions)
-        #         if t > np.max(halt_points):
-        #             break
-        #     logits = tf.where(predictions == 0.0, logits, predictions)
-        #     self.locations = halt_points.round().astype(int) - noise_amount
-        #     return logits
-        
         for t in range(start_point, T):
-            # if t == self.args.offset and self.args.model == "ADAPTIVE":
-            #     if self.args.hidden_as_input:
-            #         tr_window_hidden = tf.concat(tr_window_hidden, axis=1)
-            #         filter_hidden, self.filter_logits = self.filter(tr_window_hidden, is_train)
-            #     else:
-            #         filter_hidden, self.filter_logits = self.filter(X[:, :self.args.offset , :], is_train)
-            #     if self.args.filter_name == 'attn':
-            #         self.attention_weights = self.filter.attention_weights
-            #     else:
-            #         self.attention_weights = []
-            #     filter_flags = tf.where((filter_flags == 1) & (length <= self.args.offset), 0, filter_flags)
-            #     hidden = tf.where(filter_flags == 1, filter_hidden, hidden)
-                
-            #     baselines_tw = tf.concat(baselines, axis=1)
-            #     pred_y_tw = tf.concat(pred_y, axis=1)
-            #     y_true_tw = tf.reshape(y_true, (B, -1))
-                
-            #     log_pi_tw = tf.concat(log_pi, axis=1)
-            #     filter_points_tw = tf.where(filter_points == self.args.seq_len, 0, filter_points).numpy()
-            #     log_pi_tw = tf.experimental.numpy.take_along_axis(log_pi_tw, filter_points_tw.astype(np.int32), axis=1)
-            #     log_pi_tw = tf.where(filter_points == self.args.seq_len, 0, log_pi_tw)
-            
-            #     grad_mask_tw = np.zeros((B, self.args.offset))
-            #     for b in range(B):
-            #         grad_mask_tw[b, (1 + int(filter_points[b, 0])):] = 1
-                
-            #     r = tf.stop_gradient(tf.where((pred_y_tw == y_true_tw), -1.0, 1.0))
-            #     R = r * grad_mask_tw
-            #     b = baselines_tw * grad_mask_tw
-            #     adjusted_reward_tw = R - tf.stop_gradient(b)
-            #     self.loss_r_filter = tf.reduce_sum(-log_pi_tw*adjusted_reward_tw) / self.args.offset # RL loss  # 이것도 위와 마찬가지. 근데 어찌 되었든 배치의 평균을 구하기는 했음.
             x = X[:,t,:]
             output, hidden = self.LSTM(x, states=hidden)
             
@@ -239,36 +177,10 @@ class EARLIEST(tf.keras.Model):
             if self.args.test_t:
                 t = self.t
             time = tf.ones([B,1]) * t
-            # if self.args.entropy_halting:
-            #     ent = -np.sum(logits*np.log(logits), axis=1).reshape(B, -1)
-            #     c_in = tf.stop_gradient(tf.concat([logits, ent, time], axis=1))
-            # else:
             c_in = tf.stop_gradient(tf.concat([output, time], axis=1))
             a_t, p_t, w_t, probs_t = self.Controller(c_in)
             b_t = self.BaselineNetwork(c_in)
-            # if self.args.delay_halt and not is_train:
-            # if self.args.delay_halt:
-            #     cls_4 = np.array([0, 1, 2, 3])
-            #     y_true = np.reshape(y_true, (B, -1))
-            #     target_class = np.where(y_true == cls_4, 1, 0).sum(axis=1).reshape(B, -1)
-            #     a_t = tf.where((ent > self.args.entropy_threshold) & (target_class == 1), 0, a_t)
-            
-            # if t < self.args.offset and self.args.read_all_tw:
-            #     a_t = a_t * 0
-            
-            # if t < self.args.offset and self.args.model == "ADAPTIVE":
-            #     filter_points = tf.where((a_t == 2) & (filter_flags == 0), t, filter_points)
-            #     filter_flags = tf.where((a_t == 2) & (halt_points == -1), 1, filter_flags)
-            #     predictions = tf.where((length-1 <= t) & (predictions == 0), logits, predictions)
-            #     predictions = tf.where((a_t == 1) & (predictions == 0) & (filter_flags == 0), logits, predictions)
-            #     probs_t = tf.where(halt_points == -1, probs_t, -1)
-            #     yhat_t = tf.where(halt_points == -1, yhat_t, -1)
-            #     # If a_t == 1 and this class hasn't been halted, save the time
-            #     halt_points = tf.where((halt_points == -1) & (length-1 <= t), length-1, halt_points)
-            #     halt_points = tf.where((halt_points == -1) & (a_t == 1) & (filter_flags == 0), t, halt_points)
-            #     tr_window_hidden.append(tf.reshape(output, [B, 1, -1]))
-            # else:
-            # If a_t == 1 and this class hasn't been halted, save its logits
+          
             if self.args.model == "DETECTOR":
                 a_t = tf.where(self.estimated_tr > t , 0, a_t)
             if self.args.full_seq:
@@ -316,7 +228,7 @@ class EARLIEST(tf.keras.Model):
         for b in range(B):
             if self.args.model in ["EARLIEST"]:
                 self.grad_mask[b, :(1 + int(halt_points[b, 0]))] = 1
-            elif self.args.model in ["ATTENTION", "CNN", "ANN", "NONE"]:
+            elif self.args.model in ["ATTENTION", "NONE"]:
                 self.grad_mask[b, :(1 + int(halt_points[b, 0]) - self.args.offset)] = 1
             elif self.args.model in ["ADAPTIVE"]:
                 halt_points = tf.where(halt_points < filter_points, halt_points, filter_points)
@@ -495,220 +407,3 @@ class TransformerEncoder(tf.keras.layers.Layer):
         else:
             outputs = None
         return hidden_states, outputs
-
-class CNNLayer(tf.keras.layers.Layer):
-    def __init__(self, args):
-        super(CNNLayer, self).__init__()
-        self.args = args
-        
-    def build(self, input_shape):
-        # self.cnn = tf.keras.Sequential([   # conv - bn - activation - dropout - pooling
-        #             # tf.keras.layers.Conv1D(filters=self.args.filters, kernel_size=self.args.kernel_size, activation="relu", input_shape=(self.args.batch_size, self.args.offset, self.args.N_FEATURES)),
-        #             tf.keras.layers.Conv1D(filters=self.args.filters, kernel_size=self.args.kernel_size, activation="relu"),
-        #             tf.keras.layers.Conv1D(filters=self.args.filters, kernel_size=self.args.kernel_size, activation="relu"),
-        #             tf.keras.layers.Conv1D(filters=self.args.filters, kernel_size=self.args.kernel_size, activation="relu"),
-        #             tf.keras.layers.Flatten()
-        #             ])
-        self.cnn = tf.keras.Sequential([   # conv - bn - activation - dropout - pooling
-                    # tf.keras.layers.Conv1D(filters=self.args.filters, kernel_size=self.args.kernel_size, activation="relu", input_shape=(self.args.batch_size, self.args.offset, self.args.N_FEATURES)),
-                    tf.keras.layers.Conv1D(filters=self.args.filters, kernel_size=self.args.kernel_size, activation="relu"),
-                    tf.keras.layers.Dropout(self.args.dropout_rate),
-                    tf.keras.layers.MaxPool1D(pool_size=self.args.kernel_size, strides=1, padding='valid'),
-                    tf.keras.layers.Conv1D(filters=self.args.filters, kernel_size=self.args.kernel_size, activation="relu"),
-                    tf.keras.layers.Dropout(self.args.dropout_rate),
-                    tf.keras.layers.MaxPool1D(pool_size=self.args.kernel_size, strides=1, padding='valid'),
-                    tf.keras.layers.Flatten(),
-                    ])
-        self.dropout1 = tf.keras.layers.Dropout(self.args.dropout_rate)
-        self.hidden = layers.Dense(self.args.nhid, activation='tanh')
-        self.out = layers.Dense(self.args.nclasses, activation='softmax')
-
-    def call(self, x, is_train=True):
-        x = self.cnn(x)
-        x = self.dropout1(x, training=is_train)
-        hidden_states = self.hidden(x)
-        
-        if self.args.train_filter:
-            outputs = self.out(x)
-        else:
-            outputs = None
-        return hidden_states, outputs
-
-class ANNLayer(tf.keras.layers.Layer):
-    def __init__(self, args):
-        super(ANNLayer, self).__init__()
-        self.args = args
-        
-    def build(self, input_shape):
-        self.flat = tf.keras.layers.Flatten()
-        # self.fc1 = layers.Dense(self.args.nhid, activation='relu')
-        # self.dropout1 = tf.keras.layers.Dropout(self.args.dropout_rate)
-        self.fc2 = layers.Dense(self.args.nhid, activation='tanh')
-        self.dropout2 = tf.keras.layers.Dropout(self.args.dropout_rate)
-
-    def call(self, x, is_train=True):
-        x = self.flat(x)
-        # x = self.fc1(x)
-        # x = self.dropout1(x, training=is_train)
-        x = self.fc2(x)
-        x = self.dropout2(x, training=is_train)
-        return x, None
-
-# data_natural = CASAS_RAW_NATURAL(args)
-# args.nclasses = 9
-# args.device='2'
-# args.model='CNN'
-# args.N_FEATURES = data_natural.N_FEATURES
-# model = EARLIEST(args)
-
-# temp = np.array([[3]])
-# model(np.reshape(data_natural.X[0], (1, -1, data_natural.N_FEATURES)), temp, length=temp, is_train=False)
-# model.summary()
-
-# cnn = tf.keras.Sequential([   # conv - bn - activation - dropout - pooling
-#                     # tf.keras.layers.Conv1D(filters=self.args.filters, kernel_size=self.args.kernel_size, activation="relu", input_shape=(self.args.batch_size, self.args.offset, self.args.N_FEATURES)),
-#                     tf.keras.layers.Conv1D(filters=args.filters, kernel_size=args.kernel_size, activation="relu"),
-#                     tf.keras.layers.Dropout(args.dropout_rate),
-#                     tf.keras.layers.MaxPool1D(pool_size=args.kernel_size, strides=1, padding='valid'),
-#                     tf.keras.layers.Conv1D(filters=args.filters, kernel_size=args.kernel_size, activation="relu"),
-#                     tf.keras.layers.Dropout(args.dropout_rate),
-#                     tf.keras.layers.MaxPool1D(pool_size=args.kernel_size, strides=1, padding='valid'),
-#                     tf.keras.layers.Flatten(),
-#                     tf.keras.layers.Dense(args.nhid, activation='tanh')
-#                     ])
-
-# ann = tf.keras.Sequential([  
-#                     tf.keras.layers.Flatten(),
-#                     tf.keras.layers.Dense(args.nhid, activation='relu'),
-#                     tf.keras.layers.Dropout(args.dropout_rate),
-#                     tf.keras.layers.Dense(args.nhid, activation='tanh'),
-#                     tf.keras.layers.Dropout(args.dropout_rate),
-#                     ])
-
-# input = data_natural.X[:4, :args.offset, :]
-# input.shape
-# cnn(input)
-# out = ann(input)
-# out.shape
-
-# a = []
-# for i in ann.trainable_variables:
-#     a.append(np.array(i.shape))
-# a
-# 2*31*8 + 8 + 2*8*8 + 8 +128*64 + 64
-# 31 * 64 + 64 + 64 * 64 + 64
-# 31 * 128 + 128 + 128 * 64 + 64
-# 620 * 64 + 64 + 64*64 + 64
-# 620 * 64 + 64 + 64*64 + 64
-# input = data.X[:4, :args.offset, :15]
-# input_shape = input.shape
-
-# cnn = tf.keras.Sequential([   
-#                 tf.keras.layers.Conv1D(filters=4, kernel_size=2, activation="relu"),
-#                 tf.keras.layers.Dropout(0.5),
-#                 tf.keras.layers.MaxPool1D(pool_size=2, strides=1, padding='valid'),
-#                 tf.keras.layers.Conv1D(filters=4, kernel_size=2, activation="relu"),
-#                 tf.keras.layers.Dropout(0.5),
-#                 tf.keras.layers.MaxPool1D(pool_size=2, strides=1, padding='valid'),
-#                 tf.keras.layers.Flatten(),
-#             ])
-
-# a = cnn(input)
-# a.shape
-
-
-
-# class SEGMENTATION(tf.keras.Model):
-#     def __init__(self, args):
-#         super(SEGMENTATION, self).__init__(name='')
-#         self.args = args
-#         self.LSTM = layers.LSTMCell(self.args.nhid)
-#         self.initial_states = tf.zeros([self.args.batch_size, self.args.nhid])
-#         self.out = layers.Dense(1, activation='sigmoid')  # Discriminator
-        
-#     def call(self, X, tr_boundary, tr_point, lengths, is_train=True):
-#         B, T, V = X.shape # Input shape (BATCH x TIMESTEPS x VARIABLES)     
-#         hidden = [tf.identity(self.initial_states[:B, :]), tf.identity(self.initial_states[:B, :])]
-#         # tr_predictions = -tf.ones([B, 1])
-#         # pred_tr_points = -tf.ones([B, 1])
-#         end_points = -tf.ones([B,1])
-        
-#         pred_tr_list = []
-#         for t in range(T):
-#             x = X[:,t,:]
-#             output, hidden = self.LSTM(x, states=hidden)
-#             pred_tr = self.out(output)
-#             pred_tr_list.append(pred_tr)
-            
-#             end_points = tf.where(((tr_point + lengths) < t), 1, end_points)
-#             if np.sum((end_points == -1)) == 0:  # If no negative values, every class has been halted
-#                 break           
-#         pred_tr = tf.concat(pred_tr_list, axis=1)
-        
-#         if is_train:
-#             offset = 1
-#             idx_pos_samples = [[i for i in range(p-offset, p+offset+1, 1) if i >= 0] for p in tr_point]
-#             idx_neg_samples = []
-#             for i, idx_pos_sam in enumerate(idx_pos_samples):
-#                 range_pool = range(lengths[i] + tr_point[i]) if len(range(lengths[i] + tr_point[i])) < self.args.seq_len * 2 else range(self.args.seq_len * 2)
-#                 pool = set(range_pool) - set(idx_pos_sam)
-#                 replace = False if (len(pool) >= offset*2) else True
-#                 idx_neg_samples.append(list(np.random.choice(list(pool), offset*2, replace=replace)))
-#             idx_pred = [a+b for a,b in zip(idx_pos_samples, idx_neg_samples)]
-#             idx_pred = tf.convert_to_tensor(idx_pred, dtype=tf.int32)
-#             pred_tr = tf.experimental.numpy.take_along_axis(pred_tr, idx_pred, axis=1)
-#             true_tr = tf.experimental.numpy.take_along_axis(tr_boundary, idx_pred, axis=1)
-#             return pred_tr, true_tr
-#         else:
-#             return pred_tr, tr_boundary
-        
-        
-        
-# args.dataset = "milan"
-# data = CASAS_RAW_NATURAL(args)
-# model = SEGMENTATION(args)
-
-# x = data.X[:10]
-# tr_b = data.gt_boundary[:10]
-# tr_point = data.tr_points[:10]
-# lengths = data.lengths[:10]
-
-# pred_tr, true_tr = model(x, tr_b, tr_point, lengths, is_train=True)
-
-# offset = 1
-# idx_pos_samples = [[i for i in range(p-offset, p+offset+1, 1) if i >= 0] for p in tr_point]
-
-# idx_neg_samples = []
-# for i, idx_pos_sam in enumerate(idx_pos_samples):
-#     range_pool = range(lengths[i] + tr_point[i]) if len(range(lengths[i] + tr_point[i])) < model.args.seq_len * 2 else range(model.args.seq_len * 2)
-#     pool = set(range_pool) - set(idx_pos_sam)
-#     replace = False if (len(pool) >= offset*2) else True
-#     idx_neg_samples.append(list(np.random.choice(list(pool), offset*2, replace=replace)))
-# idx_pred = [a+b for a,b in zip(idx_pos_samples, idx_neg_samples)]
-# idx_pred = tf.convert_to_tensor(idx_pred, dtype=tf.int32)
-# pred_tr = tf.experimental.numpy.take_along_axis(model.pred_tr, idx_pred, axis=1)
-# true_tr = tf.experimental.numpy.take_along_axis(tr_b, idx_pred, axis=1)
-
-
-
-
-# np.take_along_axis(np.array(model.pred_tr), idx_pred, axis=1)
-
-
-        
-            
-            
-            #  # If a_t == 1 and this class hasn't been halted, save its logits
-            # pred_tr_points = tf.where((pred_tr_points == -1) & (logits >= 0.5), t, pred_tr_points)
-            # tr_predictions = tf.where((pred_tr_points != -1) & (a_t == 1), logits, tr_predictions)
-            
-            # actions.append(a_t)
-            # log_pi.append(p_t)
-
-# model = tf.keras.Sequential()
-# model.add(TransformerBlock(args, 31, 1, 32))
-# model.layers[0].args
-# model.layers[0].training = 0
-
-# tf.keras.backend.learning_phase()
-# tf.keras.backend.set_learning_phase(1)

@@ -130,9 +130,6 @@ def create_parser():
     parser.add_argument("--random_noise", type=str2bool, default=False, help="Add noise to the beginning randomly.")
     parser.add_argument("--nsplits", type=int, default=3, help="The number of splits for validation")
     parser.add_argument("--nseries", type=int, default=0, help="The number of time series")
-    # parser.add_argument("--prefix_len", type=int, default=10, help="The length of prefix length of dataset")
-    # parser.add_argument("--remove_prefix", type=str2bool, default=False, help="Whether the prefix is removed")
-    # parser.add_argument("--rnd_prefix", type=str2bool, default=False, help="Whether to add random events to the beginning of the activity")
     parser.add_argument("--segmented", type=str2bool, default=False, help="Whether the activity episodes are segmented correctly")
     parser.add_argument("--with_other", type=str2bool, default=False, help="Whether Other class is going to be included in the dataset or not")
     parser.add_argument("--balance", type=str2bool, default=False, help="Whether some classes are balanced")
@@ -151,23 +148,17 @@ def create_parser():
     parser.add_argument("--_epsilon", type=float, default="0.1", help="epsilon for exploration/exploitation.")
     parser.add_argument("--model", type=str, default="EARLIEST", help="Which model will be used")
     parser.add_argument("--filter_name", type=str, default="attn", help="Which model will be used")
-    # parser.add_argument("--pred_at", type=int, default=-1, help="It forces model to make a prediction at the defined percentile of the input stream")
     parser.add_argument("--test_t", type=str2bool, default=False, help="test")
-    # parser.add_argument("--read_all_tw", type=str2bool, default=False, help="test")
     parser.add_argument("--dff", type=int, default=64, help="The number of neurons of feed-forward network in the transformer encoder")
     parser.add_argument("--num_encoder", type=int, default=1, help="The number of encoders in the transformer structure")
     parser.add_argument("--num_heads", type=int, default=1, help="The number of heads in the transformer structure")
-    parser.add_argument("--filters", type=int, default=8, help="The number of kernels in the CNN layer")
-    parser.add_argument("--kernel_size", type=int, default=2, help="The size of kernel")
     parser.add_argument("--entropy_halting", type=str2bool, default=False, help="entropy and class membership prob are considered when calculating halting probability")
     parser.add_argument("--hidden_as_input", type=str2bool, default=False, help="entropy and class membership prob are considered when calculating halting probability")
-    # parser.add_argument("--drop_context", type=str2bool, default=False, help="apply dropout layer for the context of the transformer")
     # Training hyperparameters
     parser.add_argument("--batch_size", type=int, default=32, help="Batch size.")
     parser.add_argument("--nepochs", type=int, default=100, help="Number of epochs.")
     parser.add_argument("--learning_rate", type=float, default="0.001", help="Learning rate.")
     parser.add_argument("--train_filter", type=str2bool, default=False, help="Train filter module additionally to avoid cold start problem")
-    # parser.add_argument("--model_save_path", type=str, default="./saved_models/", help="Where to save the model once it is trained.")
     parser.add_argument("--random_seed", type=int, default="42", help="Set the random seed.")
     parser.add_argument("--device", type=str, default="0", help="Which device will be used")
     parser.add_argument("--exp_num", type=str, default="0", help="Experiment number")
@@ -176,35 +167,10 @@ def create_parser():
     parser.add_argument("--class_weight", type=str2bool, default=False, help="Apply class weight or not")
     parser.add_argument("--decay_weight", type=float, default=10, help="decay weight for exploration")
     parser.add_argument("--n_fold_cv", type=str2bool, default=True, help="whether to conduct n-fold cross validation")
-    # parser.add_argument("--entropy_threshold", type=float, default="0.8", help="entropy threshold.")
-    # parser.add_argument("--delay_halt", type=str2bool, default=False, help="whether to delay halting decision by threshold")
     parser.add_argument("--train", type=str2bool, default=True, help="whether to train the model")
     parser.add_argument("--test", type=str2bool, default=False, help="whether to test the model")
     parser.add_argument("--model_dir", type=str, default="./saved_models/", help="Where to save the model once it is trained.")
     parser.add_argument("--full_seq", type=str2bool, default=False, help="Utilze the full sequence of the stream or not")
-    # parser.add_argument("--utilize_tr", type=str2bool, default=False, help="Utilize the information on the transition point when conveying the hidden states of the attention model")
     return parser.parse_args()
 
-# def splitTrainingData(num_timesteps, split_props=[0.8, 0.1, 0.1]):
-#     """
-#     Split the dataset into training/validation/testing
-
-#     Parameters
-#     ----------
-#     split_props : list
-#         Each float value in the list indicates the proportion of the data to serve
-#         as training, validation, and testing data. The values must sum to 1.
-#     """
-#     indices = np.arange(num_timesteps)
-#     split_points = [int(num_timesteps*i) for i in split_props]
-#     train_ix = np.random.choice(indices,
-#                                 split_points[0],
-#                                 replace=False)
-#     val_ix = np.random.choice(list(set(indices)-set(train_ix)),
-#                               split_points[1],
-#                               replace=False)
-#     test_ix = np.random.choice((list(set(indices)-set(train_ix)-set(val_ix))),
-#                                split_points[2],
-#                                replace=False)
-#     return train_ix, val_ix, test_ix
 
